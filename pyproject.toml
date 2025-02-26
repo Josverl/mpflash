@@ -1,3 +1,8 @@
+
+############################################################
+#                      POETRY                              #
+############################################################
+
 [tool.poetry]
 name = "mpflash"
 version = "1.24.7"
@@ -50,6 +55,7 @@ optional = true
 optional = true
 [tool.poetry.group.test.dependencies]
 pytest = "^7.1.2"
+pytest-cov = "^6.0.0"
 pytest-github-actions-annotate-failures = ">=0.1.7,<0.3.0"
 pytest-json-report = "^1.5.0"
 pytest-metadata = ">=2.0.2,<4.0.0"
@@ -65,6 +71,9 @@ mock = "^4.0.3"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+############################################################
+#                  PYTEST                                  #
+############################################################
 
 
 [tool.pytest.ini_options]
@@ -73,24 +82,15 @@ python_functions = ["test_", "*_test"]
 python_files = ["test_*.py", "*_test.py"]
 testpaths = [
     "tests",
-    "src/stubber",
-    "src/mpflash",
-    # "repos/micropython-stubs/tests",
 ]
 norecursedirs = [
     ".*",
     ".*/*",
-    # "repos/*",
-    "tests/codemods/codemod_test_cases/*",
-    "typings*",
 ]
 junit_family = "xunit1"
 
-addopts = "--verbose --capture=no -m 'not basicgit'"
-#  -m 'not snippets'
-# --numprocesses=auto 
-# -m MARKEXPR           Only run tests matching given mark expression. For example: -m 'mark1 and not mark2'.
-# -n --numprocesses=numprocesses - 
+addopts = "--capture=no --cov-branch --cov-report=xml"
+# --capture=no
 
 markers = [
     "mpflash: marks tests of the mpflash tool",
@@ -112,6 +112,10 @@ markers = [
 
 ]
 
+
+############################################################
+#                         RUFF linter                      #
+############################################################
 
 
 [tool.ruff]
