@@ -42,7 +42,7 @@ pygithub = "^2.1.1"
 pyusb = "^1.2.1"
 requests = "^2.31.0"
 rich-click = "^1.8.1"
-tenacity = "8.2.3"
+tenacity = "9.0.0"
 cache-to-disk = "^2.0.0"
 poetry = "^2.0.1"
 
