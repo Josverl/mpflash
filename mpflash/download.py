@@ -70,7 +70,7 @@ def get_board_urls(page_url: str) -> List[Dict[str, str]]:
     """
     downloads_html = get_page(page_url)
     soup = BeautifulSoup(downloads_html, "html.parser")
-    tags = soup.findAll("a", recursive=True, attrs={"class": "board-card"})
+    tags = soup.find_all("a", recursive=True, attrs={"class": "board-card"})
     # assumes that all links are relative to the page url
     boards = [tag.get("href") for tag in tags]
     if "?" in page_url:
@@ -94,7 +94,7 @@ def board_firmware_urls(board_url: str, base_url: str, ext: str) -> List[str]:
     # get all the a tags:
     #  1. that have a url that starts with `/resources/firmware/`
     #  2. end with a matching extension for this port.
-    tags = soup.findAll(
+    tags = soup.find_all(
         "a",
         recursive=True,
         attrs={"href": re.compile(r"^/resources/firmware/.*\." + ext.lstrip(".") + "$")},
