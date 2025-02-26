@@ -1,4 +1,4 @@
-""" Flashing UF2 based MCU on Linux"""
+"""Flashing UF2 based MCU on Linux"""
 
 # sourcery skip: snake-case-functions
 from __future__ import annotations
@@ -42,10 +42,7 @@ def get_uf2_drives():
             uf2.mountpoint = uf2_part["mountpoint"]
             yield uf2
         elif disk["type"] == "disk" and disk.get("children") and len(disk.get("children")) > 0:
-            if (
-                disk.get("children")[0]["type"] == "part"
-                and disk.get("children")[0]["fstype"] == "vfat"
-            ):
+            if disk.get("children")[0]["type"] == "part" and disk.get("children")[0]["fstype"] == "vfat":
                 uf2_part = disk.get("children")[0]
                 # print( json.dumps(uf2_part, indent=4))
                 uf2 = UF2Disk()
@@ -69,9 +66,7 @@ def pmount(disk: UF2Disk):
             # drive is always vfat - so specify to have quicker results
             subprocess.run(["pmount", "-t", "vfat", disk.device_path, disk.mountpoint])
         except FileNotFoundError:
-            log.error(
-                "pmount not found, please install it using 'sudo apt install pmount', and add this user to the plugdev group."
-            )
+            log.error("pmount not found, please install it using 'sudo apt install pmount', and add this user to the plugdev group.")
             return
         log.debug(f"Mounted {disk.label} at {disk.mountpoint}")
         glb_dismount_me.append(disk)

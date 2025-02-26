@@ -52,7 +52,6 @@ mcu_theme = Theme(
 
 
 def enter_bootloader_manual(mcu: MPRemoteBoard, timeout: int = 10):
-
     message: str
     if mcu.port == "rp2":
         message = f"""\

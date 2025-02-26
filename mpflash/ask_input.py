@@ -11,8 +11,7 @@ from loguru import logger as log
 
 from .common import DownloadParams, FlashParams, ParamType
 from .config import config
-from .mpboard_id import (get_known_boards_for_port, get_known_ports,
-                         known_stored_boards)
+from .mpboard_id import get_known_boards_for_port, get_known_ports, known_stored_boards
 from .mpremoteboard import MPRemoteBoard
 from .versions import micropython_versions
 
@@ -73,11 +72,11 @@ def ask_missing_params(
         #  params.ports = [p for p in params.ports if p != "?"]  # remove the "?" if present
         if isinstance(answers["port"], str):
             params.ports.append(answers["port"])
-        elif isinstance(answers["port"], list): # type: ignore
+        elif isinstance(answers["port"], list):  # type: ignore
             params.ports.extend(answers["port"])
         else:
             raise ValueError(f"Unexpected type for answers['port']: {type(answers['port'])}")
-        
+
     if "boards" in answers:
         params.boards = [b for b in params.boards if b != "?"]  # remove the "?" if present
         params.boards.extend(answers["boards"] if isinstance(answers["boards"], list) else [answers["boards"]])
@@ -157,22 +156,23 @@ def ask_port_board(*, multi_select: bool, action: str):
         ),
         inquirer_ux(
             "boards",
-            message=(
-                "Which {port} board firmware do you want to {action} " + "to {serial} ?" if action == "flash" else "?"
-            ),
+            message=("Which {port} board firmware do you want to {action} " + "to {serial} ?" if action == "flash" else "?"),
             choices=filter_matching_boards,
             validate=at_least_one_validation,  # type: ignore
             # validate=lambda _, x: True if x else "Please select at least one board",  # type: ignore
         ),
     ]
 
+
 def at_least_one_validation(answers, current) -> bool:
     import inquirer.errors
+
     if not current:
         raise inquirer.errors.ValidationError("", reason="Please select at least one item.")
     if isinstance(current, list) and not any(current):
         raise inquirer.errors.ValidationError("", reason="Please select at least one item.")
     return True
+
 
 def ask_mp_version(multi_select: bool, action: str):
     """

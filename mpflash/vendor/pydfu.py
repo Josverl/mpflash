@@ -395,10 +395,7 @@ def read_dfu_file(filename):
     #   B   uint8_t     len         16
     #   I   uint32_t    crc32       Checksum
     dfu_suffix = named(struct.unpack("<4H3sBI", data[:16]), "device product vendor dfu ufd len crc")
-    print(
-        "    usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, "
-        "dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x" % dfu_suffix
-    )
+    print("    usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, " "dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x" % dfu_suffix)
     if crc != dfu_suffix["crc"]:
         print("CRC ERROR: computed crc32 is 0x%08x" % crc)
         return
@@ -477,19 +474,11 @@ def list_dfu_devices(*args, **kwargs):
     if not devices:
         raise SystemExit("No DFU capable devices found")
     for device in devices:
-        print(
-            "Bus {} Device {:03d}: ID {:04x}:{:04x}".format(
-                device.bus, device.address, device.idVendor, device.idProduct
-            )
-        )
+        print("Bus {} Device {:03d}: ID {:04x}:{:04x}".format(device.bus, device.address, device.idVendor, device.idProduct))
         layout = get_memory_layout(device)
         print("Memory Layout")
         for entry in layout:
-            print(
-                "    0x{:x} {:2d} pages of {:3d}K bytes".format(
-                    entry["addr"], entry["num_pages"], entry["page_size"] // 1024
-                )
-            )
+            print("    0x{:x} {:2d} pages of {:3d}K bytes".format(entry["addr"], entry["num_pages"], entry["page_size"] // 1024))
 
 
 def write_elements(elements, mass_erase_used, progress=None):

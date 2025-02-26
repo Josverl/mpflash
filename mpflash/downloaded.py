@@ -113,11 +113,7 @@ def filter_downloaded_fwlist(
     log.trace(f"Filtering firmware for {version} : {len(fw_list)} found.")
     # filter by port
     if port:
-        fw_list = [
-            fw
-            for fw in fw_list
-            if fw.port == port and Path(fw.firmware).suffix in PORT_FWTYPES[port]
-        ]
+        fw_list = [fw for fw in fw_list if fw.port == port and Path(fw.firmware).suffix in PORT_FWTYPES[port]]
         log.trace(f"Filtering firmware for {port} : {len(fw_list)} found.")
 
     if board_id:

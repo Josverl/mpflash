@@ -39,6 +39,7 @@ def cb_test(ctx, param, value):
         config.tests = value
     return value
 
+
 def cb_usb(ctx, param, value: bool):
     config.usb = bool(value)
     return value

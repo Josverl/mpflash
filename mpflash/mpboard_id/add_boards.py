@@ -16,8 +16,7 @@ import mpflash.basicgit as git
 from mpflash.logger import log
 from mpflash.mpboard_id import Board
 from mpflash.mpboard_id.store import write_boardinfo_json
-from mpflash.versions import (get_preview_mp_version, get_stable_mp_version,
-                              micropython_versions)
+from mpflash.versions import get_preview_mp_version, get_stable_mp_version, micropython_versions
 
 # look for all mpconfigboard.h files and extract the board name
 # from the #define MICROPY_HW_BOARD_NAME "PYBD_SF6"
@@ -25,9 +24,7 @@ from mpflash.versions import (get_preview_mp_version, get_stable_mp_version,
 RE_H_MICROPY_HW_BOARD_NAME = re.compile(r"#define\s+MICROPY_HW_BOARD_NAME\s+\"(.+)\"")
 RE_H_MICROPY_HW_MCU_NAME = re.compile(r"#define\s+MICROPY_HW_MCU_NAME\s+\"(.+)\"")
 # find boards and variants in the mpconfigboard*.cmake files
-RE_CMAKE_MICROPY_HW_BOARD_NAME = re.compile(
-    r"MICROPY_HW_BOARD_NAME\s?=\s?\"(?P<variant>[\w\s\S]*)\""
-)
+RE_CMAKE_MICROPY_HW_BOARD_NAME = re.compile(r"MICROPY_HW_BOARD_NAME\s?=\s?\"(?P<variant>[\w\s\S]*)\"")
 RE_CMAKE_MICROPY_HW_MCU_NAME = re.compile(r"MICROPY_HW_MCU_NAME\s?=\s?\"(?P<variant>[\w\s\S]*)\"")
 # TODO: normal make files
 
@@ -121,9 +118,7 @@ def boards_from_headers(mpy_path: Path, version: str, family: str):
                     mcu_name = match[1]
                     found += 1
                 if found == 2:
-                    description = (
-                        f"{board_name} with {mcu_name}" if mcu_name != "-" else board_name
-                    )
+                    description = f"{board_name} with {mcu_name}" if mcu_name != "-" else board_name
                     board_list.append(
                         Board(
                             board_id=board,

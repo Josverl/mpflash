@@ -46,10 +46,7 @@ def parse(file, dump_images=False):
             tprefix["name"] = cstring(tprefix["name"])
         else:
             tprefix["name"] = ""
-        print(
-            '%(signature)s %(num)d, alt setting: %(altsetting)s, name: "%(name)s", size: %(size)d, elements: %(elements)d'
-            % tprefix
-        )
+        print('%(signature)s %(num)d, alt setting: %(altsetting)s, name: "%(name)s", size: %(size)d, elements: %(elements)d' % tprefix)
         tsize = tprefix["size"]
         target, data = data[:tsize], data[tsize:]
         for e in range(tprefix["elements"]):
@@ -65,10 +62,7 @@ def parse(file, dump_images=False):
         if len(target):
             print("target %d: PARSE ERROR" % t)
     suffix = named(struct.unpack("<4H3sBI", data[:16]), "device product vendor dfu ufd len crc")
-    print(
-        "usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x"
-        % suffix
-    )
+    print("usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x" % suffix)
     if crc != suffix["crc"]:
         print("CRC ERROR: computed crc32 is 0x%08x" % crc)
     data = data[16:]

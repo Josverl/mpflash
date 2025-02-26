@@ -1,5 +1,4 @@
-""" Detect if a board is in bootloader mode 
-"""
+"""Detect if a board is in bootloader mode"""
 
 import os
 

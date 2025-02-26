@@ -1,8 +1,7 @@
 from typing import List, Tuple
 
 from rich import print
-from rich.progress import (BarColumn, Progress, SpinnerColumn, TextColumn,
-                           TimeElapsedColumn)
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Column
 
 from mpflash.common import filtered_comports, find_serial_by_path
@@ -22,13 +21,9 @@ def connected_ports_boards(
             - A list of unique board names of the connected MCUs.
             - A list of MPRemoteBoard instances of the connected MCUs.
     """
-    conn_mcus = [
-        b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth) if b.connected
-    ]
+    conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth) if b.connected]
     # ignore boards that have the [mpflash] ignore flag set
-    conn_mcus = [
-        item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))
-    ]
+    conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
 
     ports = list({b.port for b in conn_mcus})
     boards = list({b.board for b in conn_mcus})
@@ -41,9 +36,7 @@ rp_text = TextColumn("{task.description} {task.fields[device]}", table_column=Co
 rp_bar = BarColumn(bar_width=None, table_column=Column())
 
 
-def list_mcus(
-    *, ignore: List[str], include: List[str], bluetooth: bool = False
-) -> List[MPRemoteBoard]:
+def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False) -> List[MPRemoteBoard]:
     """
     Retrieves information about connected microcontroller boards.
 
@@ -62,7 +55,7 @@ def list_mcus(
     connected_mcus = [
         MPRemoteBoard(
             c.device,
-            location=find_serial_by_path(c.device) or c.location or c.hwid or  "?",
+            location=find_serial_by_path(c.device) or c.location or c.hwid or "?",
         )
         for c in comports
     ]

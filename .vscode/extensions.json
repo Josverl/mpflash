@@ -2,8 +2,8 @@
     "recommendations": [
         "ms-python.python",
         "ms-python.vscode-pylance",
-        // "pycom.pymakr",
-        "mhutchie.git-graph",
-        "qwtel.sqlite-viewer"
+        "charliermarsh.ruff",
+        "qwtel.sqlite-viewer",
+        "gxl.git-graph-3",
     ]
 }

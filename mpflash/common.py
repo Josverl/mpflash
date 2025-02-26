@@ -137,9 +137,7 @@ def filtered_comports(
     # remove ports that are to be ignored
     log.trace(f"{include=}, {ignore=}, {bluetooth=}")
 
-    comports = [
-        p for p in list_ports.comports() if not any(fnmatch.fnmatch(p.device, i) for i in ignore)
-    ]
+    comports = [p for p in list_ports.comports() if not any(fnmatch.fnmatch(p.device, i) for i in ignore)]
 
     if False:
         import jsons
@@ -156,9 +154,7 @@ def filtered_comports(
 
     if include != ["*"]:
         # if there are explicit ports to include, add them to the list
-        explicit = [
-            p for p in list_ports.comports() if any(fnmatch.fnmatch(p.device, i) for i in include)
-        ]
+        explicit = [p for p in list_ports.comports() if any(fnmatch.fnmatch(p.device, i) for i in include)]
         log.trace(f"explicit: {[p.device for p in explicit]}")
         if ignore == []:
             # if nothing to ignore, just use the explicit list as a sinple sane default

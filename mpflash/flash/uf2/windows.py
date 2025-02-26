@@ -12,7 +12,7 @@ import psutil
 from rich.progress import track
 
 
-def wait_for_UF2_windows(board_id: str, s_max: int = 10)-> Optional[Path]:
+def wait_for_UF2_windows(board_id: str, s_max: int = 10) -> Optional[Path]:
     """Wait for the MCU to mount as a drive"""
     if s_max < 1:
         s_max = 10

@@ -18,11 +18,7 @@ from packaging.version import parse
 
 # Token with no permissions to avoid throttling
 # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#getting-a-higher-rate-limit
-PAT_NO_ACCESS = (
-    "github_pat_"
-    + "11AAHPVFQ0G4NTaQ73Bw5J"
-    + "_fAp7K9sZ1qL8VFnI9g78eUlCdmOXHB3WzSdj2jtEYb4XF3N7PDJBl32qIxq"
-)
+PAT_NO_ACCESS = "github_pat_" + "11AAHPVFQ0G4NTaQ73Bw5J" + "_fAp7K9sZ1qL8VFnI9g78eUlCdmOXHB3WzSdj2jtEYb4XF3N7PDJBl32qIxq"
 PAT = os.environ.get("GITHUB_TOKEN") or PAT_NO_ACCESS
 GH_CLIENT = Github(auth=Auth.Token(PAT))
 
@@ -47,9 +43,7 @@ def _run_local_git(
                 encoding="utf-8",
             )
         else:
-            result = subprocess.run(
-                cmd, capture_output=capture_output, check=True, encoding="utf-8"
-            )
+            result = subprocess.run(cmd, capture_output=capture_output, check=True, encoding="utf-8")
     except (NotADirectoryError, FileNotFoundError) as e:  # pragma: no cover
         return None
     except subprocess.CalledProcessError as e:  # pragma: no cover
@@ -88,9 +82,7 @@ def clone(remote_repo: str, path: Path, shallow: bool = False, tag: Optional[str
         return False
 
 
-def get_local_tag(
-    repo: Optional[Union[str, Path]] = None, abbreviate: bool = True
-) -> Union[str, None]:
+def get_local_tag(repo: Optional[Union[str, Path]] = None, abbreviate: bool = True) -> Union[str, None]:
     """
     get the most recent git version tag of a local repo
     repo Path should be in the form of : repo = "./repo/micropython"

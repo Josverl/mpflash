@@ -20,9 +20,7 @@ def _log_formatter(record: dict) -> str:
         "CRITICAL": "bold white on red",
     }
     lvl_color = color_map.get(record["level"].name, "cyan")
-    return (
-        "[not bold green]{time:HH:mm:ss}[/not bold green] | {level.icon} " + f"[{lvl_color}]{{message}}[/{lvl_color}]"
-    )
+    return "[not bold green]{time:HH:mm:ss}[/not bold green] | {level.icon} " + f"[{lvl_color}]{{message}}[/{lvl_color}]"
 
 
 def set_loglevel(loglevel: str):

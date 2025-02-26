@@ -1,4 +1,4 @@
-""" Flashing UF2 based MCU on macos"""
+"""Flashing UF2 based MCU on macos"""
 
 # sourcery skip: snake-case-functions
 from __future__ import annotations

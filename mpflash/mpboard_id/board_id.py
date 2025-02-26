@@ -89,4 +89,3 @@ def _find_board_id_by_description(
     if not matches:
         raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
     return sorted(matches, key=lambda x: x.version)
-

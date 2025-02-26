@@ -74,7 +74,7 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
 
     conn_mcus = list_mcus(ignore=ignore, include=serial, bluetooth=bluetooth)
     # ignore boards that have the [mpflash] ignore flag set
-    conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]    
+    conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
     if as_json:
         # remove the path and firmware attibutes from the json output as they are always empty
         for mcu in conn_mcus:
