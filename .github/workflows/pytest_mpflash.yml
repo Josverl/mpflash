@@ -33,11 +33,11 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-latest, macos-13, macos-latest]
-                python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
-                include: # for testing
-                    - os: ubuntu-latest
-                      python-version: "3.11"
+                os: [ubuntu-latest, windows-latest, macos-latest]
+                python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+                # include: # for testing
+                #     - os: ubuntu-latest
+                #       python-version: "3.11"
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -59,12 +59,12 @@ jobs:
             #   # install project
             #   #----------------------------------------------
             - name: Install mpflash & test dependencies
-              working-directory: src/mpflash
+              # working-directory: src/mpflash
               run: |
                   poetry install --with test
 
             - name: Test mpflash
-              working-directory: src/mpflash
+              # working-directory: src/mpflash
               run: |
                   poetry run coverage erase
                   poetry run coverage run -m pytest -m mpflash --durations=20
@@ -72,9 +72,9 @@ jobs:
             - name: create coverage report
               if: always()
               continue-on-error: true
-              working-directory: src/mpflash
+              # working-directory: src/mpflash
               run: |
-                  poetry run coverage xml -o ../../results/coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}.xml
+                  poetry run coverage xml -o results/coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}.xml
 
             #   #----------------------------------------------
             #   # upload coverage stats
@@ -87,15 +87,10 @@ jobs:
               uses: codecov/codecov-action@v5
               with:
                   file: results/coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}.xml
-                  flags: stubber
+                  # flags: mpflash
                   token: ${{ secrets.CODECOV_TOKEN }}
                   fail_ci_if_error: false
 
-            - uses: actions/upload-artifact@v4
-              if: always() # ignore errors
-              continue-on-error: true
-              with:
-                  path: results
-                  name: mpflash-coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}
+
 
 
