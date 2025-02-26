@@ -64,3 +64,50 @@ mock = "^4.0.3"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+python_functions = ["test_", "*_test"]
+python_files = ["test_*.py", "*_test.py"]
+testpaths = [
+    "tests",
+    "src/stubber",
+    "src/mpflash",
+    # "repos/micropython-stubs/tests",
+]
+norecursedirs = [
+    ".*",
+    ".*/*",
+    # "repos/*",
+    "tests/codemods/codemod_test_cases/*",
+    "typings*",
+]
+junit_family = "xunit1"
+
+addopts = "--verbose --capture=no -m 'not basicgit'"
+#  -m 'not snippets'
+# --numprocesses=auto 
+# -m MARKEXPR           Only run tests matching given mark expression. For example: -m 'mark1 and not mark2'.
+# -n --numprocesses=numprocesses - 
+
+markers = [
+    "mpflash: marks tests of the mpflash tool",
+    "snippets: test snippets to check the stubs",
+
+    "legacy: reeally old tests that need to be updated or removed",
+
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: Integration tests (slower)",
+    "mocked: to replace/compensate for most of the slow and git tests",
+    #
+    "cli: test command line interface",
+    # os platforms
+    "win32: run test only on Windows",
+    "linux: run test only on linux",
+    "darwin: run test only on Mac",
+    # micropython version dependencies 
+
+
+]
