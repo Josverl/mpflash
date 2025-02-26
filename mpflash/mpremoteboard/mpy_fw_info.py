@@ -11,11 +11,11 @@ def _build(s):
         return ""
     s = s.split(" on ", 1)[0] if " on " in s else s
     if s.startswith("v"):
-        if not "-" in s:
+        if "-" not in s:
             return ""
         b = s.split("-")[1]
         return b
-    if not "-preview" in s:
+    if "-preview" not in s:
         return ""
     b = s.split("-preview")[1].split(".")[1]
     return b
@@ -48,7 +48,7 @@ def _info():  # type:() -> dict[str, str]
     except AttributeError:
         pass
     try:
-        machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine
+        machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
         info["board"] = machine.strip()
         info["cpu"] = machine.split("with")[-1].strip() if "with" in machine else ""
         info["mpy"] = (
@@ -65,10 +65,10 @@ def _info():  # type:() -> dict[str, str]
         if hasattr(sys, "version"):
             info["build"] = _build(sys.version)
         elif hasattr(os, "uname"):
-            info["build"] = _build(os.uname()[3])
+            info["build"] = _build(os.uname()[3])  # type: ignore
             if not info["build"]:
                 # extract build from uname().release if available
-                info["build"] = _build(os.uname()[2])
+                info["build"] = _build(os.uname()[2])  # type: ignore
     except (AttributeError, IndexError):
         pass
     # avoid  build hashes
@@ -77,7 +77,7 @@ def _info():  # type:() -> dict[str, str]
 
     if info["version"] == "" and sys.platform not in ("unix", "win32"):
         try:
-            u = os.uname()
+            u = os.uname()  # type: ignore
             info["version"] = u.release
         except (IndexError, AttributeError, TypeError):
             pass

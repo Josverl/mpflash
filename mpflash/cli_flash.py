@@ -117,7 +117,7 @@ from mpflash.versions import clean_version
 )
 def cli_flash_board(**kwargs) -> int:
     # version to versions, board to boards
-    kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] != None else []
+    kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
     if kwargs["board"] is None:
         kwargs["boards"] = []
         kwargs.pop("board")
@@ -223,4 +223,18 @@ def resolve_board_ids(params: Params):
                     params.boards.remove(board_id)
                     params.boards.append(info.board_id)
             except Exception as e:
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
+                log.warning(f"Unable to resolve board description: {e}")
                 log.warning(f"Unable to resolve board description: {e}")

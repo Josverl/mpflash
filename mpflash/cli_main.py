@@ -30,7 +30,7 @@ def mpflash():
         except click_exceptions.ClickException as e:
             log.error(f"Error: {e}")
             exit(-2)
-        except click_exceptions.Abort as e:
+        except click_exceptions.Abort:
             # Aborted - Ctrl-C
             exit(-3)
 

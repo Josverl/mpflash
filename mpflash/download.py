@@ -72,10 +72,10 @@ def get_board_urls(page_url: str) -> List[Dict[str, str]]:
     soup = BeautifulSoup(downloads_html, "html.parser")
     tags = soup.find_all("a", recursive=True, attrs={"class": "board-card"})
     # assumes that all links are relative to the page url
-    boards = [tag.get("href") for tag in tags]
+    boards = [tag.get("href") for tag in tags]  # type: ignore
     if "?" in page_url:
         page_url = page_url.split("?")[0]
-    return [{"board": board, "url": page_url + board} for board in boards]
+    return [{"board": board, "url": page_url + board} for board in boards]  # type: ignore
 
 
 def board_firmware_urls(board_url: str, base_url: str, ext: str) -> List[str]:
@@ -101,7 +101,7 @@ def board_firmware_urls(board_url: str, base_url: str, ext: str) -> List[str]:
     )
     if "?" in base_url:
         base_url = base_url.split("?")[0]
-    links: List = [urljoin(base_url, tag.get("href")) for tag in tags]
+    links: List = [urljoin(base_url, tag.get("href")) for tag in tags]  # type: ignore
     return links
 
 
@@ -249,7 +249,7 @@ def download_firmwares(
             except requests.RequestException as e:
                 log.exception(e)
                 continue
-            writer.write(board.to_dict())
+            writer.write(board.to_dict())  #  type: ignore
             downloaded += 1
     # if downloaded > 0:
     #     clean_downloaded_firmwares(firmware_folder)

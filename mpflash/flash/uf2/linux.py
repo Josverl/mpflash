@@ -84,7 +84,7 @@ def pumount(disk: UF2Disk):
     if disk.mountpoint:
         subprocess.run(["pumount", disk.mountpoint])  # ), f"/media/{disk.label}"])
         log.info(f"Unmounted {disk.label} from {disk.mountpoint}")
-        disk.mountpoint = f""
+        disk.mountpoint = ""
     else:
         log.warning(f"{disk.label} already dismounted")
 

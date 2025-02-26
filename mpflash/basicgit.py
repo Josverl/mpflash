@@ -45,6 +45,7 @@ def _run_local_git(
         else:
             result = subprocess.run(cmd, capture_output=capture_output, check=True, encoding="utf-8")
     except (NotADirectoryError, FileNotFoundError) as e:  # pragma: no cover
+        log.error(f"Not a directory: {e}")
         return None
     except subprocess.CalledProcessError as e:  # pragma: no cover
         # add some logging for github actions
@@ -126,9 +127,6 @@ def get_local_tags(repo: Optional[Path] = None, minver: Optional[str] = None) ->
     if minver:
         tags = [tag for tag in tags if parse(tag) >= parse(minver)]
     return sorted(tags)
-
-
-from github.GithubException import BadCredentialsException
 
 
 @cachetools.func.ttl_cache(maxsize=16, ttl=60)  # 60 seconds

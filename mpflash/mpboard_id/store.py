@@ -19,7 +19,6 @@ def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = No
         board_list (List[Board]): The list of Board objects.
         folder (Path): The folder where the compressed JSON file will be saved.
     """
-    import zipfile
 
     if not folder:
         folder = HERE
@@ -34,7 +33,6 @@ def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = No
 def read_known_boardinfo(board_info: Optional[Path] = None) -> List[Board]:
     """Reads the board information from a JSON file in a zip file."""
 
-    import zipfile
 
     if not board_info:
         board_info = HERE / "board_info.zip"
