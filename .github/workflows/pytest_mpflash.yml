@@ -14,7 +14,10 @@ on:
         paths:
             - .github/workflows/pytest_mpflash.yml
             - .github/workflows/codecov.yml
-            - "src/mpflash/**"
+            - "mpflash/**"
+            - "pyproject.toml"
+            - "poetry.lock"
+            - "tests"
 
 env:
     PYTHONIOENCODING: utf-8
