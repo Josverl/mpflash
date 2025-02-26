@@ -26,7 +26,7 @@ mpremote bootloader
 
 List usb devices
 ```bash
-(.venv) jos@jvnuc:~/projects/micropython-stubber$ lsusb -vv -t
+(.venv) jos@jvnuc:~/projects/mpflash$ lsusb -vv -t
 /:  Bus 02.Port 1: Dev 1, Class=root_hub, Driver=xhci_hcd/6p, 10000M
     ID 1d6b:0003 Linux Foundation 3.0 root hub
     /sys/bus/usb/devices/usb2  /dev/bus/usb/002/001
@@ -52,12 +52,12 @@ List usb devices
 Lookup the stm32 device device path ( /dev/bus/usb/001/022),  
 and check if the group `plugdev` is granted access using `ll`
 ```bash
-(.venv) jos@jvnuc:~/projects/micropython-stubber$ ll /dev/bus/usb/001/022
+(.venv) jos@jvnuc:~/projects/mpflash$ ll /dev/bus/usb/001/022
 crw-rw-r-- 1 root plugdev 189, 21 mrt 11 22:38 /dev/bus/usb/001/022
 ```
 
 Check `groups` to see if user is in plugdev group
 ```
-(.venv) jos@jvnuc:~/projects/micropython-stubber$ groups
+(.venv) jos@jvnuc:~/projects/mpflash$ groups
 jos adm disk dialout cdrom sudo dip plugdev kvm lpadmin lxd sambashare usb
 ```

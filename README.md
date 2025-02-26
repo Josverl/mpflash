@@ -213,8 +213,58 @@ Note that if no matching firmware can be found for a board, it will be skipped.
 (For example, the PYBV11 and ESP32_GENERIC_S3 boards in the example above.)
 
 ## Issues and bug reports
-mpflash is currently co-located in the [micropython-stubber](https://github.com/Josverl/micropython-stubber) repository.  
-Please report any issues or bugs in the [issue tracker](https://github.com/Josverl/micropython-stubber/issues) using the MPflash feedback template.
+Please report any issues or bugs in the [issue tracker](https://github.com/Josverl/mpflash/issues).
 
 ## License
 mpflash is licensed under the MIT license. See the LICENSE file for more details.
+
+# Contributions
+<!-- spell-checker: disable -->
+<!-- 
+To add via the cli run the following command:
+npx all-contributors-cli add user things
+
+ - bug
+ - tool
+ - stubs
+ - test
+ - doc
+ - code
+ - research
+ - ideas
+ - content
+ - mpflash
+ -->
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Josverl"><img src="https://avatars2.githubusercontent.com/u/981654?v=4?s=100" width="100px;" alt="Jos Verlinde"/><br /><sub><b>Jos Verlinde</b></sub></a><br /><a href="https://github.com/Josverl/mpflash/commits?author=josverl" title="Code">💻</a> <a href="#research-josverl" title="Research">🔬</a> <a href="#ideas-josverl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#content-josverl" title="Content">🖋</a> <a href="#stubs-josverl" title="MicroPython stubs">🖍️</a> <a href="#test-josverl" title="Test">✅</a> <a href="#mpflash-josverl" title="mpflash">💥</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/shariltumin"><img src="https://avatars.githubusercontent.com/u/186120?v=4?s=100" width="100px;" alt="shariltumin"/><br /><sub><b>shariltumin</b></sub></a><br /><a href="#mpflash-shariltumin" title="mpflash">💥</a> <a href="#test-shariltumin" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mattytrentini"><img src="https://avatars.githubusercontent.com/u/194201?v=4?s=100" width="100px;" alt="Matt Trentini"/><br /><sub><b>Matt Trentini</b></sub></a><br /><a href="#mpflash-mattytrentini" title="mpflash">💥</a> <a href="#test-mattytrentini" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://scruss.com/blog/"><img src="https://avatars.githubusercontent.com/u/425706?v=4?s=100" width="100px;" alt="Stewart Russell"/><br /><sub><b>Stewart Russell</b></sub></a><br /><a href="#mpflash-scruss" title="mpflash">💥</a> <a href="#test-scruss" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.gitlab.com/alelec"><img src="https://avatars.githubusercontent.com/u/3318786?v=4?s=100" width="100px;" alt="Andrew Leech"/><br /><sub><b>Andrew Leech</b></sub></a><br /><a href="#mpflash-andrewleech" title="mpflash">💥</a> <a href="#test-andrewleech" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/wovo"><img src="https://avatars.githubusercontent.com/u/9039468?v=4?s=100" width="100px;" alt="Wouter van Ooijen"/><br /><sub><b>Wouter van Ooijen</b></sub></a><br /><a href="#mpflash-wovo" title="mpflash">💥</a> <a href="#test-wovo" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/shaneapowell"><img src="https://avatars.githubusercontent.com/u/12113620?v=4?s=100" width="100px;" alt="Shane Powell"/><br /><sub><b>Shane Powell</b></sub></a><br /><a href="#mpflash-shaneapowell" title="mpflash">💥</a> <a href="#test-shaneapowell" title="Test">✅</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/robert-hh"><img src="https://avatars.githubusercontent.com/u/12476868?v=4?s=100" width="100px;" alt="Robert Hammelrath"/><br /><sub><b>Robert Hammelrath</b></sub></a><br /><a href="#mpflash-robert-hh" title="mpflash">💥</a> <a href="#test-robert-hh" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/beetlegigg"><img src="https://avatars.githubusercontent.com/u/34552737?v=4?s=100" width="100px;" alt="Bg"/><br /><sub><b>Bg</b></sub></a><br /><a href="#mpflash-beetlegigg" title="mpflash">💥</a> <a href="#test-beetlegigg" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rkompass"><img src="https://avatars.githubusercontent.com/u/90282516?v=4?s=100" width="100px;" alt="Raul Kompaß"/><br /><sub><b>Raul Kompaß</b></sub></a><br /><a href="#mpflash-rkompass" title="mpflash">💥</a> <a href="#test-rkompass" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/garryp4"><img src="https://avatars.githubusercontent.com/u/96994876?v=4?s=100" width="100px;" alt="garryp4"/><br /><sub><b>garryp4</b></sub></a><br /><a href="#mpflash-garryp4" title="mpflash">💥</a> <a href="#test-garryp4" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/shanepowell-ast"><img src="https://avatars.githubusercontent.com/u/102747617?v=4?s=100" width="100px;" alt="Shane Powell"/><br /><sub><b>Shane Powell</b></sub></a><br /><a href="#mpflash-shanepowell-ast" title="mpflash">💥</a> <a href="#test-shanepowell-ast" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://andypiper.org/"><img src="https://avatars.githubusercontent.com/u/552452?v=4?s=100" width="100px;" alt="Andy Piper"/><br /><sub><b>Andy Piper</b></sub></a><br /><a href="#mpflash-andypiper" title="mpflash">💥</a> <a href="#test-andypiper" title="Test">✅</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/DavesCodeMusings"><img src="https://avatars.githubusercontent.com/u/61114342?v=4?s=100" width="100px;" alt="David Horton"/><br /><sub><b>David Horton</b></sub></a><br /><a href="#mpflash-DavesCodeMusings" title="mpflash">💥</a> <a href="#test-DavesCodeMusings" title="Test">✅</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!

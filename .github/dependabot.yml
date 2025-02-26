@@ -1,7 +1,7 @@
 # Basic set up for poetry and GHA dependencies
 version: 2
 updates:
-  # Maintain dependencies for micropython-stubber
+  # Maintain dependencies for mpflash
   - package-ecosystem: "pip"
     directory: "/"
     schedule:

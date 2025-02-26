@@ -6,8 +6,8 @@ authors = ["Jos Verlinde <jos_verlinde@hotmail.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["MicroPython", "firmware", "flash", "download", "UF2", "esptool"]
-homepage = "https://github.com/Josverl/micropython-stubber/blob/main/src/mpflash/README.md"
-repository = "https://github.com/Josverl/micropython-stubber"
+homepage = "https://github.com/Josverl/mpflash/blob/main/README.md"
+repository = "https://github.com/Josverl/mpflash"
 classifiers = [
     "Programming Language :: Python :: Implementation :: MicroPython",
     "Programming Language :: Python :: Implementation :: CPython",

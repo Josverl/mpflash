@@ -3,7 +3,7 @@
 # - upload coverage stats to Codecov
 # - upload artifacts from the results folder
 
-name: pytest mpflash
+name: pytest_mpflash
 on:
     workflow_dispatch:
     pull_request:

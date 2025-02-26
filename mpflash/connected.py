@@ -1,13 +1,12 @@
 from typing import List, Tuple
 
 from rich import print
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.progress import (BarColumn, Progress, SpinnerColumn, TextColumn,
+                           TimeElapsedColumn)
 from rich.table import Column
 
-from mpflash.common import filtered_comports
+from mpflash.common import filtered_comports, find_serial_by_path
 from mpflash.mpremoteboard import MPRemoteBoard
-
-from mpflash.common import find_serial_by_path
 
 
 def connected_ports_boards(
@@ -26,7 +25,7 @@ def connected_ports_boards(
     conn_mcus = [
         b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth) if b.connected
     ]
-    # ignore boards that have the [micropython-stubber] ignore flag set
+    # ignore boards that have the [mpflash] ignore flag set
     conn_mcus = [
         item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))
     ]
