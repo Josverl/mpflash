@@ -23,7 +23,7 @@ classifiers = [
 mpflash = "mpflash.cli_main:mpflash"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.9.2,<4.0"
 beautifulsoup4 = "^4.12.3"
 bincopy = "^20.0.0"
 blkinfo = "^0.2.0"
