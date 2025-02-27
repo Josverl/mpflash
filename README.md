@@ -4,7 +4,7 @@
 [![Downloads](https://static.pepy.tech/badge/mpflash)](https://pepy.tech/project/mpflash)
 
 
-`mpflash` is a command-line tool for working with MicroPython firmware. It provides features to help you flash and update Micropython on one or more .
+`mpflash` is a command-line tool for working with MicroPython firmware. It provides features to help you flash and update Micropython on one or more attached microcontrollers.
 
 This tool was initially created to be used in a CI/CD pipeline to automate the process of downloading and flashing MicroPython firmware to multiple boards, but it has been extend with a TUI to be used for manual downloadig, flashing and development.
 
@@ -25,7 +25,10 @@ Not yet implemented: `nrf`, `cc3200`, `mimxrt`, `renesas`
  3. Flash one or all connected MicroPython boards with a specific firmware or version.  
  
 ## Installation
-To install mpflash, you can use: `pipx install mpflash` or `pip install mpflash`
+To install mpflash, you can use either of the following commands: 
+- `uv tool install mpflash`
+- `pipx install mpflash`
+- `pip install mpflash`
 
 ## Basic usage
 You can use mpflash to perform various operations on your MicroPython boards. Here is an example of basic usage:
@@ -66,7 +69,7 @@ ignore = true
 ## Linux permissions to access usb devices 
 In order to flash the firmware to the board, you need to have the correct permissions to access the USB devices.
 On Windows this will not be an issue, but on Linux you can use  udev rules to give non-root users access to the USB devices.
-[See the stm32_permissions documentation](./stm32_udev_rules.md) for more information.
+[See the stm32_permissions documentation](docs/stm32_udev_rules.md) for more information.
 
 
 ## Detailed usage
@@ -242,7 +245,7 @@ npx all-contributors-cli add user things
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Josverl"><img src="https://avatars2.githubusercontent.com/u/981654?v=4?s=100" width="100px;" alt="Jos Verlinde"/><br /><sub><b>Jos Verlinde</b></sub></a><br /><a href="https://github.com/Josverl/mpflash/commits?author=josverl" title="Code">💻</a> <a href="#research-josverl" title="Research">🔬</a> <a href="#ideas-josverl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#content-josverl" title="Content">🖋</a> <a href="#stubs-josverl" title="MicroPython stubs">🖍️</a> <a href="#test-josverl" title="Test">✅</a> <a href="#mpflash-josverl" title="mpflash">💥</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Josverl"><img src="https://avatars2.githubusercontent.com/u/981654?v=4?s=100" width="100px;" alt="Jos Verlinde"/><br /><sub><b>Jos Verlinde</b></sub></a><br /><a href="https://github.com/Josverl/mpflash/commits?author=josverl" title="Code">💻</a> <a href="#research-josverl" title="Research">🔬</a> <a href="#ideas-josverl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#content-josverl" title="Content">🖋</a> <a href="#test-josverl" title="Test">✅</a> <a href="#mpflash-josverl" title="mpflash">💥</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/shariltumin"><img src="https://avatars.githubusercontent.com/u/186120?v=4?s=100" width="100px;" alt="shariltumin"/><br /><sub><b>shariltumin</b></sub></a><br /><a href="#mpflash-shariltumin" title="mpflash">💥</a> <a href="#test-shariltumin" title="Test">✅</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mattytrentini"><img src="https://avatars.githubusercontent.com/u/194201?v=4?s=100" width="100px;" alt="Matt Trentini"/><br /><sub><b>Matt Trentini</b></sub></a><br /><a href="#mpflash-mattytrentini" title="mpflash">💥</a> <a href="#test-mattytrentini" title="Test">✅</a></td>
       <td align="center" valign="top" width="14.28%"><a href="http://scruss.com/blog/"><img src="https://avatars.githubusercontent.com/u/425706?v=4?s=100" width="100px;" alt="Stewart Russell"/><br /><sub><b>Stewart Russell</b></sub></a><br /><a href="#mpflash-scruss" title="mpflash">💥</a> <a href="#test-scruss" title="Test">✅</a></td>
