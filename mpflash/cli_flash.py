@@ -115,6 +115,13 @@ from mpflash.versions import clean_version
     show_default=True,
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
+@click.option(
+    "--flash_mode", "-fm",
+    type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
+    default="keep",
+    show_default=True,
+    help="""Flash mode for ESP boards. (default: keep)""",
+)
 def cli_flash_board(**kwargs) -> int:
     # version to versions, board to boards
     kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
@@ -201,6 +208,7 @@ def cli_flash_board(**kwargs) -> int:
         params.fw_folder,
         params.erase,
         params.bootloader,
+        flash_mode = params.flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")

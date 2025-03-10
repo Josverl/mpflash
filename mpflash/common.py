@@ -12,6 +12,7 @@ from serial.tools.list_ports_common import ListPortInfo
 
 from mpflash.basicgit import GH_CLIENT as GH_CLIENT
 
+# from mpflash.flash.esp import FlashMode
 from .logger import log
 
 # from mpflash.mpremoteboard import MPRemoteBoard
@@ -101,6 +102,7 @@ class FlashParams(Params):
     erase: bool = True
     bootloader: BootloaderMethod = BootloaderMethod.NONE
     cpu: str = ""
+    flash_mode: str = "keep"  # keep, qio, qout, dio, dout
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):
