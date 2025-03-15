@@ -10,11 +10,8 @@ from typing import List, Optional, Union
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-from mpflash.basicgit import GH_CLIENT as GH_CLIENT
 
 from .logger import log
-
-# from mpflash.mpremoteboard import MPRemoteBoard
 
 PORT_FWTYPES = {
     "stm32": [".dfu"],  # need .dfu for pydfu.py - .hex for cube cli/GUI
@@ -138,11 +135,6 @@ def filtered_comports(
     log.trace(f"{include=}, {ignore=}, {bluetooth=}")
 
     comports = [p for p in list_ports.comports() if not any(fnmatch.fnmatch(p.device, i) for i in ignore)]
-
-    if False:
-        import jsons
-
-        print(jsons.dumps(comports).replace('{"description":', '\n{"description":'))
 
     if platform.system() == "Linux":
         # use p.location to filter out the bogus ports on newer Linux kernels

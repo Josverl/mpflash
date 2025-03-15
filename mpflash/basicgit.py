@@ -4,24 +4,25 @@ Simple Git module, where needed via powershell
 Some of the functions are based on the PyGithub module
 """
 
-import os
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Union
 
 import cachetools.func
-from github import Auth, BadCredentialsException, Github
 from loguru import logger as log
-from packaging.version import parse
 
-# from mpflash.versions import SET_PREVIEW
+from mpflash.config import config
 
-# Token with no permissions to avoid throttling
-# https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#getting-a-higher-rate-limit
-PAT_NO_ACCESS = "github_pat_" + "11AAHPVFQ0G4NTaQ73Bw5J" + "_fAp7K9sZ1qL8VFnI9g78eUlCdmOXHB3WzSdj2jtEYb4XF3N7PDJBl32qIxq"
-PAT = os.environ.get("GITHUB_TOKEN") or PAT_NO_ACCESS
-GH_CLIENT = Github(auth=Auth.Token(PAT))
+# from github import Auth, BadCredentialsException, Github
 
+# # Token with no permissions to avoid throttling
+# # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#getting-a-higher-rate-limit
+# PAT_NO_ACCESS = "github_pat_" + "11AAHPVFQ0G4NTaQ73Bw5J" + "_fAp7K9sZ1qL8VFnI9g78eUlCdmOXHB3WzSdj2jtEYb4XF3N7PDJBl32qIxq"
+# PAT = os.environ.get("GITHUB_TOKEN") or PAT_NO_ACCESS
+
+# # GH_CLIENT = Github(auth=Auth.Token(PAT))
+
+# GH_CLIENT = None
 
 def _run_local_git(
     cmd: List[str],
@@ -116,6 +117,9 @@ def get_local_tags(repo: Optional[Path] = None, minver: Optional[str] = None) ->
     """
     get list of all tags of a local repo
     """
+    # Just in time import
+    from packaging.version import parse
+
     if not repo:
         repo = Path(".")
 
@@ -135,10 +139,16 @@ def get_tags(repo: str, minver: Optional[str] = None) -> List[str]:
     Get list of tag of a repote github repo.
     only the last -preview tag is kept
     """
+    # Just in time import
+    from github import BadCredentialsException
+    from packaging.version import parse
+
     if not repo or not isinstance(repo, str) or "/" not in repo:  # type: ignore
         return []
+
+    gh_client = config.gh_client
     try:
-        gh_repo = GH_CLIENT.get_repo(repo)
+        gh_repo = gh_client.get_repo(repo)
     except BadCredentialsException as e:
         log.error(f"Github authentication error - {e}")
         return []

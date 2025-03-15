@@ -6,10 +6,8 @@ from pathlib import Path
 
 from cache_to_disk import NoCacheCondition, cache_to_disk
 from loguru import logger as log
-from packaging.version import Version, parse
 
-import mpflash.basicgit as git
-from mpflash.common import GH_CLIENT
+from mpflash.config import config
 
 OLDEST_VERSION = "1.16"
 "This is the oldest MicroPython version to build the stubs on"
@@ -71,15 +69,18 @@ def clean_version(
 
 def is_version(version: str):
     """Check if the version is a valid version string"""
+    # Just in time import
+    from packaging.version import Version
     return Version._regex.search(version) is not None
 
 
 @cache_to_disk(n_days_to_cache=1)
 def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=True):
     """Get the list of micropython versions from github tags"""
-
+    # Just in time import
+    from packaging.version import parse
     try:
-        gh_client = GH_CLIENT
+        gh_client = config.gh_client
         repo = gh_client.get_repo("micropython/micropython")
         tags = [tag.name for tag in repo.get_tags() if parse(tag.name) >= parse(minver)]
         versions = [v for v in tags if not v.endswith(V_PREVIEW)]
@@ -116,6 +117,8 @@ def get_preview_mp_version(cache_it=True) -> str:
 # Do not cache , same path will have different versions checked out
 def checkedout_version(path: Path, flat: bool = False) -> str:
     """Get the checked-out version of the repo"""
+    # Just in time import
+    import mpflash.basicgit as git
     version = git.get_local_tag(path.as_posix())
     if not version:
         raise ValueError("No valid Tag found")
