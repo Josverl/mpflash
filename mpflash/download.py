@@ -13,8 +13,6 @@ from urllib.parse import urljoin
 # #########################################################################################################
 # make sure that jsonlines does not mistake the MicroPython ujson for the CPython ujson
 import jsonlines
-import requests
-from bs4 import BeautifulSoup
 from loguru import logger as log
 from rich.progress import track
 
@@ -51,6 +49,8 @@ RE_VERSION_PREVIEW = r"v([\d\.]+)-?(?:preview\.)?(\d+)?\."
 @functools.lru_cache(maxsize=500)
 def get_page(page_url: str) -> str:
     """Get the HTML of a page and return it as a string."""
+    # Just in time import
+    import requests
     response = requests.get(page_url)
     return response.content.decode()
 
@@ -68,6 +68,9 @@ def get_board_urls(page_url: str) -> List[Dict[str, str]]:
         List[Dict[str, str]]: A list of dictionaries containing the board name and url.
 
     """
+    # Just in time import
+    from bs4 import BeautifulSoup
+
     downloads_html = get_page(page_url)
     soup = BeautifulSoup(downloads_html, "html.parser")
     tags = soup.find_all("a", recursive=True, attrs={"class": "board-card"})
@@ -89,6 +92,9 @@ def board_firmware_urls(board_url: str, base_url: str, ext: str) -> List[str]:
     the urls are relative urls to the site root
 
     """
+    # Just in time import
+    from bs4 import BeautifulSoup
+
     html = get_page(board_url)
     soup = BeautifulSoup(html, "html.parser")
     # get all the a tags:
@@ -211,6 +217,9 @@ def download_firmwares(
         force : A flag indicating whether to force the download even if the firmware file already exists.
         clean : A flag indicating to clean the date from the firmware filename.
     """
+    # Just in time import
+    import requests
+
     skipped = downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
     # handle renamed boards
@@ -321,6 +330,9 @@ def download(
         MPFlashError : If no boards are found or specified.
 
     """
+    # Just in time import
+    import requests
+
     if not boards:
         log.critical("No boards found, please connect a board or specify boards to download firmware for.")
         raise MPFlashError("No boards found")

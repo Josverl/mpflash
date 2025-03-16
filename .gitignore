@@ -4,6 +4,10 @@
 # no compiled python or caches
 **/__pycache__
 **/.*_cache
+__*/**/*
+my_pycache/*
+profile.*
+
 
 #ignore the scratchpad 
 scratch/*
