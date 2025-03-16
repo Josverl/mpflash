@@ -102,9 +102,9 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--erase/--no-erase",
-    default=True,
+    default=False,
     show_default=True,
-    help="""Erase flash before writing new firmware. (Not supported on UF2 boards)""",
+    help="""Erase flash before writing new firmware.""",
 )
 @click.option(
     "--bootloader",
@@ -231,18 +231,4 @@ def resolve_board_ids(params: Params):
                     params.boards.remove(board_id)
                     params.boards.append(info.board_id)
             except Exception as e:
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
-                log.warning(f"Unable to resolve board description: {e}")
                 log.warning(f"Unable to resolve board description: {e}")
