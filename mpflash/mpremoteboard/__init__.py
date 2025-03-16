@@ -51,6 +51,7 @@ class MPRemoteBoard:
         self.version = ""
         self.port = ""
         self.board = ""
+        self.variant= ""
         self.cpu = ""
         self.arch = ""
         self.mpy = ""
@@ -138,7 +139,8 @@ class MPRemoteBoard:
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
             if info["_build"]: 
-                self.board = info["_build"]
+                self.board = info["_build"].split('-')[0]
+                self.variant = info["_build"].split('-')[1] if '-' in info["_build"] else ""
             else:
                 if board_name := find_board_id_by_description(
                     descr, short_descr, version=self.version

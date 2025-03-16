@@ -68,13 +68,15 @@ def mcu_table(
     # check if the terminal is wide enough to show all columns or if we need to collapse some
     is_wide = console.width > 99
     needs_build = any(mcu.build for mcu in conn_mcus)
+    needs_variant = any(mcu.variant for mcu in conn_mcus)
 
     table.add_column("Serial" if is_wide else "Ser.", overflow="fold")
     table.add_column("Family" if is_wide else "Fam.", overflow="crop", max_width=None if is_wide else 4)
     if is_wide:
         table.add_column("Port")
     table.add_column("Board", overflow="fold")
-    # table.add_column("Variant") # TODO: add variant
+    if needs_variant:
+        table.add_column("Variant") 
     if is_wide:
         table.add_column("CPU")
     table.add_column("Version", overflow="fold", min_width=5, max_width=16)
@@ -94,6 +96,8 @@ def mcu_table(
         if is_wide:
             row.append(mcu.port)
         row.append(f"{mcu.board}\n{description}".strip())
+        if needs_variant:
+            row.append(mcu.variant)
         if is_wide:
             row.append(mcu.cpu)
         row.append(clean_version(mcu.version))
