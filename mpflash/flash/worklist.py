@@ -44,7 +44,7 @@ def auto_update(
             continue
         board_firmwares = find_downloaded_firmware(
             fw_folder=fw_folder,
-            board_id=mcu.board,
+            board_id=mcu.board if not mcu.variant else f"{mcu.board}-{mcu.variant}",
             version=target_version,
             port=mcu.port,
             selector=selector,
