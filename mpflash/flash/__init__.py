@@ -19,6 +19,7 @@ def flash_list(
     fw_folder: Path,
     erase: bool,
     bootloader: BootloaderMethod,
+    **kwargs
 ):
     """Flash a list of boards with the specified firmware."""
     UF2_PORTS = [port for port, exts in PORT_FWTYPES.items() if ".uf2" in exts]
@@ -41,7 +42,7 @@ def flash_list(
                 updated = flash_stm32(mcu, fw_file, erase=erase)
             elif mcu.port in ["esp32", "esp8266"]:
                 #  bootloader is handled by esptool for esp32/esp8266
-                updated = flash_esp(mcu, fw_file=fw_file, erase=erase)
+                updated = flash_esp(mcu, fw_file=fw_file, erase=erase, **kwargs)
             else:
                 log.error(f"Don't (yet) know how to flash {mcu.port}-{mcu.board} on {mcu.serialport}")
         except Exception as e:

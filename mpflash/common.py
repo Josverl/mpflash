@@ -11,6 +11,7 @@ from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
 
+# from mpflash.flash.esp import FlashMode
 from .logger import log
 
 PORT_FWTYPES = {
@@ -98,6 +99,7 @@ class FlashParams(Params):
     erase: bool = True
     bootloader: BootloaderMethod = BootloaderMethod.NONE
     cpu: str = ""
+    flash_mode: str = "keep"  # keep, qio, qout, dio, dout
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):
