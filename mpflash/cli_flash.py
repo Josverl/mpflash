@@ -93,6 +93,14 @@ from mpflash.versions import clean_version
     metavar="BOARD_ID or ?",
 )
 @click.option(
+    "--variant",
+    "-var",
+    "variant",  # single board
+    multiple=False,
+    help="The board VARIANT to flash or '-'. If not specified will try to read the variant from the connected MCU.",
+    metavar="VARIANT",
+)
+@click.option(
     "--cpu",
     "--chip",
     "-c",
@@ -129,7 +137,7 @@ def cli_flash_board(**kwargs) -> int:
         kwargs["boards"] = []
         kwargs.pop("board")
     else:
-        kwargs["boards"] = [kwargs.pop("board")]
+        kwargs["boards"] = [kwargs.pop("board")]   
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -180,6 +188,11 @@ def cli_flash_board(**kwargs) -> int:
         if not all_boards:
             log.trace("No boards detected yet, scanning for connected boards")
             _, _, all_boards = connected_ports_boards(include=params.ports, ignore=params.ignore)
+        # if variant id provided on the cmdline, treat is as an override
+        if params.variant:
+            for b in all_boards:
+                b.variant = params.variant if (params.variant != "-") else ""
+
         worklist = full_auto_worklist(
             all_boards=all_boards,
             version=params.versions[0],
