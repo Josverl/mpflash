@@ -38,6 +38,7 @@ def _info():  # type:() -> dict[str, str]
             "ver": "",
             "port": ("stm32" if sys.platform.startswith("pyb") else sys.platform),  # port: esp32 / win32 / linux / stm32
             "board": "GENERIC",
+            "_build": "",
             "cpu": "",
             "mpy": "",
             "arch": "",
@@ -50,6 +51,7 @@ def _info():  # type:() -> dict[str, str]
     try:
         machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
         info["board"] = machine.strip()
+        info["_build"] = sys.implementation._build if "_build" in dir(sys.implementation) else ""
         info["cpu"] = machine.split("with")[-1].strip() if "with" in machine else ""
         info["mpy"] = (
             sys.implementation._mpy
