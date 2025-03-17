@@ -61,6 +61,7 @@ description = "Blue Norwegian actuator"
 
 If you want the board to be ignored by mpflash, you can add the following to the board_info.toml file:
 ```toml
+description = "Blue Norwegian feeder"
 [mpflash]
 ignore = true
 ```
