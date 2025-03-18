@@ -72,6 +72,11 @@ In order to flash the firmware to the board, you need to have the correct permis
 On Windows this will not be an issue, but on Linux you can use  udev rules to give non-root users access to the USB devices.
 [See the stm32_permissions documentation](docs/stm32_udev_rules.md) for more information.
 
+## Use MPFlash in your own project
+
+MPFlash can be used as a library in your own project. mpflash is used in [micropython-stubber]() to download and flash the firmware to the connected boards.
+
+The interface is not well documented other than the code itself, but you can use the following example to get started:  - docs/mpflash_api_example.ipynb
 
 ## Detailed usage
 You can list the connected boards using the following command:
