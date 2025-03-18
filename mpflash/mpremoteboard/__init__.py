@@ -66,9 +66,9 @@ class MPRemoteBoard:
         Return a string representation of the MPRemoteBoard object.
 
         Returns:
-        - str: The string representation of the object.
+        - str: A human readable representation of the MCU.
         """
-        return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}, {self.version})"
+        return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}{f'-{self.variant}' if self.variant else ''}, {self.version})"
 
     @staticmethod
     def connected_boards(bluetooth: bool = False, description: bool = False) -> List[str]:

@@ -14,13 +14,16 @@ def show_mcus(
     conn_mcus: List[MPRemoteBoard],
     title: str = "Connected boards",
     refresh: bool = True,
+    *,
+    title_style="magenta",
+    header_style="bold magenta",    
 ):
-    console.print(mcu_table(conn_mcus, title, refresh))
+    console.print(mcu_table(conn_mcus, title, refresh, title_style=title_style, header_style=header_style))
 
 
 def abbrv_family(family: str, is_wide: bool) -> str:
     if not is_wide:
-        ABRV = {"micropython": "upy", "circuitpython": "cpy", "unknown": "?"}
+        ABRV = {"micropython": "mpy", "circuitpython": "cpy", "unknown": "?"}
         return ABRV.get(family, family[:4])
     return family
 
@@ -29,15 +32,19 @@ def mcu_table(
     conn_mcus: List[MPRemoteBoard],
     title: str = "Connected boards",
     refresh: bool = True,
+    *,
+    title_style="magenta",
+    header_style="bold magenta",
 ):
     """
     builds a rich table with the connected boards information
-    The columns of the table are adjusted to the terminal width
+    The columns of the table are adjusted to the terminal width > 90 
     the columns are :
                 Narrow      Wide
     - Serial    Yes         Yes
     - Family    abbrv.      Yes
     - Port      -           yes
+    - Variant   Yes         Yes     only if any of the mcus have a variant
     - Board     Yes         Yes     BOARD_ID and Description, and the description from board_info.toml
     - CPU       -           Yes
     - Version   Yes         Yes
@@ -59,8 +66,8 @@ def mcu_table(
                 continue
     table = Table(
         title=title,
-        title_style="magenta",
-        header_style="bold magenta",
+        title_style=title_style,
+        header_style=header_style,
         collapse_padding=True,
         padding=(0, 0),
     )
