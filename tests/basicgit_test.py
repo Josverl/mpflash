@@ -20,7 +20,6 @@ pytestmark = [pytest.mark.mpflash, pytest.mark.basicgit]
 # Module Under Test
 import mpflash.basicgit as git
 
-
 def common_tst(tag):
     # print(tag)
     assert isinstance(tag, str), "tag must be a string"
@@ -29,11 +28,13 @@ def common_tst(tag):
         assert len(tag) >= 2, "tags are longer than 2 chars"
 
 
+@pytest.mark.slow
 def test_git_clone_shallow(tmp_path):
     result = git.clone("https://github.com/micropython/micropython.git", tmp_path / "micropython")
     assert result == True
 
 
+@pytest.mark.slow
 def test_git_clone(tmp_path):
     result = git.clone("https://github.com/micropython/micropython.git", tmp_path / "micropython", shallow=False)
     assert result == True
@@ -181,7 +182,7 @@ def test_run_git_fails(mocker: MockerFixture):
     mock_run_git.reset_mock()
     r = git.get_local_tag()
     mock_run_git.assert_called_once()
-    assert r == None
+    assert r is None
 
     # fail to checkout tag
     mock_run_git.reset_mock()

@@ -2,6 +2,8 @@
 Module to run mpremote commands, and retry on failure or timeout
 """
 
+
+import contextlib
 import sys
 import time
 from pathlib import Path
@@ -141,13 +143,12 @@ class MPRemoteBoard:
             if info["_build"]: 
                 self.board = info["_build"].split('-')[0]
                 self.variant = info["_build"].split('-')[1] if '-' in info["_build"] else ""
-            else:
-                if board_name := find_board_id_by_description(
+            elif board_name := find_board_id_by_description(
                     descr, short_descr, version=self.version
                 ):
-                    self.board = board_name
-                else:
-                    self.board = "UNKNOWN_BOARD"
+                self.board = board_name
+            else:
+                self.board = "UNKNOWN_BOARD"
             # get the board_info.toml
             self.get_board_info_toml()
         # now we know the board is connected
@@ -173,7 +174,7 @@ class MPRemoteBoard:
                 log_errors=False,
             )
         except Exception as e:
-            raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}: {e}")
+            raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
         # this is optional - so only parse if we got the file
         self.toml = {}
         if rc in [OK]:  # sometimes we get an -9 ???
@@ -269,8 +270,6 @@ class MPRemoteBoard:
             total=timeout,
         ):
             time.sleep(1)
-            try:
+            with contextlib.suppress(ConnectionError, MPFlashError):
                 self.get_mcu_info()
                 break
-            except (ConnectionError, MPFlashError):
-                pass

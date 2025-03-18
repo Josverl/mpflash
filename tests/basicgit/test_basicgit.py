@@ -9,7 +9,6 @@ from mpflash.basicgit import (
     get_local_tag,
     get_local_tags,
     checkout_tag,
-    sync_submodules,
     checkout_commit,
     switch_tag,
     switch_branch,
@@ -58,13 +57,6 @@ def test_get_local_tags(mock_subprocess_run):
 def test_checkout_tag(mock_subprocess_run):
     mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stdout="", stderr="")
     assert checkout_tag("v1.2.3", Path("/tmp/repo")) is True
-
-
-def test_sync_submodules(mock_subprocess_run):
-    mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stderr="")
-    with mock.patch("mpflash.basicgit.checkout_arduino_lib") as mock_checkout_arduino:
-        assert sync_submodules(Path("/tmp/repo")) is True
-        mock_checkout_arduino.assert_called_once()
 
 def test_checkout_commit(mock_subprocess_run):
     mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stderr="")

@@ -94,11 +94,12 @@ norecursedirs = [
 ]
 junit_family = "xunit1"
 
-addopts = "--capture=no --cov-branch --cov-report=xml"
+addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
 # --capture=no
 
 markers = [
     "mpflash: marks tests of the mpflash tool",
+    "basicgit: rather slow tests for basicgit",
     "snippets: test snippets to check the stubs",
 
     "legacy: reeally old tests that need to be updated or removed",

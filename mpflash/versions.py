@@ -91,7 +91,7 @@ def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=
         log.error(e)
         versions = []
         # returns - but does not cache
-        raise NoCacheCondition(function_value=versions)
+        raise NoCacheCondition(function_value=versions) from e
     # remove any duplicates and sort
     versions = sorted(list(set(versions)), reverse=reverse, key=lambda s: (not is_version(s), s))
     if cache_it:
