@@ -1,4 +1,4 @@
-# %%micropython
+# pragma: no cover
 import os
 import sys
 

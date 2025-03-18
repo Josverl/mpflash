@@ -2,7 +2,7 @@ from pathlib import Path
 
 from loguru import logger as log
 
-from mpflash.bootloader import enter_bootloader
+from mpflash.bootloader.activate import enter_bootloader
 from mpflash.common import PORT_FWTYPES, BootloaderMethod, UF2_PORTS
 from mpflash.errors import MPFlashError
 

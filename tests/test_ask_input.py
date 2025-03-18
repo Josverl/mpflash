@@ -6,7 +6,7 @@ from pytest_mock import MockerFixture
 
 from mpflash.common import DownloadParams, FlashParams
 from mpflash.ask_input import ask_missing_params
-from mpflash.config import MPtoolConfig
+from mpflash.config import MPFlashConfig
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -14,7 +14,7 @@ pytestmark = [pytest.mark.mpflash]
 def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
     # Make sure that the prompt is not called when interactive is False
 
-    _config = MPtoolConfig()
+    _config = MPFlashConfig()
     _config.interactive = False
 
     input = {
@@ -195,7 +195,7 @@ def test_ask_missing_params_with_interactivity(
         params = FlashParams(**input)
 
     # make sure we can be interactive during testing, even in CI
-    _config = MPtoolConfig()
+    _config = MPFlashConfig()
     _config.interactive = True
     mocker.patch("mpflash.ask_input.config", _config)
     # ---------------------------------------------

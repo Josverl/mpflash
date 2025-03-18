@@ -218,22 +218,21 @@ def download_firmwares(
         force : A flag indicating whether to force the download even if the firmware file already exists.
         clean : A flag indicating to clean the date from the firmware filename.
     """
-    # Just in time import
-    import requests
+
 
     skipped = downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
     # handle renamed boards
     boards = add_renamed_boards(boards)
 
-    unique_boards = get_firmware_list(ports, boards, versions, clean)
+    available_firmwares = get_firmware_list(ports, boards, versions, clean)
 
-    for b in unique_boards:
+    for b in available_firmwares:
         log.debug(b.filename)
     # relevant
 
-    log.info(f"Found {len(unique_boards)} relevant unique firmwares")
-    if not unique_boards:
+    log.info(f"Found {len(available_firmwares)} relevant unique firmwares")
+    if not available_firmwares:
         log.error("No relevant firmwares could be found on https://micropython.org/download")
         log.info(f"{versions=} {ports=} {boards=}")
         log.info("Please check the website for the latest firmware files or try the preview version.")
@@ -241,8 +240,27 @@ def download_firmwares(
 
     firmware_folder.mkdir(exist_ok=True)
 
+    downloaded, skipped = download_firmware_files(available_firmwares, firmware_folder, force  )
+    log.success(
+        f"Downloaded {downloaded} firmware images{f', skipped {str(skipped)} existing' if skipped else ''}."
+    )
+    return downloaded + skipped
+
+def download_firmware_files(available_firmwares :List[FWInfo],firmware_folder:Path, force:bool ):
+    """
+    Downloads the firmware files to the specified folder.
+    Args:
+        firmware_folder : The folder to save the downloaded firmware files.
+        force : A flag indicating whether to force the download even if the firmware file already exists.
+        requests : The requests module to use for downloading the firmware files.
+        unique_boards : The list of unique firmware information to download.
+    """
+    # Just in time import
+    import requests
+
     with jsonlines.open(firmware_folder / "firmware.jsonl", "a") as writer:
-        for board in unique_boards:
+        downloaded = skipped = 0
+        for board in available_firmwares:
             filename = firmware_folder / board.port / board.filename
             filename.parent.mkdir(exist_ok=True)
             if filename.exists() and not force:
@@ -263,19 +281,19 @@ def download_firmwares(
             downloaded += 1
     if downloaded > 0:
         clean_downloaded_firmwares(firmware_folder)
-    log.success(f"Downloaded {downloaded} firmware images{', skipped ' + str(skipped) + ' existing' if skipped else ''}.")
-    return downloaded + skipped
+    return downloaded,skipped
 
 
-def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], clean: bool):
+def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], clean: bool = True):
     """
-    Retrieves a list of unique firmware information based on the specified ports, boards, versions, and clean flag.
+    Retrieves a list of unique firmware files available om micropython.org > downloads
+    based on the specified ports, boards, versions, and clean flag.
 
     Args:
-        ports : The list of ports to check for firmware.
-        boards : The list of boards to filter the firmware by.
-        versions : The list of versions to filter the firmware by.
-        clean : A flag indicating whether to perform a clean check.
+        ports : One or more ports to check for firmware.
+        boards : One or more boards to filter the firmware by.
+        versions : One or more versions to filter the firmware by.
+        clean : Remove date-stamp and Git Hash from the firmware name.
 
     Returns:
         List[FWInfo]: A list of unique firmware information.
@@ -283,7 +301,9 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
     """
 
     log.trace("Checking MicroPython download pages")
+    versions = [clean_version(v, drop_v=False) for v in versions]
     preview = "preview" in versions
+
     board_urls = sorted(get_boards(ports, boards, clean), key=key_fw_ver_pre_ext_bld)
 
     log.debug(f"Total {len(board_urls)} firmwares")

@@ -27,10 +27,10 @@ def enter_bootloader_touch_1200bps(mcu: MPRemoteBoard, timeout: int = 10):
 
     except serial.SerialException as e:
         log.exception(e)
-        raise MPFlashError("pySerial error: " + str(e) + "\n") from e
+        raise MPFlashError(f"pySerial error: {str(e)}") from e
     except Exception as e:
         log.exception(e)
-        raise MPFlashError("Error: " + str(e) + "\n") from e
+        raise MPFlashError(f"Error: {str(e)}") from e
 
     # be optimistic
     return True
