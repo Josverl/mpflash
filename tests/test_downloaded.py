@@ -5,14 +5,14 @@ from pytest_mock import MockerFixture
 
 from mpflash.common import FWInfo
 from mpflash.config import config
-from mpflash.downloaded import (downloaded_firmwares, filter_downloaded_fwlist,
-                                find_downloaded_firmware)
+from mpflash.db.downloads import downloaded
+from mpflash.downloaded import filter_downloaded_fwlist, find_downloaded_firmware
 
 pytestmark = [pytest.mark.mpflash]
 
 
 def test_downloaded_firmwares(mocker: MockerFixture, test_fw_path):
-    firmwares = downloaded_firmwares(test_fw_path)
+    firmwares = downloaded(test_fw_path / "mpflash.db")
     assert firmwares
     assert all(f.filename for f in firmwares)
 
@@ -100,7 +100,7 @@ def test_filter_downloaded_fwlist(port, board_id, version, OK, test_fw_path, act
             pytest.xfail("This test may not work in CI, as the firmware may/will not be downloaded.")
     else:
         fw_path = test_fw_path
-    fw_list = downloaded_firmwares(fw_path)
+    fw_list = downloaded(fw_path)
 
     fwlist = filter_downloaded_fwlist(
         fw_list=fw_list,

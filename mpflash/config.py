@@ -45,7 +45,12 @@ class MPFlashConfig:
         if not self._firmware_folder:
             self._firmware_folder = platformdirs.user_downloads_path() / "firmware"
         return self._firmware_folder
-    
+
+    @property
+    def db_path(self) -> Path:
+        """The path to the database file"""
+        return self.firmware_folder / "mpflash.db"
+
     @property
     def gh_client(self):
         """The gh client to use"""
