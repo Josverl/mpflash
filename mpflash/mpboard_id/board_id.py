@@ -3,11 +3,15 @@ Translate board description to board designator
 """
 
 import functools
+import re
+import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
+from mpflash.config import config
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
+from mpflash.mpboard_id.board import Board
 from mpflash.mpboard_id.store import read_known_boardinfo
 from mpflash.versions import clean_version, get_preview_mp_version, get_stable_mp_version
 
@@ -28,13 +32,48 @@ def find_board_id_by_description(
             board_info=board_info,
             version=clean_version(version) if version else None,
         )
-        return boards[-1].board_id
+        return boards[0].board_id
     except MPFlashError:
         return "UNKNOWN_BOARD"
 
 
-@functools.lru_cache(maxsize=20)
 def _find_board_id_by_description(
+    *,
+    descr: str,
+    short_descr: str,
+    version: Optional[str] = None,
+    variant: str = "",
+    board_info: Optional[Path] = None,
+):
+    boards: List[Board] = []
+    with sqlite3.connect(config.db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        qry = f"""
+        SELECT 
+            *
+        FROM board_downloaded
+        WHERE 
+            board_id IN (
+                SELECT  DISTINCT board_id
+                FROM board_downloaded
+                WHERE description IN ('{descr}' , '{short_descr}' )
+            )
+            AND version like '{version}'
+            AND variant like '{variant}'
+        """
+        cursor.execute(qry)
+        rows = cursor.fetchall()
+        for row in rows:
+            r = dict(row)
+
+            boards.append(Board.from_dict(dict(row)))
+    return boards
+
+
+@functools.lru_cache(maxsize=20)
+def _find_board_id_by_description_xx(
     *,
     descr: str,
     short_descr: str,
