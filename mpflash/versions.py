@@ -38,6 +38,13 @@ def clean_version(
             return "stable"
         version = _v
         log.trace(f"Using latest stable version: {version}")
+    elif version.lower() in ["preview", "latest"]:
+        _v = get_preview_mp_version()
+        if not _v:
+            log.warning("Could not determine the preview version")
+            return "preview"
+        version = _v
+        log.trace(f"Using latest preview version: {version}")
     is_preview = "-preview" in version
     nibbles = version.split("-")
     ver_ = nibbles[0].lower().lstrip("v")

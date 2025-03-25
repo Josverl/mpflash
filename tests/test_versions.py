@@ -7,6 +7,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from mpflash.versions import clean_version
+
 pytestmark = [pytest.mark.mpflash]	
 
 
@@ -34,13 +35,23 @@ def test_clean_version_build(commit, build, expected):
     "input, expected",
     [
         ("", ""),
-        ("latest", "preview"),
-        ("preview", "preview"),
         ("v1.23.0-preview-87-g0285cb2bf", "v1_23_0_preview"),
     ],
 )
 def test_clean_version_flat_preview(input: str, expected: str):
     assert clean_version(input, drop_v=False, flat=True) == expected
+
+
+def test_clean_version_stable():
+    # should resolve to the latest stable version
+    v = clean_version("stable")
+    assert v != "stable"
+
+
+def test_clean_version_preview():
+    # should resolve to the latest preview version
+    v = clean_version("preview")
+    assert v != "preview"
 
 
 def test_clean_version_special():

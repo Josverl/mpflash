@@ -46,6 +46,7 @@ def _find_board_id_by_description(
     board_info: Optional[Path] = None,
 ):
     boards: List[Board] = []
+    version = clean_version(version) if version else "%"
     with sqlite3.connect(config.db_path) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -69,6 +70,8 @@ def _find_board_id_by_description(
             r = dict(row)
 
             boards.append(Board.from_dict(dict(row)))
+    if not boards:
+        raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
     return boards
 
 
