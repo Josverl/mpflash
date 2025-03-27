@@ -14,6 +14,7 @@ from mpflash.logger import log
 from mpflash.mpboard_id.board import Board
 from mpflash.mpboard_id.store import read_known_boardinfo
 from mpflash.versions import clean_version, get_preview_mp_version, get_stable_mp_version
+from repos.micropython.tests.basics.async_def import dec
 
 
 def find_board_id_by_description(
@@ -24,15 +25,23 @@ def find_board_id_by_description(
     board_info: Optional[Path] = None,
 ) -> Optional[str]:
     """Find the MicroPython BOARD_ID based on the description in the firmware"""
-
+    version = clean_version(version) if version else ""
     try:
         boards = _find_board_id_by_description(
             descr=descr,
             short_descr=short_descr,
-            board_info=board_info,
-            version=clean_version(version) if version else None,
+            db_path=board_info,
+            version=version,
         )
-        return boards[0].board_id
+        if not boards:
+            log.debug(f"Version {version} not found in board info, using any version")
+            boards = _find_board_id_by_description(
+                descr=descr,
+                short_descr=short_descr,
+                db_path=board_info,
+                version="%",  # any version
+            )
+        return boards[0].board_id if boards else None
     except MPFlashError:
         return "UNKNOWN_BOARD"
 
@@ -43,33 +52,43 @@ def _find_board_id_by_description(
     short_descr: str,
     version: Optional[str] = None,
     variant: str = "",
-    board_info: Optional[Path] = None,
+    db_path: Optional[Path] = None,
 ):
     boards: List[Board] = []
     version = clean_version(version) if version else "%"
-    with sqlite3.connect(config.db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    if "-preview" in version:
+        version = version.replace("-preview", "%")
+    descriptions = [descr, short_descr]
+    if descr.startswith("Generic"):
+        descriptions.append(descr[8:])
+        descriptions.append(short_descr[8:])
 
-        qry = f"""
-        SELECT 
-            *
-        FROM board_downloaded
-        WHERE 
-            board_id IN (
-                SELECT  DISTINCT board_id
-                FROM board_downloaded
-                WHERE description IN ('{descr}' , '{short_descr}' )
-            )
-            AND version like '{version}'
-            AND variant like '{variant}'
-        """
-        cursor.execute(qry)
-        rows = cursor.fetchall()
-        for row in rows:
-            r = dict(row)
+    try:
+        with sqlite3.connect(db_path or config.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
 
-            boards.append(Board.from_dict(dict(row)))
+            qry = f"""
+            SELECT 
+                *
+            FROM board_downloaded
+            WHERE 
+                board_id IN (
+                    SELECT  DISTINCT board_id
+                    FROM board_downloaded
+                    WHERE description IN {str(tuple(descriptions))}
+                )
+                AND version like '{version}'
+                AND variant like '{variant}'
+            """
+            cursor.execute(qry)
+            rows = cursor.fetchall()
+            for row in rows:
+                r = dict(row)
+
+                boards.append(Board.from_dict(dict(row)))
+    except sqlite3.OperationalError as e:
+        raise MPFlashError("Database error") from e
     if not boards:
         raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
     return boards

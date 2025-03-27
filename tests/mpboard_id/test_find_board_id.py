@@ -89,19 +89,12 @@ def test_find_board_id_real(test_id, descr, short_descr, expected_result, versio
         assert result == expected_result
 
 
-# Test for FileNotFoundError
-def test_find_board_id_file_not_found(tmp_path):
-    # Arrange
-    non_existent_file = tmp_path / "non_existent.csv"
-
-    # Act & Assert
-    with pytest.raises(FileNotFoundError):
-        find_board_id_by_description(
-            "Board A", "A", version="stable", board_info=non_existent_file
+def test_find_mpflash_db_not_found(tmp_path):
+    non_existent_file = tmp_path / "non_existent.db"
+    with pytest.raises(MPFlashError):
+        result = _find_board_id_by_description(
+            descr="Board A",
+            short_descr="A",
+            version="stable",
+            db_path=non_existent_file,
         )
-
-
-# @pytest.mark.parametrize("test_id,version, descr, short_descr,  expected_result", [()])
-# def test_check_all_boards(test_id, descr, short_descr, expected_result, version):
-#     # TODO:  use algoritm from mpbuild to check all boards
-#     raise NotImplementedError("Test not implemented")
