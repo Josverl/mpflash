@@ -54,6 +54,7 @@ def _find_board_id_by_description(
     variant: str = "",
     db_path: Optional[Path] = None,
 ):
+    short_descr = short_descr or ""
     boards: List[Board] = []
     version = clean_version(version) if version else "%"
     if "-preview" in version:

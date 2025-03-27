@@ -43,7 +43,7 @@ def auto_update(
             log.warning(f"Skipping flashing {mcu.family} {mcu.port} {mcu.board} on {mcu.serialport} as it is not a MicroPython firmware")
             continue
         board_firmwares = find_downloaded_firmware(
-            fw_folder=fw_folder,
+            db_path=fw_folder,
             board_id=mcu.board if not mcu.variant else f"{mcu.board}-{mcu.variant}",
             version=target_version,
             port=mcu.port,
@@ -95,7 +95,7 @@ def manual_worklist(
         log.exception(e)
         return []
     mcu.board = board_id
-    firmwares = find_downloaded_firmware(fw_folder=fw_folder, board_id=board_id, version=version, port=mcu.port)
+    firmwares = find_downloaded_firmware(db_path=fw_folder, board_id=board_id, version=version, port=mcu.port)
     if not firmwares:
         log.error(f"No firmware found for {mcu.port} {board_id} version {version}")
         return []
