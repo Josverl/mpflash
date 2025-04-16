@@ -63,9 +63,9 @@ class Variant:
         return description_from_source(self.board.path, self.name) or self.board.description
         # f"{self.board.description}-{self.name}"
 
+
 @dataclass(order=True)
 class Board:
-
     name: str
     """
     Example: "PYBV11"
@@ -118,7 +118,7 @@ class Board:
         board = Board(
             name=filename_json.parent.name,
             variants=[],
-            url=board_json["url"],
+            url=board_json["url"] if "url" in board_json else "",  # fix missing url
             mcu=board_json["mcu"],
             product=board_json["product"],
             vendor=board_json["vendor"],
@@ -166,6 +166,8 @@ class Database:
 
     def __post_init__(self) -> None:
         mpy_dir = self.mpy_root_directory
+        if not mpy_dir.is_dir():
+            raise ValueError(f"Invalid path to micropython directory: {mpy_dir}")
         # Take care to avoid using Path.glob! Performance was 15x slower.
         for p in glob(f"{mpy_dir}/ports/**/boards/**/board.json"):
             filename_json = Path(p)
