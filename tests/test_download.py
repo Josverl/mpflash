@@ -2,7 +2,7 @@
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.download import board_firmware_urls, get_board_urls, get_page
+from mpflash.download.from_web import board_firmware_urls, get_board_urls, get_page
 
 pytestmark = [pytest.mark.mpflash]
 
