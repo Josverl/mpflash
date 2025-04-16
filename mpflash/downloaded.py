@@ -6,26 +6,11 @@ from loguru import logger as log
 
 from mpflash.common import PORT_FWTYPES, FWInfo
 from mpflash.versions import clean_version
+from mpflash.db.downloads import downloaded
 
 from .config import config
 
-
 # #########################################################################################################
-def downloaded_firmwares(fw_folder: Path) -> List[FWInfo]:
-    """Load a list of locally downloaded firmwares from the jsonl file"""
-    firmwares: List[FWInfo] = []
-    log.debug(f"Reading  {fw_folder / 'firmware.jsonl' }")
-    try:
-        with jsonlines.open(fw_folder / "firmware.jsonl") as reader:
-            firmwares = [FWInfo.from_dict(item) for item in reader]
-    except FileNotFoundError:
-        log.error(f"No firmware.jsonl found in {fw_folder}")
-    except jsonlines.InvalidLineError as e:
-        log.error(f"Invalid firmware.jsonl found in {fw_folder} : {e}")
-
-    # sort by filename
-    firmwares.sort(key=lambda x: x.filename)
-    return firmwares
 
 
 def clean_downloaded_firmwares(fw_folder: Path) -> None:
@@ -33,15 +18,9 @@ def clean_downloaded_firmwares(fw_folder: Path) -> None:
     Remove duplicate entries from the firmware.jsonl file, keeping the latest one
     uniqueness is based on the filename
     """
-    firmwares = downloaded_firmwares(fw_folder)
-    if not firmwares:
-        return
-    # keep the latest entry
-    unique_fw = {fw.filename: fw for fw in firmwares}
-    with jsonlines.open(fw_folder / "firmware.jsonl", "w") as writer:
-        for fw in unique_fw.values():
-            writer.write(fw.to_dict())
-    log.info(f"Removed duplicate entries from firmware.jsonl in {fw_folder}")
+    # Duplication should no longer happen,
+    # but is would be a good idea to check the consistence between the DB and the downloads folder sometimes 
+    pass 
 
 
 def find_downloaded_firmware(
@@ -56,10 +35,10 @@ def find_downloaded_firmware(
 ) -> List[FWInfo]:
     if selector is None:
         selector = {}
-    fw_folder = fw_folder or config.firmware_folder
+    
     # Use the information in firmwares.jsonl to find the firmware file
     log.debug(f"{trie}] Looking for firmware for {board_id} {version} ")
-    fw_list = downloaded_firmwares(fw_folder)
+    fw_list = downloaded()
     if not fw_list:
         log.error("No firmware files found. Please download the firmware first.")
         return []
