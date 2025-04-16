@@ -3,7 +3,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "charliermarsh.ruff",
-        "qwtel.sqlite-viewer",
         "gxl.git-graph-3",
+        "yy0931.vscode-sqlite3-editor",
     ]
 }

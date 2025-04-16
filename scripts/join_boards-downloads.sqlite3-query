@@ -1,0 +1,23 @@
+-- database: ./c:/Users/josverl/Downloads/firmware/mpflash.db
+
+-- database: c:\Users\josverl\Downloads\firmware\mpflash.db
+-- useful to see for  board what versions are already downloaded
+SELECT 
+    b.board_id,
+    b.description,
+    b.version as board_version,
+    d.version as download_version,
+    d.filename
+
+FROM
+    boards b
+left JOIN 
+    downloads d 
+ON 
+    b.board_id = d.board_id
+    AND d.version LIKE b.version || '%'
+    AND d.build > 0
+
+ORDER BY
+    d.version DESC,
+    d.board_id
