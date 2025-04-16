@@ -5,8 +5,8 @@ import jsonlines
 from loguru import logger as log
 
 from mpflash.common import PORT_FWTYPES, FWInfo
-from mpflash.versions import clean_version
 from mpflash.db.downloads import downloaded
+from mpflash.versions import clean_version
 
 from .config import config
 
@@ -29,7 +29,7 @@ def find_downloaded_firmware(
     version: str = "",  # v1.2.3
     port: str = "",
     variants: bool = False,
-    fw_folder: Optional[Path] = None,
+    db_path: Optional[Path] = None,
     trie: int = 1,
     selector: Optional[Dict[str, str]] = None,
 ) -> List[FWInfo]:
@@ -59,7 +59,7 @@ def find_downloaded_firmware(
             board_id = board_id.replace("_", "-")
 
         fw_list = find_downloaded_firmware(
-            fw_folder=fw_folder,
+            db_path=db_path,
             board_id=board_id,
             version=version,
             port=port,
