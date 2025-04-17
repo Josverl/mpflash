@@ -4,7 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
             "name": "CLI: mpflash",
             "type": "debugpy",
@@ -15,10 +14,14 @@
             "args": [
                 "-VV",
                 "flash",
-                "--version",
-                "preview",
-                "--variant",
-                "DP",
+                "--board",
+                "ESP32_GENERIC-SPIRAM",
+                "--serial",
+                "COM15",
+                // "--version",
+                // "preview",
+                // "--variant",
+                // "DP",
                 // "FLASH_16M",
                 // "--board",
                 // "PIMORONI_PICOLIPO",

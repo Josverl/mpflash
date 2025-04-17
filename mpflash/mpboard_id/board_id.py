@@ -14,7 +14,6 @@ from mpflash.logger import log
 from mpflash.mpboard_id.board import Board
 from mpflash.mpboard_id.store import read_known_boardinfo
 from mpflash.versions import clean_version, get_preview_mp_version, get_stable_mp_version
-from repos.micropython.tests.basics.async_def import dec
 
 
 def find_board_id_by_description(
