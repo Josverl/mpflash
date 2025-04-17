@@ -1,0 +1,16 @@
+-- database: ./c:/Users/josverl/Downloads/firmware/mpflash.db
+
+-- This query retrieves the board_id, variant, version, build, description, and filename
+SELECT 
+    board_id,
+    variant,
+    version,
+    build,
+    description,
+    filename
+
+FROM board_downloaded
+
+WHERE 
+    description IN ('TinyS3 with ESP32-S3-FN8', 'TinyS3')
+    AND version = 'v1.24.0'
