@@ -43,6 +43,8 @@ class MPRemoteBoard:
         - serialport (str): The serial port to connect to. Default is an empty string.
         - update (bool): Whether to update the MCU information. Default is False.
         """
+        self._board_id = ""
+
         self.serialport: str = serialport
         self.firmware = {}
 
@@ -52,8 +54,6 @@ class MPRemoteBoard:
         self.description = ""
         self.version = ""
         self.port = ""
-        self.board = ""
-        self.variant= ""
         self.cpu = ""
         self.arch = ""
         self.mpy = ""
@@ -62,7 +62,22 @@ class MPRemoteBoard:
         self.toml = {}
         if update:
             self.get_mcu_info()
+    ###################################
+    # board_id := board[-variant]
+    @property
+    def board_id(self) -> str:
+        return self._board_id
+    @board_id.setter
+    def board_id(self, value: str) -> None:
+        self._board_id = value.rstrip('-')
+    @property
+    def board(self) -> str:
+        return self._board_id.split("-")[0]
+    @property
+    def variant(self) -> str:
+        return self._board_id.split("-")[1] if "-" in self._board_id else ""        
 
+    ###################################
     def __str__(self):
         """
         Return a string representation of the MPRemoteBoard object.
@@ -123,7 +138,7 @@ class MPRemoteBoard:
             timeout=timeout,
             resume=False,  # Avoid restarts
         )
-        if rc:
+        if rc not in (0,1): ## WORKAROUND - SUDDEN RETURN OF 1 on success 
             log.debug(f"rc: {rc}, result: {result}")
             raise ConnectionError(f"Failed to get mcu_info for {self.serialport}")
         # Ok we have the info, now parse it
@@ -140,17 +155,20 @@ class MPRemoteBoard:
             self.description = descr = info["board"]
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
-            if info["_build"]: 
-                self.board = info["_build"].split('-')[0]
-                self.variant = info["_build"].split('-')[1] if '-' in info["_build"] else ""
-            elif board_name := find_board_id_by_description(
+            self.board_id = info["board_id"]
+            if info["board_id"]: 
+                # we have a board_id - so use that to get the board name
+                self.board_id = info["board_id"]
+            else: 
+                self.board_id = f"{info["board"]}-{info["variant"]}"
+                board_name = find_board_id_by_description(
                     descr, short_descr, version=self.version
-                ):
-                self.board = board_name
-            else:
-                self.board = "UNKNOWN_BOARD"
+                )
+                self.board_id = board_name if board_name else "UNKNOWN_BOARD"
+                # TODO: Get the variant as well 
             # get the board_info.toml
             self.get_board_info_toml()
+            # TODO: get board_id from the toml file if it exists
         # now we know the board is connected
         self.connected = True
 
@@ -273,3 +291,29 @@ class MPRemoteBoard:
             with contextlib.suppress(ConnectionError, MPFlashError):
                 self.get_mcu_info()
                 break
+
+    def to_dict(self) -> dict:
+        """
+        Serialize the MPRemoteBoard object to JSON, including all attributes and readable properties.
+
+        Returns:
+        - str: A JSON string representation of the object.
+        """
+        def get_properties(obj):
+            """Helper function to get all readable properties."""
+            return {
+                name: getattr(obj, name)
+                for name in dir(obj.__class__)
+                if isinstance(getattr(obj.__class__, name, None), property)
+            }
+
+        # Combine instance attributes, readable properties, and private attributes
+        data = {**self.__dict__, **get_properties(self)}
+
+        # remove the path and firmware attibutes from the json output as they are always empty
+        del(data["_board_id"]) # dup of board_id
+        del(data["connected"])
+        del(data["path"])
+        del(data["firmware"])
+
+        return data

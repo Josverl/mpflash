@@ -3,7 +3,7 @@ import os
 import sys
 
 
-def _build(s):
+def get_build(s):
     # extract build from sys.version or os.uname().version if available
     # sys.version: 'MicroPython v1.23.0-preview.6.g3d0b6276f'
     # sys.implementation.version: 'v1.13-103-gb137d064e'
@@ -51,7 +51,11 @@ def _info():  # type:() -> dict[str, str]
     try:
         machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
         info["board"] = machine.strip()
-        info["_build"] = sys.implementation._build if "_build" in dir(sys.implementation) else ""
+        _build = sys.implementation._build if "_build" in dir(sys.implementation) else ""
+        if _build:
+            info["board"] = _build.split("-")[0]
+            info["variant"] = _build.split("-")[1] if "-" in _build else ""
+        info["board_id"] = _build
         info["cpu"] = machine.split("with")[-1].strip() if "with" in machine else ""
         info["mpy"] = (
             sys.implementation._mpy
@@ -65,12 +69,12 @@ def _info():  # type:() -> dict[str, str]
 
     try:
         if hasattr(sys, "version"):
-            info["build"] = _build(sys.version)
+            info["build"] = get_build(sys.version)
         elif hasattr(os, "uname"):
-            info["build"] = _build(os.uname()[3])  # type: ignore
+            info["build"] = get_build(os.uname()[3])  # type: ignore
             if not info["build"]:
                 # extract build from uname().release if available
-                info["build"] = _build(os.uname()[2])  # type: ignore
+                info["build"] = get_build(os.uname()[2])  # type: ignore
     except (AttributeError, IndexError):
         pass
     # avoid  build hashes
@@ -146,4 +150,4 @@ def _info():  # type:() -> dict[str, str]
 
 
 print(_info())
-del _info, _build, _version_str
+del _info, get_build, _version_str
