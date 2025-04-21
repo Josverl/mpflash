@@ -73,9 +73,15 @@ class MPRemoteBoard:
     @property
     def board(self) -> str:
         return self._board_id.split("-")[0]
+    @board.setter
+    def board(self, value: str) -> None:
+        self.board_id = f"{value}-{self.variant}" if self.variant else value
     @property
     def variant(self) -> str:
-        return self._board_id.split("-")[1] if "-" in self._board_id else ""        
+        return self._board_id.split("-")[1] if "-" in self._board_id else ""
+    @variant.setter
+    def variant(self, value: str) -> None:
+        self.board_id = f"{self.board}-{value}"
 
     ###################################
     def __str__(self):
