@@ -160,11 +160,11 @@ class MPRemoteBoard:
                 # we have a board_id - so use that to get the board name
                 self.board_id = info["board_id"]
             else: 
-                self.board_id = f"{info["board"]}-{info["variant"]}"
+                self.board_id = f"{info['board']}-{info['variant']}"
                 board_name = find_board_id_by_description(
                     descr, short_descr, version=self.version
                 )
-                self.board_id = board_name if board_name else "UNKNOWN_BOARD"
+                self.board_id = board_name or "UNKNOWN_BOARD"
                 # TODO: Get the variant as well 
             # get the board_info.toml
             self.get_board_info_toml()
