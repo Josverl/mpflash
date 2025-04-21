@@ -155,12 +155,11 @@ class MPRemoteBoard:
             self.description = descr = info["board"]
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
-            self.board_id = info["board_id"]
-            if info["board_id"]: 
+            if info.get("board_id", None): 
                 # we have a board_id - so use that to get the board name
                 self.board_id = info["board_id"]
             else: 
-                self.board_id = f"{info['board']}-{info['variant']}"
+                self.board_id = f"{info['board']}-{info.get('variant','')}"
                 board_name = find_board_id_by_description(
                     descr, short_descr, version=self.version
                 )

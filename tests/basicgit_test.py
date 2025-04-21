@@ -79,7 +79,7 @@ def test_git_clone_fast(mocker: MockerFixture, tmp_path):
 
 
 # @pytest.mark.basicgit
-# @pytest.mark.skip(reason="test discards uncomitted changes in top repo")
+@pytest.mark.skip(reason="test discards uncomitted changes in top repo")
 def test_get_tag_current():
     if not os.path.exists(".git"):
         pytest.skip("no git repo in current folder")

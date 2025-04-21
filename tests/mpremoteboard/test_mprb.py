@@ -121,6 +121,8 @@ def test_mpremoteboard_disconnect(port, mocker: MockerFixture):
         m_log_error.assert_called_once()
 
 # TODO; Add test for different micrpython boards / versions / variants with and withouth sys.implementation._build 
+
+
 def test_mpremoteboard_info(mocker: MockerFixture):
     output = [
         "{'port': 'esp32', 'build': '236', 'arch': 'xtensawin', 'family': 'micropython', 'board': 'Generic ESP32 module with ESP32','_build': '', 'cpu': 'ESP32', 'version': '1.23.0-preview', 'mpy': 'v6.2', 'ver': 'v1.23.0-preview-236'}"

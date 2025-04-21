@@ -20,7 +20,7 @@ def fakeboard(serialport="COM99"):
     fake.connected = True
     fake.family = "micropython"
     fake.port = "esp32"
-    fake.board = "ESP32_GENERIC"
+    fake.board_id = "ESP32_GENERIC"
     fake.version = "1.22.0"
     fake.cpu = "ESP32"
     return fake

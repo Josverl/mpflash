@@ -41,6 +41,9 @@ def get_known_boards_for_port(port: Optional[str] = "", versions: Optional[List[
     if "preview" in versions:
         versions.remove("preview")
         versions.append("stable")
+    # filter for the port
+    if port:
+        mp_boards = [board for board in mp_boards if board.port == port]
     if versions:
         # make sure of the v prefix
         versions = [clean_version(v) for v in versions]
@@ -53,9 +56,6 @@ def get_known_boards_for_port(port: Optional[str] = "", versions: Optional[List[
             last_known_version = sorted({b.version for b in mp_boards})[-1]
             mp_boards = [board for board in mp_boards if board.version == last_known_version]
 
-    # filter for the port
-    if port:
-        mp_boards = [board for board in mp_boards if board.port == port]
     return mp_boards
 
 
