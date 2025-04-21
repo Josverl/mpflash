@@ -50,7 +50,8 @@ def _run_local_git(
         return None
     except subprocess.CalledProcessError as e:  # pragma: no cover
         # add some logging for github actions
-        log.error(f"{str(e)} : { e.stderr}")
+        log.info(f"Command: {cmd}")
+        log.error(f"{str(e)} : {e.returncode}\n{e.stdout}\n{e.stderr}")
         return None
     if result.stderr and result.stderr != b"":
         stderr = result.stderr

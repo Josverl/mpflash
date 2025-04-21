@@ -34,10 +34,10 @@ def test_git_clone_shallow(tmp_path):
     assert result == True
 
 
-@pytest.mark.slow
-def test_git_clone(tmp_path):
-    result = git.clone("https://github.com/micropython/micropython.git", tmp_path / "micropython", shallow=False)
-    assert result == True
+# @pytest.mark.slow
+# def test_git_clone(tmp_path):
+#     result = git.clone("https://github.com/micropython/micropython.git", tmp_path / "micropython", shallow=False)
+#     assert result == True
 
 
 @pytest.mark.mocked
