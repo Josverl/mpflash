@@ -2,6 +2,7 @@ import functools
 import zipfile
 from pathlib import Path
 from typing import Final, List, Optional
+from mpflash.logger import log
 
 import jsons
 
@@ -32,7 +33,7 @@ def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = No
 @functools.lru_cache(maxsize=20)
 def read_known_boardinfo(board_info: Optional[Path] = None) -> List[Board]:
     """Reads the board information from a JSON file in a zip file."""
-
+    log.warning("read_known_boardinfo() is deprecated")
 
     if not board_info:
         board_info = HERE / "board_info.zip"

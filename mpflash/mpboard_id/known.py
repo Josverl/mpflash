@@ -7,8 +7,10 @@ This module provides access to the board info and the known ports and boards."""
 from functools import lru_cache
 from typing import List, Optional, Tuple
 
+from mpflash.db.boards import find_board_id, find_board_info
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
+from mpflash.logger import log
 
 from .board import Board
 from .store import read_known_boardinfo
@@ -16,6 +18,7 @@ from .store import read_known_boardinfo
 
 def get_known_ports() -> List[str]:
     # TODO: Filter for Version
+    log.warning("get_known_ports() is deprecated")
     mp_boards = read_known_boardinfo()
     # select the unique ports from info
     ports = set({board.port for board in mp_boards if board.port})
@@ -73,22 +76,33 @@ def known_stored_boards(port: str, versions: Optional[List[str]] = None) -> List
 
 
 @lru_cache(maxsize=20)
-def find_known_board(board_id: str) -> Board:
+def find_known_board(board_id: str, version ="") -> Board:
     """Find the board for the given BOARD_ID or 'board description' and return the board info as a Board object"""
     # Some functional overlap with:
     # mpboard_id\board_id.py _find_board_id_by_description
-    info = read_known_boardinfo()
-    for board_info in info:
-        if board_id in (
-            board_info.board_id,
-            board_info.description,
-        ) or board_info.description.startswith(board_id):
-            if not board_info.cpu:
-                # failsafe for older board_info.json files
-                print(f"Board {board_id} has no CPU info, using port as CPU")
-                if " with " in board_info.description:
-                    board_info.cpu = board_info.description.split(" with ")[-1]
-                else:
-                    board_info.cpu = board_info.port
-            return board_info
+    # TODO: Refactor to search the SQLite DB instead of the JSON file
+    board_ids = find_board_id(board_id = board_id, version = version or "%")
+    boards = []
+    for board_id in board_ids:
+        # if we have a board_id, use it to find the board info
+        boards += [Board.from_dict(dict(r)) for r in find_board_info(board_id = board_id)]
+  
+
+    # if board_ids:
+    #     # if we have a board_id, use it to find the board info
+    #     board_id = board_ids[0]
+    # info = read_known_boardinfo()
+    # for board_info in info:
+    #     if board_id in (
+    #         board_info.board_id,
+    #         board_info.description,
+    #     ) or board_info.description.startswith(board_id):
+    #         if not board_info.cpu:
+    #             # failsafe for older board_info.json files
+    #             print(f"Board {board_id} has no CPU info, using port as CPU")
+    #             if " with " in board_info.description:
+    #                 board_info.cpu = board_info.description.split(" with ")[-1]
+    #             else:
+    #                 board_info.cpu = board_info.port
+    #         return board_info
     raise MPFlashError(f"Board {board_id} not found")

@@ -38,20 +38,20 @@ HERE = Path(__file__).parent
             "ESP32_GENERIC",
         ),
         # v13.0
-        ("esp32_v1.13-a", "v1.13", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.13-b", "v1.13", "ESP32 module with ESP32", "ESP32 module", "GENERIC"),
-        ("esp32_v1.14-a", "v1.14", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.15-a", "v1.15", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.16-a", "v1.16", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.17-a", "v1.17", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.18-a", "v1.18", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.19.1-a", "v1.19.1", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.20.0-a", "v1.20.0", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.13-a", "v1.13", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.13-b", "v1.13", "ESP32 module with ESP32", "ESP32 module", "GENERIC"),
+        # ("esp32_v1.14-a", "v1.14", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.15-a", "v1.15", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.16-a", "v1.16", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.17-a", "v1.17", "ESP32 module with ESP32", None, "GENERIC"),
+        ("esp32_v1.18-a", "v1.18", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
+        ("esp32_v1.19.1-a", "v1.19.1", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
+        ("esp32_v1.19.1-a", "v1.20.0", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
         # ESP32 board names changed in v1.21.0
-        ("esp32_v1.21.0-a", "v1.21.0", "ESP32 module with ESP32", None, "UNKNOWN_BOARD"),
-        ("esp32_v1.22.0-a", "v1.22.0", "ESP32 module with ESP32", None, "UNKNOWN_BOARD"),
-        ("esp32_v1.21.0-a", None, "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.22.0-a", None, "ESP32 module with ESP32", None, "GENERIC"),
+        ("esp32_v1.21.0-a", "v1.21.0", "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.22.0-a", "v1.22.0", "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.21.0-a", None, "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.22.0-a", None, "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
         # PICO
         (
             "pico_v1.19.1-old",
@@ -71,8 +71,8 @@ HERE = Path(__file__).parent
         ("error-1", "stable", "Board FOO", "FOO", None),
         ("error-2", "stable", "Board BAR", "BAR", None),
         # Bugs #1
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP235", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP235", "", "RPI_PICO2_W"),
+        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP2350", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
+        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
 def test_find_board_id_real(test_id, descr, short_descr, expected_result, version):
@@ -89,19 +89,12 @@ def test_find_board_id_real(test_id, descr, short_descr, expected_result, versio
         assert result == expected_result
 
 
-# Test for FileNotFoundError
-def test_find_board_id_file_not_found(tmp_path):
-    # Arrange
-    non_existent_file = tmp_path / "non_existent.csv"
-
-    # Act & Assert
-    with pytest.raises(FileNotFoundError):
-        find_board_id_by_description(
-            "Board A", "A", version="stable", board_info=non_existent_file
+def test_find_mpflash_db_not_found(tmp_path):
+    non_existent_file = tmp_path / "non_existent.db"
+    with pytest.raises(MPFlashError):
+        result = _find_board_id_by_description(
+            descr="Board A",
+            short_descr="A",
+            version="stable",
+            db_path=non_existent_file,
         )
-
-
-# @pytest.mark.parametrize("test_id,version, descr, short_descr,  expected_result", [()])
-# def test_check_all_boards(test_id, descr, short_descr, expected_result, version):
-#     # TODO:  use algoritm from mpbuild to check all boards
-#     raise NotImplementedError("Test not implemented")

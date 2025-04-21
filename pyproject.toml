@@ -52,6 +52,7 @@ poetry = "^2.0.1"
 optional = true
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+pandas = "^2.2.3"
 
 [tool.poetry.group.test]
 optional = true

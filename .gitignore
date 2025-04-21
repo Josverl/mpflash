@@ -48,3 +48,4 @@ src/mpflash/coverag*
 firmware
 profile.*
 
+scripts/temp_micropython_boards_from_zip.db

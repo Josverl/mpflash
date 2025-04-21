@@ -17,7 +17,7 @@ def mpflash():
     cli.add_command(cli_flash_board)
 
     # cli(auto_envvar_prefix="MPFLASH")
-    if False and os.environ.get("COMPUTERNAME").startswith("JOSVERL"):
+    if False and os.environ.get("COMPUTERNAME").upper().startswith("JOSVERL"):
         # intentional less error suppression on dev machine
         result = cli(standalone_mode=False)
     else:

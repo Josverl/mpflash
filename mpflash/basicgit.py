@@ -267,7 +267,7 @@ def pull(repo: Union[Path, str], branch: str = "main") -> bool:
     return result.returncode == 0
 
 
-def get_git_describe(folder: Optional[str] = None):
+def get_git_describe(folder: Optional[Path | str] = None):
     """
     Based on MicroPython makeversionhdr.py
     returns : current git tag, commits ,commit hash : "v1.19.1-841-g3446"
