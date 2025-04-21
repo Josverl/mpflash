@@ -191,7 +191,7 @@ def cli_flash_board(**kwargs) -> int:
         # if variant id provided on the cmdline, treat is as an override
         if params.variant:
             for b in all_boards:
-                b.variant = params.variant if (params.variant != "-") else ""
+                b.variant = params.variant if (params.variant.lower() not in {"-","none"}) else ""
 
         worklist = full_auto_worklist(
             all_boards=all_boards,
