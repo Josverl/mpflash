@@ -71,8 +71,8 @@ HERE = Path(__file__).parent
         ("error-1", "stable", "Board FOO", "FOO", None),
         ("error-2", "stable", "Board BAR", "BAR", None),
         # Bugs #1
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP2350", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
+        ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W with RP2350", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
+        ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
 def test_find_board_id_real(test_id, descr, short_descr, expected_result, version):

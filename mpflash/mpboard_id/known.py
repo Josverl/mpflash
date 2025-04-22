@@ -86,23 +86,7 @@ def find_known_board(board_id: str, version ="") -> Board:
     for board_id in board_ids:
         # if we have a board_id, use it to find the board info
         boards += [Board.from_dict(dict(r)) for r in find_board_info(board_id = board_id)]
-  
 
-    # if board_ids:
-    #     # if we have a board_id, use it to find the board info
-    #     board_id = board_ids[0]
-    # info = read_known_boardinfo()
-    # for board_info in info:
-    #     if board_id in (
-    #         board_info.board_id,
-    #         board_info.description,
-    #     ) or board_info.description.startswith(board_id):
-    #         if not board_info.cpu:
-    #             # failsafe for older board_info.json files
-    #             print(f"Board {board_id} has no CPU info, using port as CPU")
-    #             if " with " in board_info.description:
-    #                 board_info.cpu = board_info.description.split(" with ")[-1]
-    #             else:
-    #                 board_info.cpu = board_info.port
-    #         return board_info
+    if boards:
+        return boards[0]
     raise MPFlashError(f"Board {board_id} not found")
