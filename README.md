@@ -15,9 +15,14 @@ This tool was initially created to be used in a CI/CD pipeline to automate the p
     - `samd`, using ` .uf2`, using filecopy 
     - `esp32`, using `.bin`, using esptool,
     - `esp8266`, using `.bin`, using esptool
-    - `stm32`, using ` .dfu`, using pydfu
+    - `stm32`, using ` .dfu`, using pydfu (also in Windows) 
 
 Not yet implemented: `nrf`, `cc3200`, `mimxrt`, `renesas`
+
+## Release v1.25.0 - 🪲Yanked🪲
+I have yanked the release of 1.25.0 from PyPI. 
+It was missing a step to upgrade from a .json to a sqlite database to better identify connected boards, and I failed to identify that in testing.
+The plan to to add the code, and upgrade tests, and re-release when it is ready.
  
 ## Features
  1. List the connected boards including their firmware details, in a tabular or json format
