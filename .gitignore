@@ -45,7 +45,6 @@ src/mpflash/coverag*
 # no hypothesis patches
 **/.hypothesis
 
-firmware
 profile.*
 
-scripts/temp_micropython_boards_from_zip.db
+
