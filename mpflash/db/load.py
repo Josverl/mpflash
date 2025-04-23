@@ -3,7 +3,6 @@ import zipfile
 import io
 import sqlite3
 import json
-from httpx import head
 from pathlib import Path
 from mpflash.logger import log
 
