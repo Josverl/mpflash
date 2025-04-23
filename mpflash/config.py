@@ -52,7 +52,7 @@ class MPFlashConfig:
                     ws_path = Path(workspace) / "firmware"
                     ws_path.mkdir(parents=True, exist_ok=True)
                     print(f"Detected GitHub Actions environment. Using workspace path: {ws_path}")
-                    self._firmware_folder  = ws_path
+                    self._firmware_folder = ws_path
         return self._firmware_folder
 
     @property

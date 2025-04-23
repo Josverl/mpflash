@@ -156,7 +156,7 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
                     port=port,
                     board=board["board"],
                     preview="preview" in _url,
-                    firmware=_url,
+                    url=_url,
                     version="",
                 )
                 # board["firmware"] = _url
@@ -172,7 +172,7 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
                 # else:
                 #     fw_info.build = "0"
 
-                fw_info.ext = Path(fw_info.firmware).suffix
+                fw_info.ext = Path(fw_info.url).suffix
                 fw_info.variant = fw_info.filename.split("-v")[0] if "-v" in fw_info.filename else ""
 
                 board_urls.append(fw_info)
@@ -189,10 +189,10 @@ def fetch_firmware_files(available_firmwares: List[FWInfo], firmware_folder: Pat
         if filename.exists() and not force:
             log.debug(f" {filename} already exists, skip download")
             continue
-        log.info(f"Downloading {board.firmware}")
+        log.info(f"Downloading {board.url}")
         log.info(f"         to {filename}")
         try:
-            r = requests.get(board.firmware, allow_redirects=True)
+            r = requests.get(board.url, allow_redirects=True)
             with open(filename, "wb") as fw:
                 fw.write(r.content)
             board.filename = str(filename.relative_to(firmware_folder))

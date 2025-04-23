@@ -51,7 +51,7 @@ def add_firmware(
     fw_filename = config.firmware_folder / new_fw.port / source_2.name
 
     new_fw.filename = str(fw_filename.relative_to(config.firmware_folder))
-    new_fw.firmware = source.as_uri() if isinstance(source, Path) else source
+    new_fw.url = source.as_uri() if isinstance(source, Path) else source
 
     if not copy_firmware(source, fw_filename, force):
         log.error(f"Failed to copy {source} to {fw_filename}")

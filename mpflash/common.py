@@ -39,7 +39,7 @@ class FWInfo:
     port: str  # MicroPython port
     board: str  # MicroPython board
     filename: str = field(default="")  # relative filename of the firmware image
-    firmware: str = field(default="")  # url or path to original firmware image
+    url: str = field(default="")  # url or path to original firmware image
     variant: str = field(default="")  # MicroPython variant
     preview: bool = field(default=False)  # True if the firmware is a preview version
     version: str = field(default="")  # MicroPython version (NO v prefix)
@@ -49,6 +49,7 @@ class FWInfo:
     family: str = field(default="micropython")  # The family of the firmware
     custom: bool = field(default=False)  # True if the firmware is a custom build
     description: str = field(default="")  # Description used by this firmware (custom only)
+    mcu: str = field(default="")
 
     def to_dict(self) -> dict:
         """Convert the object to a dictionary"""
@@ -59,7 +60,7 @@ class FWInfo:
         """Create a FWInfo object from a dictionary"""
         # add missing keys
         if "ext" not in data:
-            data["ext"] = Path(data["firmware"]).suffix
+            data["ext"] = Path(data["filename"]).suffix
         if "family" not in data:
             data["family"] = "micropython"
         return cls(**data)

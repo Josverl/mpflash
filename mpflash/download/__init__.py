@@ -110,7 +110,7 @@ def download_firmware_files(available_firmwares :List[FWInfo],firmware_folder:Pa
 
 def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], clean: bool = True):
     """
-    Retrieves a list of unique firmware files available om micropython.org > downloads
+    Retrieves a list of unique firmware files potentially  available on micropython.org > downloads
     based on the specified ports, boards, versions, and clean flag.
 
     Args:

@@ -21,8 +21,6 @@ def auto_update(
     conn_boards: List[MPRemoteBoard],
     target_version: str,
     fw_folder: Path,
-    *,
-    selector: Optional[Dict[str, str]] = None,
 ) -> WorkList:
     """Builds a list of boards to update based on the connected boards and the firmwares available locally in the firmware folder.
 
@@ -35,8 +33,6 @@ def auto_update(
     Returns:
         WorkList: List of boards and firmware information to update
     """
-    if selector is None:
-        selector = {}
     wl: WorkList = []
     for mcu in conn_boards:
         if mcu.family not in ("micropython", "unknown"):
@@ -44,10 +40,9 @@ def auto_update(
             continue
         board_firmwares = find_downloaded_firmware(
             db_path=fw_folder,
-            board_id=mcu.board if not mcu.variant else f"{mcu.board}-{mcu.variant}",
+            board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
             version=target_version,
             port=mcu.port,
-            selector=selector,
         )
 
         if not board_firmwares:

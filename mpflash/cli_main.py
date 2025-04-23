@@ -17,6 +17,7 @@ def migrate_database():
     # lazy import to avoid slowdowns
     if not config.db_path.exists():
         import mpflash.db.update as update
+
         update.update_database()
     jsonl_file = config.firmware_folder / "firmware.jsonl"
     if jsonl_file.exists():
