@@ -15,9 +15,11 @@ def update_database(v_goal="1.24.1"):
     """
     Update the SQLite database to the specified version.
     """
-    log.debug(f"Updating database to version {v_goal}")
+    db_path = config.db_path
 
-    with sqlite3.connect(config.db_path) as conn:
+    log.debug(f"Updating database {db_path} to version {v_goal}")
+
+    with sqlite3.connect(db_path) as conn:
         if not get_database_version(conn):
             create_schema(conn)
             set_database_version(conn, "0.0.1")
