@@ -77,7 +77,7 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
     conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
     if as_json:
         print(json.dumps([mcu.to_dict() for mcu in conn_mcus], indent=4))
-        
+
     if progress:
         show_mcus(conn_mcus, refresh=False)
     for mcu in conn_mcus:

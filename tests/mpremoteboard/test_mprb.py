@@ -120,7 +120,8 @@ def test_mpremoteboard_disconnect(port, mocker: MockerFixture):
         # should show error if no port
         m_log_error.assert_called_once()
 
-# TODO; Add test for different micrpython boards / versions / variants with and withouth sys.implementation._build 
+
+# TODO; Add test for different micrpython boards / versions / variants with and withouth sys.implementation._build
 
 
 def test_mpremoteboard_info(mocker: MockerFixture):

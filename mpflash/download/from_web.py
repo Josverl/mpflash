@@ -16,7 +16,6 @@ from mpflash.mpboard_id import get_known_ports
 from mpflash.versions import clean_version
 
 
-
 MICROPYTHON_ORG_URL = "https://micropython.org/"
 
 
@@ -178,7 +177,6 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
 
                 board_urls.append(fw_info)
     return board_urls
-
 
 
 def fetch_firmware_files(available_firmwares: List[FWInfo], firmware_folder: Path, force: bool):

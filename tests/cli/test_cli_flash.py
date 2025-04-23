@@ -51,7 +51,6 @@ def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
     ],
 )
 def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, serialport: str):
-
     # fake COM99 as connected board
     fake = fakeboard(serialport)
 

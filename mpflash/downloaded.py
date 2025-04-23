@@ -19,8 +19,8 @@ def clean_downloaded_firmwares(fw_folder: Path) -> None:
     uniqueness is based on the filename
     """
     # Duplication should no longer happen,
-    # but is would be a good idea to check the consistence between the DB and the downloads folder sometimes 
-    pass 
+    # but is would be a good idea to check the consistence between the DB and the downloads folder sometimes
+    pass
 
 
 def find_downloaded_firmware(
@@ -35,7 +35,7 @@ def find_downloaded_firmware(
 ) -> List[FWInfo]:
     if selector is None:
         selector = {}
-    
+
     # Use the information in firmwares.jsonl to find the firmware file
     log.debug(f"{trie}] Looking for firmware for {board_id} {version} ")
     fw_list = downloaded()
@@ -47,7 +47,7 @@ def find_downloaded_firmware(
     fw_list = filter_downloaded_fwlist(fw_list, board_id, version, port, variants, selector)
 
     if not fw_list and trie < 3:
-        log.info(f"Try ({trie+1}) to find a firmware for the board {board_id}")
+        log.info(f"Try ({trie + 1}) to find a firmware for the board {board_id}")
         if trie == 1:
             # ESP board naming conventions have changed by adding a PORT prefix
             if port.startswith("esp") and not board_id.startswith(port.upper()):

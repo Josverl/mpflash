@@ -76,16 +76,16 @@ def known_stored_boards(port: str, versions: Optional[List[str]] = None) -> List
 
 
 @lru_cache(maxsize=20)
-def find_known_board(board_id: str, version ="") -> Board:
+def find_known_board(board_id: str, version="") -> Board:
     """Find the board for the given BOARD_ID or 'board description' and return the board info as a Board object"""
     # Some functional overlap with:
     # mpboard_id\board_id.py _find_board_id_by_description
     # TODO: Refactor to search the SQLite DB instead of the JSON file
-    board_ids = find_board_id(board_id = board_id, version = version or "%")
+    board_ids = find_board_id(board_id=board_id, version=version or "%")
     boards = []
     for board_id in board_ids:
         # if we have a board_id, use it to find the board info
-        boards += [Board.from_dict(dict(r)) for r in find_board_info(board_id = board_id)]
+        boards += [Board.from_dict(dict(r)) for r in find_board_info(board_id=board_id)]
 
     if boards:
         return boards[0]

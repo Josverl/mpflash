@@ -21,7 +21,7 @@ def test_enter_bootloader(mocker: MockerFixture, bl_method):
     m_bl_man = mocker.patch("mpflash.bootloader.activate.enter_bootloader_manual", return_value=True)
     m_bl_tch = mocker.patch("mpflash.bootloader.activate.enter_bootloader_touch_1200bps", return_value=True)
 
-    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True) # type: ignore
+    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)  # type: ignore
 
     m_sleep = mocker.patch("mpflash.bootloader.activate.time.sleep")
     enter_bootloader(board, method=bl_method)
@@ -44,7 +44,7 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
     m_bl_mpy = mocker.patch("mpflash.bootloader.activate.enter_bootloader_mpy", return_value=False)
     m_bl_man = mocker.patch("mpflash.bootloader.activate.enter_bootloader_manual", return_value=True)
 
-    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True) # type: ignore
+    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)  # type: ignore
 
     m_sleep = mocker.patch("mpflash.bootloader.activate.time.sleep")
     enter_bootloader(board, method=BootloaderMethod.AUTO)
@@ -60,7 +60,6 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
 @pytest.mark.parametrize("bootloader", [BootloaderMethod.NONE, BootloaderMethod.MPY])
 @pytest.mark.parametrize("port", ["esp32", "esp8266", "rp2", "stm32", "samd"])
 def test_flash_list(mocker: MockerFixture, test_fw_path: Path, bootloader, port):
-
     m_flash_uf2 = mocker.patch("mpflash.flash.flash_uf2")
     m_flash_stm32 = mocker.patch("mpflash.flash.flash_stm32")
     m_flash_esp = mocker.patch("mpflash.flash.flash_esp")

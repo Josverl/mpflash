@@ -28,6 +28,7 @@ PORT_FWTYPES = {
 
 UF2_PORTS = [port for port, exts in PORT_FWTYPES.items() if ".uf2" in exts]
 
+
 @dataclass
 class FWInfo:
     """

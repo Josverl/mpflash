@@ -24,6 +24,7 @@ from mpflash.config import config
 
 # GH_CLIENT = None
 
+
 def _run_local_git(
     cmd: List[str],
     repo: Optional[Union[Path, str]] = None,
@@ -178,7 +179,6 @@ def checkout_tag(tag: str, repo: Optional[Union[str, Path]] = None) -> bool:
     if msg != {""}:
         log.warning(f"git message: {msg}")
     return True
-
 
 
 def checkout_commit(commit_hash: str, repo: Optional[Union[Path, str]] = None) -> bool:

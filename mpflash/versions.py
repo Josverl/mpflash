@@ -78,6 +78,7 @@ def is_version(version: str):
     """Check if the version is a valid version string"""
     # Just in time import
     from packaging.version import Version
+
     return Version._regex.search(version) is not None
 
 
@@ -86,6 +87,7 @@ def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=
     """Get the list of micropython versions from github tags"""
     # Just in time import
     from packaging.version import parse
+
     try:
         gh_client = config.gh_client
         repo = gh_client.get_repo("micropython/micropython")
@@ -126,6 +128,7 @@ def checkedout_version(path: Path, flat: bool = False) -> str:
     """Get the checked-out version of the repo"""
     # Just in time import
     import mpflash.basicgit as git
+
     version = git.get_local_tag(path.as_posix())
     if not version:
         raise ValueError("No valid Tag found")

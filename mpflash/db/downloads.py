@@ -55,6 +55,7 @@ def upsert_download(conn: sqlite3.Connection, board: FWInfo):
         )
         conn.commit()
 
+
 def downloaded(db_path: Path | None = None) -> List[FWInfo]:
     """Load a list of locally downloaded firmwares from the database"""
     db_path = db_path or config.db_path

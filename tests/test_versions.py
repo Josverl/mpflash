@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 
 from mpflash.versions import clean_version
 
-pytestmark = [pytest.mark.mpflash]	
+pytestmark = [pytest.mark.mpflash]
 
 
 @pytest.mark.parametrize(
@@ -30,6 +30,7 @@ pytestmark = [pytest.mark.mpflash]
 )
 def test_clean_version_build(commit, build, expected):
     assert clean_version(commit, build=build) == expected
+
 
 @pytest.mark.parametrize(
     "input, expected",
@@ -63,19 +64,14 @@ def test_clean_version_special():
     assert clean_version("v1.13.0-103-gb137d064e", patch=True) == "preview"
     assert clean_version("v1.13.0-103-gb137d064e", patch=True, build=True) == "v1.13.0-103"
     # with commit
-    assert (
-        clean_version("v1.13.0-103-gb137d064e", patch=True, build=True, commit=True) == "v1.13.0-103-gb137d064e"
-    )
+    assert clean_version("v1.13.0-103-gb137d064e", patch=True, build=True, commit=True) == "v1.13.0-103-gb137d064e"
     # FLats
     #    assert clean_version("v1.13.0-103-gb137d064e", flat=True) == "v1_13-Latest"
     assert clean_version("v1.13.0-103-gb137d064e", flat=True) == "preview"
     assert clean_version("v1.13.0-103-gb137d064e", build=True, commit=True, flat=True) == "v1_13_103_gb137d064e"
 
     # all options , no V for version
-    assert (
-        clean_version("v1.13.0-103-gb137d064e", patch=True, build=True, commit=True, flat=True, drop_v=True)
-        == "1_13_0_103_gb137d064e"
-    )
+    assert clean_version("v1.13.0-103-gb137d064e", patch=True, build=True, commit=True, flat=True, drop_v=True) == "1_13_0_103_gb137d064e"
 
 
 @pytest.mark.parametrize(

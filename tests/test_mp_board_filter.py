@@ -29,7 +29,7 @@ def test_mp_board_filter(port: str, id, versions: List[str]):
 
     if not result:
         pytest.skip(f"No boards found for port: {port} and versions: {versions}")
-    assert all(board.port == port for board in result) , f"all boards should be for port: {port}"
+    assert all(board.port == port for board in result), f"all boards should be for port: {port}"
 
     if versions:
         versions = versions if versions else []

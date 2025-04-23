@@ -128,11 +128,11 @@ def single_auto_worklist(
 
 def full_auto_worklist(
     all_boards: List[MPRemoteBoard],
-     *, 
-     include: List[str], 
-     ignore: List[str], 
-     version: str, 
-     fw_folder: Path, 
+    *,
+    include: List[str],
+    ignore: List[str],
+    version: str,
+    fw_folder: Path,
 ) -> WorkList:
     """
     Create a worklist for all connected micropython boards based on the information retrieved from the board.

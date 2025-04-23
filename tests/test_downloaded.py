@@ -1,5 +1,3 @@
-
-
 import pytest
 from pytest_mock import MockerFixture
 
@@ -24,6 +22,7 @@ def test_downloaded_firmwares(mocker: MockerFixture, test_fw_path):
 # mpflash download --version 1.22.2 --board RPI_PICO_W
 # mpflash download --version preview --board ESP32_GENRIC
 #########################################################################
+
 
 @pytest.mark.parametrize(
     "port, board_id, version, OK",
@@ -82,9 +81,9 @@ def test_find_downloaded_firmware(port, board_id, version, OK, test_fw_path, tes
     assert all(fw.board in (board_id, f"{port.upper()}_{board_id}", f"RPI_{board_id}") for fw in result)
 
     if version == "preview":
-        assert all( fw.preview for fw in result)
+        assert all(fw.preview for fw in result)
     else:
-        assert all(version in fw.version for fw in result) 
+        assert all(version in fw.version for fw in result)
     assert all(version in fw.filename for fw in result)
     if not variants:
         # variante ==  board or PORT_board

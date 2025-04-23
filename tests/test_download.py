@@ -1,4 +1,3 @@
-
 import pytest
 from pytest_mock import MockerFixture
 
@@ -14,7 +13,6 @@ def test_get_page(mocker: MockerFixture):
 
 
 def test_get_board_urls(mocker: MockerFixture):
-
     urls = get_board_urls("https://micropython.org/download/")
     assert urls
 

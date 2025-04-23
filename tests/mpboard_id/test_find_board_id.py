@@ -82,9 +82,7 @@ def test_find_board_id_real(test_id, descr, short_descr, expected_result, versio
             # internal method raises exception
             _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
     else:
-        result = find_board_id_by_description(
-            descr=descr, short_descr=short_descr, version=version
-        )
+        result = find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
         # Assert
         assert result == expected_result
 

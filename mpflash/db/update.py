@@ -1,6 +1,7 @@
 from math import e
 from pathlib import Path
 import sqlite3
+from typing import Optional
 from packaging.version import Version
 from mpflash.config import config
 from mpflash.logger import log
@@ -8,6 +9,7 @@ from .load import load_data_from_zip, load_jsonl_to_sqlite
 from .create import create_schema, create_views, get_database_version, set_database_version, update_boardlist_schema
 
 HERE = Path(__file__).parent.resolve()
+
 
 def update_database(v_goal="1.24.1"):
     """
@@ -18,7 +20,7 @@ def update_database(v_goal="1.24.1"):
     with sqlite3.connect(config.db_path) as conn:
         if not get_database_version(conn):
             create_schema(conn)
-            set_database_version(conn, "0.0.1")	
+            set_database_version(conn, "0.0.1")
         current = get_database_version(conn)
         if not current or Version(current) < Version(v_goal):
             update_boardlist_schema(conn)
@@ -37,23 +39,21 @@ def update_database(v_goal="1.24.1"):
         log.info(f"Total records stored in database from zip: {record_count}")
 
 
-
-def migrate_jsonl():
-    log.debug("Migrating JSONL data to SQLite database")
-    with sqlite3.connect(config.db_path) as conn:
+def migrate_jsonl(jsonl_file: Optional[Path] = None, db_path: Optional[Path] = None):
+    jsonl_file = jsonl_file or config.firmware_folder / "firmware.jsonl"
+    db_path = db_path or config.db_path
+    with sqlite3.connect(db_path) as conn:
         # Execute the function
-        jsonl_path = config.firmware_folder /  "firmware.jsonl"
-        if jsonl_path.exists() and jsonl_path.is_file():
-            log.info(f"Loading JSONL file {jsonl_path} into database...")
-            record_count = load_jsonl_to_sqlite(jsonl_path, conn)
+        if jsonl_file.exists() and jsonl_file.is_file():
+            log.debug(f"Loading JSONL file {jsonl_file} into database...")
+            record_count = load_jsonl_to_sqlite(jsonl_file, conn)
             log.success(f"Total records imported from JSONL: {record_count}")
             for n in range(1, 10):
                 try:
-                    jsonl_path.rename(jsonl_path.with_suffix(f".jsonl.{n}.bak"))
+                    jsonl_file.rename(jsonl_file.with_suffix(f".jsonl.{n}.bak"))
                     break
                 except Exception as e:
-                    log.debug(f"Failed to rename {jsonl_path} to {jsonl_path.with_suffix(f'.jsonl.{n}.bak')}: {e}")
+                    if n == 9:
+                        log.error(f"Failed to rename {jsonl_file} to {jsonl_file.with_suffix(f'.jsonl.{n}.bak')}: {e}")
         else:
-            log.warning(f"JSONL file {jsonl_path} not found. Skipping import.")
-
-                
+            log.warning(f"JSONL file {jsonl_file} not found. Skipping import.")
