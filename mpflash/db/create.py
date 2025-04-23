@@ -107,7 +107,7 @@ def create_schema(conn: sqlite3.Connection):
             "description" TEXT,
             "text" TEXT,
             "port" TEXT DEFAULT "",
-            "familiy" TEXT DEFAULT "micropython",
+            "family" TEXT DEFAULT "micropython",
             PRIMARY KEY(version, board_id)
         )
         """)
