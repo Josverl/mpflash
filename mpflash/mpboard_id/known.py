@@ -11,18 +11,18 @@ from mpflash.db.boards import find_board_id, find_board_info
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
 from mpflash.logger import log
+from mpflash.db import query
 
 from .board import Board
-from .store import read_known_boardinfo
 
 
-def get_known_ports() -> List[str]:
-    # TODO: Filter for Version
-    log.warning("get_known_ports() is deprecated")
-    mp_boards = read_known_boardinfo()
-    # select the unique ports from info
-    ports = set({board.port for board in mp_boards if board.port})
-    return sorted(list(ports))
+
+def get_known_ports(version:str = "" ) -> List[str]:
+    version = clean_version(version) if version  else "%"
+    qry = f"SELECT distinct port FROM boards WHERE version like '{version}' ORDER BY port;"
+    rows = query(qry)
+    ports = [row["port"] for row in rows]
+    return ports
 
 
 def get_known_boards_for_port(port: Optional[str] = "", versions: Optional[List[str]] = None) -> List[Board]:
@@ -32,33 +32,17 @@ def get_known_boards_for_port(port: Optional[str] = "", versions: Optional[List[
     port: The Micropython port to filter for
     versions:  Optional, The Micropython versions to filter for (actual versions required)
     """
-    mp_boards = read_known_boardinfo()
+    versions = [ clean_version(v) for v in versions ] if versions else []
+    # build query to get the boards for the given port and version(s)
+    qry = "SELECT * FROM board_downloaded WHERE true"
     if versions:
-        preview_or_stable = "preview" in versions or "stable" in versions
-    else:
-        preview_or_stable = False
-
-    # filter for 'preview' as they are not in the board_info.json
-    # instead use stable version
-    versions = versions or []
-    if "preview" in versions:
-        versions.remove("preview")
-        versions.append("stable")
-    # filter for the port
+        qry += f" AND version in {str(tuple(versions)).replace(',)', ')')}"
     if port:
-        mp_boards = [board for board in mp_boards if board.port == port]
-    if versions:
-        # make sure of the v prefix
-        versions = [clean_version(v) for v in versions]
-        # filter for the version(s)
-        mp_boards = [board for board in mp_boards if board.version in versions]
-        if not mp_boards and preview_or_stable:
-            # nothing found - perhaps there is a newer version for which we do not have the board info yet
-            # use the latest known version from the board info
-            mp_boards = read_known_boardinfo()
-            last_known_version = sorted({b.version for b in mp_boards})[-1]
-            mp_boards = [board for board in mp_boards if board.version == last_known_version]
+        qry += f" AND port = '{port}'"
+    qry += "ORDER BY port, board_id" 
 
+    rows = query(qry)
+    mp_boards = [Board.from_dict(dict(row)) for row in rows]
     return mp_boards
 
 

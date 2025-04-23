@@ -62,3 +62,5 @@ def find_board_info(db_path: Path | None = None, board_id: str = "", version: st
         rows = cursor.fetchall()
 
     return rows
+
+

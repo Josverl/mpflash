@@ -20,14 +20,12 @@ WorkList = List[Tuple[MPRemoteBoard, FWInfo]]
 def auto_update(
     conn_boards: List[MPRemoteBoard],
     target_version: str,
-    fw_folder: Path,
 ) -> WorkList:
     """Builds a list of boards to update based on the connected boards and the firmwares available locally in the firmware folder.
 
     Args:
         conn_boards (List[MPRemoteBoard]): List of connected boards
         target_version (str): Target firmware version
-        fw_folder (Path): Path to the firmware folder
         selector (Optional[Dict[str, str]], optional): Selector for filtering firmware. Defaults to None.
 
     Returns:
@@ -39,7 +37,6 @@ def auto_update(
             log.warning(f"Skipping flashing {mcu.family} {mcu.port} {mcu.board} on {mcu.serialport} as it is not a MicroPython firmware")
             continue
         board_firmwares = find_downloaded_firmware(
-            db_path=fw_folder,
             board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
             version=target_version,
             port=mcu.port,
@@ -64,7 +61,6 @@ def manual_worklist(
     *,
     board_id: str,
     version: str,
-    fw_folder: Path,
 ) -> WorkList:
     """Create a worklist for a single board specified manually.
 
@@ -72,7 +68,6 @@ def manual_worklist(
         serial (str): Serial port of the board
         board (str): Board_ID
         version (str): Firmware version
-        fw_folder (Path): Path to the firmware folder
 
     Returns:
         WorkList: List of boards and firmware information to update
@@ -90,7 +85,7 @@ def manual_worklist(
         log.exception(e)
         return []
     mcu.board = board_id
-    firmwares = find_downloaded_firmware(db_path=fw_folder, board_id=board_id, version=version, port=mcu.port)
+    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port)
     if not firmwares:
         log.error(f"No firmware found for {mcu.port} {board_id} version {version}")
         return []
@@ -102,21 +97,19 @@ def single_auto_worklist(
     serial: str,
     *,
     version: str,
-    fw_folder: Path,
 ) -> WorkList:
     """Create a worklist for a single serial-port.
 
     Args:
         serial_port (str): Serial port of the board
         version (str): Firmware version
-        fw_folder (Path): Path to the firmware folder
 
     Returns:
         WorkList: List of boards and firmware information to update
     """
     log.trace(f"Auto updating {serial} to {version}")
     conn_boards = [MPRemoteBoard(serial)]
-    todo = auto_update(conn_boards, version, fw_folder)  # type: ignore # List / list
+    todo = auto_update(conn_boards, version)  # type: ignore # List / list
     show_mcus(conn_boards)  # type: ignore
     return todo
 
@@ -127,7 +120,6 @@ def full_auto_worklist(
     include: List[str],
     ignore: List[str],
     version: str,
-    fw_folder: Path,
 ) -> WorkList:
     """
     Create a worklist for all connected micropython boards based on the information retrieved from the board.
@@ -135,14 +127,13 @@ def full_auto_worklist(
 
     Args:
         version (str): Firmware version
-        fw_folder (Path): Path to the firmware folder
 
     Returns:
         WorkList: List of boards and firmware information to update
     """
     log.trace(f"Auto updating all boards to {version}")
     if selected_boards := filter_boards(all_boards, include=include, ignore=ignore):
-        return auto_update(selected_boards, version, fw_folder)
+        return auto_update(selected_boards, version)
     else:
         return []
 

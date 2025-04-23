@@ -55,6 +55,14 @@ class MPFlashConfig:
                     self._firmware_folder = ws_path
         return self._firmware_folder
 
+    @firmware_folder.setter
+    def firmware_folder(self, value: Path):
+        """Set the firmware folder"""
+        if value.exists() and value.is_dir():
+            self._firmware_folder = value
+        else:
+            raise ValueError(f"Invalid firmware folder: {value}. It must be a valid directory.")
+
     @property
     def db_path(self) -> Path:
         """The path to the database file"""

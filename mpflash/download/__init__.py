@@ -103,7 +103,7 @@ def download_firmware_files(available_firmwares :List[FWInfo],firmware_folder:Pa
             log.debug(f" {fw.filename} downloaded")
             downloaded += 1
     if downloaded > 0:
-        clean_downloaded_firmwares(firmware_folder)
+        clean_downloaded_firmwares()
     return downloaded
 
 
@@ -150,7 +150,6 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
 
 
 def download(
-    destination: Path,
     ports: List[str],
     boards: List[str],
     versions: List[str],
@@ -177,7 +176,7 @@ def download(
     """
     # Just in time import
     import requests
-
+    destination = config.firmware_folder
     if not boards:
         log.critical("No boards found, please connect a board or specify boards to download firmware for.")
         raise MPFlashError("No boards found")

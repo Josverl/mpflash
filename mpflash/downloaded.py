@@ -13,7 +13,7 @@ from .config import config
 # #########################################################################################################
 
 
-def clean_downloaded_firmwares(fw_folder: Path) -> None:
+def clean_downloaded_firmwares() -> None:
     """
     Remove duplicate entries from the firmware.jsonl file, keeping the latest one
     uniqueness is based on the filename

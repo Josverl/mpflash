@@ -5,6 +5,7 @@ from loguru import logger as log
 from mpflash.bootloader.activate import enter_bootloader
 from mpflash.common import PORT_FWTYPES, BootloaderMethod, UF2_PORTS
 from mpflash.errors import MPFlashError
+from mpflash.config import config
 
 from .esp import flash_esp
 from .stm32 import flash_stm32
@@ -15,7 +16,6 @@ from .worklist import WorkList
 
 def flash_list(
     todo: WorkList,
-    fw_folder: Path,
     erase: bool,
     bootloader: BootloaderMethod,
     **kwargs
@@ -23,7 +23,7 @@ def flash_list(
     """Flash a list of boards with the specified firmware."""
     flashed = []
     for mcu, fw_info in todo:
-        fw_file = fw_folder / fw_info.filename
+        fw_file = config.firmware_folder / fw_info.filename
         if not fw_file.exists():
             log.error(f"File {fw_file} does not exist, skipping {mcu.board} on {mcu.serialport}")
             continue
