@@ -126,7 +126,7 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
 
     log.trace("Checking MicroPython download pages")
     versions = [clean_version(v, drop_v=False) for v in versions]
-    preview = "preview" in versions
+    preview = any("preview" in v for v in versions)
 
     board_urls = sorted(get_boards(ports, boards, clean), key=key_fw_ver_pre_ext_bld)
 
@@ -208,8 +208,12 @@ def add_renamed_boards(boards: List[str]) -> List[str]:
 
     renamed = {
         "PICO": ["RPI_PICO"],
+        "RPI_PICO": ["PICO"],
         "PICO_W": ["RPI_PICO_W"],
+        "RPI_PICO_W": ["PICO_W"],
         "GENERIC": ["ESP32_GENERIC", "ESP8266_GENERIC"],  # just add both of them
+        "ESP32_GENERIC": ["GENERIC"],
+        "ESP8266_GENERIC": ["GENERIC"],
     }
     _boards = boards.copy()
     for board in boards:
