@@ -41,11 +41,6 @@ def create_views(conn: sqlite3.Connection):
     cursor = conn.cursor()
 
     views = {
-        "latest_boards": """
-            SELECT b.*, d.version, d.filename, d.source
-            FROM boards b
-            LEFT JOIN downloads d ON b.board_id = d.board_id AND b.version = d.version
-        """,
         "board_downloaded": """
             SELECT 
                 b.board_id,
