@@ -1,37 +1,27 @@
-from math import e
-from pathlib import Path
+
 import sqlite3
+from pathlib import Path
 from typing import Optional
-from packaging.version import Version
+
 from mpflash.config import config
 from mpflash.logger import log
+
+from .create import create_database
 from .load import load_data_from_zip, load_jsonl_to_sqlite
-from .create import create_schema, create_views, get_database_version, set_database_version, update_boardlist_schema
 
 HERE = Path(__file__).parent.resolve()
 
-
-def update_database(v_goal="1.24.1"):
+def update_database(v_goal=""):
     """
     Update the SQLite database to the specified version.
     """
+    v_goal = v_goal or config.db_version
     db_path = config.db_path
-
     log.debug(f"Updating database {db_path} to version {v_goal}")
 
     with sqlite3.connect(db_path) as conn:
-        if not get_database_version(conn):
-            create_schema(conn)
-            set_database_version(conn, "0.0.1")
-        current = get_database_version(conn)
-        if not current or Version(current) < Version(v_goal):
-            update_boardlist_schema(conn)
-
-            # Create/update views
-            create_views(conn)
-
-            set_database_version(conn, v_goal)
-
+        # Create the database and initialize it with the schema if it doesn't exist
+        create_database(conn, v_goal)
         zip_file = HERE / "micropython_boards.zip"
         load_data_from_zip(conn, zip_file)
         # Test retrieving some data

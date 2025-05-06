@@ -4,8 +4,8 @@ Uses the micropython.org website to get the available versions and locations to 
 """
 
 import itertools
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 from typing import Dict, List, Optional
 
 # #########################################################################################################
@@ -15,12 +15,14 @@ from loguru import logger as log
 from rich.progress import track
 
 from mpflash.common import PORT_FWTYPES, FWInfo
-from .from_web import get_boards, fetch_firmware_files
+from mpflash.config import config
+from mpflash.db.downloads import upsert_download
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
-from mpflash.config import config
-from mpflash.db.downloads import upsert_download
+
+from .from_web import fetch_firmware_files, get_boards
+
 # avoid conflict with the ujson used by MicroPython
 jsonlines.ujson = None  # type: ignore
 # #########################################################################################################

@@ -1,4 +1,5 @@
 from pathlib import Path
+import sqlite3
 from typing import Dict, List, Optional
 
 import jsonlines
@@ -28,11 +29,11 @@ def find_downloaded_firmware(
     version: str = "",  # v1.2.3
     port: str = "",
     variants: bool = False,
-    db_path: Optional[Path] = None,
+    conn: Optional[sqlite3.Connection] = None,
 ) -> List[FWInfo]:
     version = clean_version(version)
     log.debug(f"Looking for firmware for {board_id} {version} ")
-    fw_list = search_downloaded_fw(db_path=db_path, board_id=board_id, version=version, port=port)
+    fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
     if fw_list:
         return fw_list
     #
@@ -49,7 +50,7 @@ def find_downloaded_firmware(
         board_id = board_id.replace("ESP8266_", "")
     #        
     log.debug(f"2nd search with renamed board_id :{board_id}")
-    fw_list = search_downloaded_fw(db_path=db_path, board_id=board_id, version=version, port=port)
+    fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
     if fw_list:
         return fw_list
     log.error("No firmware files found. Please download the firmware first.")

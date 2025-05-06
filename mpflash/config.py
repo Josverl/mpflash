@@ -67,6 +67,9 @@ class MPFlashConfig:
     def db_path(self) -> Path:
         """The path to the database file"""
         return self.firmware_folder / "mpflash.db"
+    @property
+    def db_version(self) -> str:
+        return "1.24.1"
 
     @property
     def gh_client(self):

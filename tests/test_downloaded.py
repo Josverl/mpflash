@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -50,12 +52,12 @@ pytestmark = [pytest.mark.mpflash]
     ],
 )  #
 def test_find_downloaded_firmware(port, board_id, version, OK, test_fw_path,variants: bool):
-    testdata = False  
-    if testdata:
-        fw_path = test_fw_path / "mpflash.db"
+    use_testdata = True  
+    if use_testdata:
+        conn = sqlite3.connect(test_fw_path / "mpflash.db")
     else:
-        fw_path = config.db_path
-        if not fw_path.exists():
+        conn = None
+        if not config.db_path.exists():
             pytest.xfail("This test may not work in CI, as the firmware may not be downloaded.")
 
     result = find_downloaded_firmware(
@@ -63,7 +65,7 @@ def test_find_downloaded_firmware(port, board_id, version, OK, test_fw_path,vari
         board_id=board_id,
         port=port,
         variants=variants,
-        db_path=fw_path,
+        conn=conn,
     )
     if not OK:
         assert not result

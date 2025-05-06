@@ -2,15 +2,33 @@
 Functions to update the board ID database with fresh content , and to migrate the jsonl files to a database table.
 """
 
+import sqlite3
 from pathlib import Path
-from mpflash.vendor.board_database import Database
-from mpflash.logger import log
 
+from packaging.version import Version
+
+from mpflash.config import config
+from mpflash.logger import log
+from mpflash.vendor.board_database import Database
+
+# database 
+
+def create_database(conn: sqlite3.Connection, v_goal:str = "") -> None:
+    """
+    Create the SQLite database and initialize it with the schema if it doesn't exist.
+    """
+    v_goal = v_goal or config.db_version
+    if not get_database_version(conn):
+        create_schema(conn)
+        set_database_version(conn, v_goal)
+    current = get_database_version(conn)
+    if not current or Version(current) < Version(v_goal):
+        update_boardlist_schema(conn)
+        # Create/update views
+        create_views(conn)
+        set_database_version(conn, v_goal)
 
 # Views
-
-import sqlite3
-
 
 def create_views(conn: sqlite3.Connection):
     """
@@ -85,9 +103,6 @@ def create_views(conn: sqlite3.Connection):
     conn.commit()
 
 
-# create basic schema
-import sqlite3
-
 
 def create_schema(conn: sqlite3.Connection):
     log.debug("Creating database tables")
@@ -140,10 +155,6 @@ def create_schema(conn: sqlite3.Connection):
 
 
 # metadata
-
-
-from mpflash.config import config
-import sqlite3
 
 
 def get_database_version(conn: sqlite3.Connection):

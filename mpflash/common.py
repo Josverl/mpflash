@@ -58,12 +58,15 @@ class FWInfo:
     @classmethod
     def from_dict(cls, data: dict) -> "FWInfo":
         """Create a FWInfo object from a dictionary"""
+        valid_keys = {field.name for field in FWInfo.__dataclass_fields__.values()}
+        filtered_data = {k: v for k, v in data.items() if k in valid_keys}
         # add missing keys
         if "ext" not in data:
             data["ext"] = Path(data["filename"]).suffix
         if "family" not in data:
             data["family"] = "micropython"
-        return cls(**data)
+        return FWInfo(**filtered_data)        
+        # return cls(**data)
 
 
 @dataclass
