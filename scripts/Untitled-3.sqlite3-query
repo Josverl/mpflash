@@ -1,0 +1,12 @@
+-- database: ./c:/Users/josverl/Downloads/firmware/mpflash.db
+
+-- lookup board-ID based on a lonfg / sort description
+SELECT 
+    DISTINCT 
+        board_id
+
+FROM board_downloaded
+
+WHERE 
+    -- description IN ('TinyS3 with ESP32-S3-FN8', 'TinyS3')
+    description IN ('Raspberry Pi Pico W' )

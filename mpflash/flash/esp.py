@@ -15,6 +15,7 @@ from mpflash.mpremoteboard import MPRemoteBoard
 
 FlashMode = Literal["keep", "qio", "qout", "dio", "dout"]
 
+
 def flash_esp(
     mcu: MPRemoteBoard,
     fw_file: Path,
