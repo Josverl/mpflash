@@ -3,10 +3,7 @@ from pathlib import Path
 import pytest
 
 from mpflash.errors import MPFlashError
-from mpflash.mpboard_id.board_id import (  # type: ignore
-    _find_board_id_by_description,
-    find_board_id_by_description,
-)
+from mpflash.mpboard_id.board_id import _find_board_id_by_description, find_board_id_by_description  # type: ignore
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -19,8 +16,8 @@ HERE = Path(__file__).parent
     [
         # Happy path tests
         ("happy-1", "stable", "Arduino Nano RP2040 Connect", None, "ARDUINO_NANO_RP2040_CONNECT"),
-        ("happy-2", "stable", "Pimoroni Tiny 2040", None, "PIMORONI_TINY2040"),
-        ("happy-3", "stable", "Pimoroni Tiny 2040", "", "PIMORONI_TINY2040"),
+        ("happy-2", "v1.23.0", "Pimoroni Tiny 2040", None, "PIMORONI_TINY2040"),
+        ("happy-3", "v1.23.0", "Pimoroni Tiny 2040", "", "PIMORONI_TINY2040"),
         (
             "happy-4",
             "stable",
@@ -29,7 +26,7 @@ HERE = Path(__file__).parent
             "ESP32_GENERIC",
         ),
         # Edge cases
-        ("edge-1", "stable", "Pimoroni Tiny 2040 LONG", "Pimoroni Tiny 2040", "PIMORONI_TINY2040"),
+        ("edge-1", "v1.23.0", "Pimoroni Tiny 2040 fake", "Pimoroni Tiny 2040", "PIMORONI_TINY2040"),
         (
             "edge-2",
             "stable",
@@ -70,6 +67,7 @@ HERE = Path(__file__).parent
         # Error cases
         ("error-1", "stable", "Board FOO", "FOO", None),
         ("error-2", "stable", "Board BAR", "BAR", None),
+        ("removed-3", "v1.24.0", "Pimoroni Tiny 2040", "", None),
         # Bugs #1
         ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W with RP2350", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
         ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
@@ -86,13 +84,3 @@ def test_find_board_id_real(test_id, descr, short_descr, expected_result, versio
         # Assert
         assert result == expected_result
 
-
-def test_find_mpflash_db_not_found(tmp_path):
-    non_existent_file = tmp_path / "non_existent.db"
-    with pytest.raises(MPFlashError):
-        result = _find_board_id_by_description(
-            descr="Board A",
-            short_descr="A",
-            version="stable",
-            db_path=non_existent_file,
-        )

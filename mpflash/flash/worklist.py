@@ -5,7 +5,8 @@ from typing import Dict, List, Optional, Tuple
 
 from loguru import logger as log
 
-from mpflash.common import FWInfo, filtered_comports
+from mpflash.common import filtered_comports
+from mpflash.db.models import Firmware
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
 from mpflash.list import show_mcus
@@ -13,7 +14,7 @@ from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # #########################################################################################################
-WorkList = List[Tuple[MPRemoteBoard, FWInfo]]
+WorkList = List[Tuple[MPRemoteBoard, Firmware]]
 # #########################################################################################################
 
 
@@ -51,7 +52,7 @@ def auto_update(
 
         # just use the last firmware
         fw_info = board_firmwares[-1]
-        log.info(f"Found {target_version} firmware {fw_info.filename} for {mcu.board} on {mcu.serialport}.")
+        log.info(f"Found {target_version} firmware {fw_info.firmware_file} for {mcu.board} on {mcu.serialport}.")
         wl.append((mcu, fw_info))
     return wl
 
@@ -79,7 +80,7 @@ def manual_worklist(
         info = find_known_board(board_id)
         mcu.port = info.port
         # need the CPU type for the esptool
-        mcu.cpu = info.cpu
+        mcu.cpu = info.mcu
     except (LookupError, MPFlashError) as e:
         log.error(f"Board {board_id} not found in board database")
         log.exception(e)

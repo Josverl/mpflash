@@ -3,7 +3,7 @@ import sqlite3
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.common import FWInfo
+from mpflash.db.models import Firmware
 from mpflash.config import config
 # from mpflash.db.downloads import downloaded_fw
 from mpflash.downloaded import find_downloaded_firmware
@@ -72,17 +72,17 @@ def test_find_downloaded_firmware(port, board_id, version, OK, test_fw_path,vari
         return
 
     assert result
-    assert all(isinstance(fw, FWInfo) for fw in result), "All elements should be FWInfo objects"
+    assert all(isinstance(fw, Firmware) for fw in result), "All elements should be FWInfo objects"
     assert all(fw.port == port for fw in result)
     # same board ; or PORT_board
     assert all(fw.board in (board_id, f"{port.upper()}_{board_id}", f"RPI_{board_id}") for fw in result)
 
     assert all(version in fw.version for fw in result), "Must be the same version"
-    assert all(version in fw.filename for fw in result), "Must be the same version in filename"
-    assert all(fw.filename for fw in result) , "All elements must have a filename"
+    assert all(version in fw.firmware_file for fw in result), "Must be the same version in filename"
+    assert all(fw.firmware_file for fw in result) , "All elements must have a filename"
     if not variants:
         # then no variant should be present
-        assert all(fw.variant == "" for fw in result)
+        assert all(fw.board.variant == "" for fw in result)
 
 
 # @pytest.mark.parametrize(

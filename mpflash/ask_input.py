@@ -11,7 +11,8 @@ from loguru import logger as log
 
 from .common import DownloadParams, FlashParams, ParamType
 from .config import config
-from .mpboard_id import get_known_boards_for_port, get_known_ports, known_stored_boards
+from .mpboard_id import (get_known_boards_for_port, known_ports,
+                         known_stored_boards)
 from .mpremoteboard import MPRemoteBoard
 from .versions import micropython_versions
 
@@ -106,7 +107,7 @@ def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
     Returns:
         Sequence[Tuple[str, str]]: The filtered boards.
     """
-    versions = None
+    versions = []
     # if version is not asked ; then need to get the version from the inputs
     if "versions" in answers:
         versions = list(answers["versions"])
@@ -151,7 +152,7 @@ def ask_port_board(*, multi_select: bool, action: str):
         inquirer.List(
             "port",
             message="Which port do you want to {action} " + "to {serial} ?" if action == "flash" else "?",
-            choices=get_known_ports(),
+            choices=known_ports(),
             # autocomplete=True,
         ),
         inquirer_ux(

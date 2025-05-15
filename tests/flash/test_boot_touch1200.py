@@ -23,7 +23,7 @@ def test_enter_bootloader_success(mocker: MockerFixture, mock_mcu):
 
 
 def test_enter_bootloader_no_serialport():
-    mcu = MPRemoteBoard(serialport=None)
+    mcu = MPRemoteBoard(serialport="")
     with pytest.raises(MPFlashError, match="No serial port specified"):
         enter_bootloader_touch_1200bps(mcu)
 

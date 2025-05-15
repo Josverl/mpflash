@@ -1,12 +1,13 @@
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import jsonlines
 from loguru import logger as log
 
-from mpflash.common import PORT_FWTYPES, FWInfo
-from mpflash.db.downloads import search_downloaded_fw
+from mpflash.common import PORT_FWTYPES
+from mpflash.db import Session
+from mpflash.db.models import Board, Firmware
 from mpflash.versions import clean_version
 
 from .config import config
@@ -29,11 +30,16 @@ def find_downloaded_firmware(
     version: str = "",  # v1.2.3
     port: str = "",
     variants: bool = False,
-    conn: Optional[sqlite3.Connection] = None,
-) -> List[FWInfo]:
+) -> List[Firmware]:
     version = clean_version(version)
     log.debug(f"Looking for firmware for {board_id} {version} ")
-    fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
+    # fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
+    with Session() as session:
+        fw_list = (
+            session.query(Firmware)
+            .filter(Firmware.board_id == board_id, Firmware.version == version)
+            .all()
+        )
     if fw_list:
         return fw_list
     #
@@ -50,7 +56,12 @@ def find_downloaded_firmware(
         board_id = board_id.replace("ESP8266_", "")
     #        
     log.debug(f"2nd search with renamed board_id :{board_id}")
-    fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
+    with Session() as session:
+        fw_list = (
+            session.query(Firmware)
+            .filter(Firmware.board_id == board_id, Firmware.version == version)
+            .all()
+        )
     if fw_list:
         return fw_list
     log.error("No firmware files found. Please download the firmware first.")

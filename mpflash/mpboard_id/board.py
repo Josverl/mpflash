@@ -5,7 +5,7 @@ from typing import Union
 
 # - source : get_boardnames.py
 @dataclass
-class Board:
+class __Board:
     """
     MicroPython Board definitions, parsed from the make and header files
     """
@@ -31,10 +31,10 @@ class Board:
                 self.cpu = self.port
 
     @staticmethod
-    def from_dict(data: dict) -> "Board":
-        valid_keys = {field.name for field in Board.__dataclass_fields__.values()}
+    def from_dict(data: dict) -> "__Board":
+        valid_keys = {field.name for field in __Board.__dataclass_fields__.values()}
         filtered_data = {k: v for k, v in data.items() if k in valid_keys}
-        return Board(**filtered_data)
+        return __Board(**filtered_data)
 
     def to_dict(self) -> dict:
         return self.__dict__

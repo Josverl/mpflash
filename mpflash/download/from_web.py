@@ -5,16 +5,15 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
-
 from loguru import logger as log
 from rich.progress import track
 
-from mpflash.common import PORT_FWTYPES, FWInfo
+from mpflash.common import PORT_FWTYPES
+from mpflash.db.models import Firmware
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
-from mpflash.mpboard_id import get_known_ports
+from mpflash.mpboard_id import known_ports
 from mpflash.versions import clean_version
-
 
 MICROPYTHON_ORG_URL = "https://micropython.org/"
 
@@ -106,7 +105,7 @@ def board_firmware_urls(board_url: str, base_url: str, ext: str) -> List[str]:
 # boards we are interested in ( this avoids getting a lot of boards we don't care about)
 # The first run takes ~60 seconds to run for 4 ports , all boards
 # so it makes sense to cache the results and skip boards as soon as possible
-def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]:
+def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmware]:
     # sourcery skip: use-getitem-for-re-match-groups
     """
     Retrieves a list of firmware information for the specified ports and boards.
@@ -120,9 +119,9 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
         List[FWInfo]: A list of firmware information for the specified ports and boards.
 
     """
-    board_urls: List[FWInfo] = []
+    board_urls: List[Firmware] = []
     if ports is None:
-        ports = get_known_ports()
+        ports = known_ports()
     for port in ports:
         download_page_url = f"{MICROPYTHON_ORG_URL}download/?port={port}"
         urls = get_board_urls(download_page_url)
@@ -151,7 +150,7 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
                     fname = re.sub(RE_DATE, "-", fname)
                     # remove hash from firmware name
                     fname = re.sub(RE_HASH, ".", fname)
-                fw_info = FWInfo(
+                fw_info = Firmware(
                     filename=fname,
                     port=port,
                     board=board["board"],
@@ -163,8 +162,8 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
                 # board["preview"] = "preview" in _url  # type: ignore
                 if ver_match := re.search(RE_VERSION_PREVIEW, _url):
                     fw_info.version = clean_version(ver_match.group(1))
-                    fw_info.build = ver_match.group(2) or "0"
-                fw_info.preview = fw_info.build != "0"
+                    fw_info.build = int(ver_match.group(2)) or 0
+                # fw_info.preview = fw_info.build != "0"
                 # # else:
                 # #     board.$1= ""
                 # if "preview." in fw_info.version:
@@ -172,30 +171,30 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[FWInfo]
                 # else:
                 #     fw_info.build = "0"
 
-                fw_info.ext = Path(fw_info.url).suffix
-                fw_info.variant = fw_info.filename.split("-v")[0] if "-v" in fw_info.filename else ""
+                # fw_info.ext = Path(fw_info.url).suffix
+                # fw_info.variant = fw_info.filename.split("-v")[0] if "-v" in fw_info.filename else ""
 
                 board_urls.append(fw_info)
     return board_urls
 
 
-def fetch_firmware_files(available_firmwares: List[FWInfo], firmware_folder: Path, force: bool):
+def fetch_firmware_files(available_firmwares: List[Firmware], firmware_folder: Path, force: bool):
     # Just in time import
     import requests
 
     for board in available_firmwares:
-        filename = firmware_folder / board.port / board.filename
+        filename = firmware_folder / board.port / board.firmware_file
         filename.parent.mkdir(exist_ok=True)
         if filename.exists() and not force:
             log.debug(f" {filename} already exists, skip download")
             continue
-        log.info(f"Downloading {board.url}")
+        log.info(f"Downloading {board.source}")
         log.info(f"         to {filename}")
         try:
-            r = requests.get(board.url, allow_redirects=True)
+            r = requests.get(board.source, allow_redirects=True)
             with open(filename, "wb") as fw:
                 fw.write(r.content)
-            board.filename = str(filename.relative_to(firmware_folder))
+            board.firmware_file = str(filename.relative_to(firmware_folder))
         except requests.RequestException as e:
             log.exception(e)
             continue

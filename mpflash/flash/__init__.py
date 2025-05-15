@@ -23,7 +23,7 @@ def flash_list(
     """Flash a list of boards with the specified firmware."""
     flashed = []
     for mcu, fw_info in todo:
-        fw_file = config.firmware_folder / fw_info.filename
+        fw_file = config.firmware_folder / fw_info.firmware_file
         if not fw_file.exists():
             log.error(f"File {fw_file} does not exist, skipping {mcu.board} on {mcu.serialport}")
             continue

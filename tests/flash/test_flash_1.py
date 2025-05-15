@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.common import BootloaderMethod, FWInfo
+from mpflash.db.models import Firmware
+from mpflash.common import BootloaderMethod
 from mpflash.flash import enter_bootloader, flash_list
 from mpflash.flash.worklist import WorkList
 from mpflash.mpremoteboard import MPRemoteBoard
@@ -72,7 +73,7 @@ def test_flash_list(mocker: MockerFixture, test_fw_path: Path, bootloader, port)
     todo: WorkList = [
         (
             board,
-            FWInfo(
+            Firmware(
                 board="ESP32_GENERIC",
                 port="esp32",
                 #                "firmware": "https://micropython.org/resources/firmware/ESP32_GENERIC-20240222-v1.22.2.bin",

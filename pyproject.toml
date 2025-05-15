@@ -45,6 +45,7 @@ requests = "^2.31.0"
 rich-click = "^1.8.1"
 tenacity = "9.0.0"
 cache-to-disk = "^2.0.0"
+sqlalchemy = "^2.0.41"
 
 
 [tool.poetry.group.dev]

@@ -1,12 +1,12 @@
 import pytest
 
-from mpflash.mpboard_id import find_known_board, get_known_ports, known_stored_boards
-from mpflash.mpboard_id.board import Board
+from mpflash.db.models import Board
+from mpflash.mpboard_id import find_known_board, known_ports, known_stored_boards
 
 pytestmark = [pytest.mark.mpflash]
 
 def test_get_known_ports():
-    ports = get_known_ports()
+    ports = known_ports()
     assert isinstance(ports, list)
     assert all(isinstance(port, str) for port in ports)
 

@@ -2,18 +2,18 @@ import functools
 import zipfile
 from pathlib import Path
 from typing import Final, List, Optional
-from mpflash.logger import log
 
 import jsons
 
-from mpflash.mpboard_id.board import Board
+from mpflash.logger import log
+from mpflash.mpboard_id.board import __Board
 
 ###############################################################################################
 HERE: Final = Path(__file__).parent
 ###############################################################################################
 
 
-def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = None):
+def write_boardinfo_json(board_list: List[__Board], *, folder: Optional[Path] = None):
     """Writes the board information to a JSON file.
 
     Args:

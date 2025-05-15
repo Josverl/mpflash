@@ -14,14 +14,16 @@ import jsonlines
 from loguru import logger as log
 from rich.progress import track
 
-from mpflash.common import PORT_FWTYPES, FWInfo
+from mpflash.common import PORT_FWTYPES
 from mpflash.config import config
-from mpflash.db.downloads import upsert_download
+from mpflash.db.core import Session
+from mpflash.db.models import Firmware
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
 
 from .from_web import fetch_firmware_files, get_boards
+from .fwinfo import FWInfo
 
 # avoid conflict with the ujson used by MicroPython
 jsonlines.ujson = None  # type: ignore
@@ -29,14 +31,15 @@ jsonlines.ujson = None  # type: ignore
 
 
 
-def key_fw_ver_pre_ext_bld(x: FWInfo):
-    "sorting key for the retrieved board urls"
-    return x.variant, x.version, x.preview, x.ext, x.build
+
+# def key_fw_ver_pre_ext_bld(x: FWInfo):
+#     "sorting key for the retrieved board urls"
+#     return x.variant, x.version, x.preview, x.ext, x.build
 
 
-def key_fw_var_pre_ext(x: FWInfo):
+def key_fw_var_pre_ext(x: Firmware):
     "Grouping key for the retrieved board urls"
-    return x.variant, x.preview, x.ext
+    return x.board.variant, x.preview, x.ext
 
 
 def download_firmwares(
@@ -69,7 +72,7 @@ def download_firmwares(
     available_firmwares = get_firmware_list(ports, boards, versions, clean)
 
     for b in available_firmwares:
-        log.debug(b.filename)
+        log.debug(b.firmware_file)
     # relevant
 
     log.info(f"Found {len(available_firmwares)} relevant unique firmwares")
@@ -85,7 +88,7 @@ def download_firmwares(
     log.success(f"Downloaded {downloaded} firmware images." )
     return downloaded 
 
-def download_firmware_files(available_firmwares :List[FWInfo],firmware_folder:Path, force:bool ):
+def download_firmware_files(available_firmwares :List[Firmware],firmware_folder:Path, force:bool ):
     """
     Downloads the firmware files to the specified folder.
     Args:
@@ -96,14 +99,14 @@ def download_firmware_files(available_firmwares :List[FWInfo],firmware_folder:Pa
     """
 
     # with jsonlines.open(firmware_folder / "firmware.jsonl", "a") as writer:
-    with sqlite3.connect(config.db_path) as conn:
+    with Session() as session:
         # skipped, downloaded = fetch_firmware_files(available_firmwares, firmware_folder, force, requests, writer)
         downloaded = 0
         for fw in fetch_firmware_files(available_firmwares, firmware_folder, force):
-            upsert_download(conn, fw)
-            # writer.write(fw)
-            log.debug(f" {fw.filename} downloaded")
+            session.merge(fw)
+            log.debug(f" {fw.firmware_file} downloaded")
             downloaded += 1
+        session.commit()
     if downloaded > 0:
         clean_downloaded_firmwares()
     return downloaded
@@ -130,7 +133,8 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
     versions = [clean_version(v, drop_v=False) for v in versions]
     preview = any("preview" in v for v in versions)
 
-    board_urls = sorted(get_boards(ports, boards, clean), key=key_fw_ver_pre_ext_bld)
+    # board_urls = sorted(get_boards(ports, boards, clean), key=key_fw_ver_pre_ext_bld)
+    board_urls = get_boards(ports, boards, clean)
 
     log.debug(f"Total {len(board_urls)} firmwares")
 
@@ -142,7 +146,7 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
         relevant.extend([board for board in board_urls if board.board in boards and board.preview])
     log.debug(f"Matching firmwares: {len(relevant)}")
     # select the unique boards
-    unique_boards: List[FWInfo] = []
+    unique_boards: List[Firmware] = []
     for _, g in itertools.groupby(relevant, key=key_fw_var_pre_ext):
         # list is aleady sorted by build so we can just get the last item
         sub_list = list(g)

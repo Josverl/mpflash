@@ -9,27 +9,12 @@ from .cli_download import cli_download
 from .cli_flash import cli_flash_board
 from .cli_group import cli
 from .cli_list import cli_list_mcus
-from .config import config
-
-
-def migrate_database():
-    """Migrate from 1.24.x to 1.25.x"""
-    # lazy import to avoid slowdowns
-    if not config.db_path.exists():
-        import mpflash.db.update as update
-
-        update.update_database()
-    jsonl_file = config.firmware_folder / "firmware.jsonl"
-    if jsonl_file.exists():
-        import mpflash.db.update as update
-
-        log.info(f"Migrating JSONL data {jsonl_file}to SQLite database.")
-        update.migrate_jsonl(jsonl_file)
+from .db.core import migrate_database
 
 
 def mpflash():
     """Main entry point for the mpflash CLI."""
-    migrate_database()
+    migrate_database(boards=True, firmwares=True)
 
     cli.add_command(cli_list_mcus)
     cli.add_command(cli_download)
