@@ -10,10 +10,11 @@ from mpflash.config import config
 
 from .models import Base
 
-TRACE = True
+TRACE = False
 # TODO: Add location from config 
 # Full path to the SQLite database file
 db_file = Path("d:/mypython/mpflash/mpflash.db")
+db_file = Path("./mpflash.db")
 connect_str = f"sqlite:///{db_file.as_posix()}"
 engine = create_engine(connect_str, echo=TRACE)
 Session = sessionmaker(bind=engine)

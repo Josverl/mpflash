@@ -68,23 +68,34 @@ def load_jsonl_to_db(jsonl_path: Path):
                 if "preview" in record:
                     record["version"] = f"{record['version']}-preview" if record["preview"] else record["version"]
                     record.pop("preview", None)  # Remove 'preview' column
-                # save to database
-                fw = Firmware(
-                    board_id=record["board_id"],
-                    version=record["version"],
-                    firmware_file=str(Path(record["filename"]).as_posix()) if record["filename"] else "",
-                    source=record["source"],
-                    build=record["build"],
-                    custom=record["custom"],
-                )
+                firmware_file = str(Path(record["filename"]).as_posix()) if record["filename"] else ""
 
-                # Use merge to update existing or insert new record
-                session.merge(fw)
-                session.commit()
+                # Check if Firmware with this firmware_file exists
+                existing_fw = session.query(Firmware).filter_by(firmware_file=firmware_file).first()
+                if existing_fw:
+                    # Update fields
+                    existing_fw.board_id = record["board_id"]
+                    existing_fw.version = record["version"]
+                    existing_fw.source = record["source"]
+                    existing_fw.build = record["build"]
+                    existing_fw.custom = record["custom"]
+                    existing_fw.port = record["port"]
+                else:
+                    # Add new Firmware
+                    fw = Firmware(
+                        board_id=record["board_id"],
+                        version=record["version"],
+                        firmware_file=firmware_file,
+                        source=record["source"],
+                        build=record["build"],
+                        custom=record["custom"],
+                        port=record["port"],
+                    )
+                    session.merge(fw)
                 num_records += 1
             # commit once after all records are processed
+            session.commit()
     return num_records
-
 
 def update_boards():
     meta = get_metadata()

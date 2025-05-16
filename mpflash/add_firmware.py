@@ -14,6 +14,16 @@ from mpflash.db import Session
 from mpflash.db.models import Firmware
 from mpflash.versions import get_preview_mp_version, get_stable_mp_version
 
+# github.com/<owner>/<repo>@<branch>#<commit>
+# $remote_url = git remote get-url origin
+# $branch = git rev-parse --abbrev-ref HEAD
+# $commit = git rev-parse --short HEAD
+# if ($remote_url -match "github.com[:/](.+)/(.+?)(\.git)?$") {
+#     $owner = $matches[1]
+#     $repo = $matches[2]
+#     "github.com/$owner/$repo@$branch#$commit"
+# }
+
 
 def add_firmware(
     source: Union[Path, str],
