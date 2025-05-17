@@ -10,7 +10,7 @@ from mpremote.mip import _rewrite_url as rewrite_url  # type: ignore
 from pytest import Session
 
 from mpflash.config import config
-from mpflash.db import Session
+from mpflash.db.core import Session
 from mpflash.db.models import Firmware
 from mpflash.versions import get_preview_mp_version, get_stable_mp_version
 

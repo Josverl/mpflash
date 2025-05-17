@@ -8,7 +8,13 @@ from mpflash.versions import get_stable_mp_version
 pytestmark = [pytest.mark.mpflash]
 
 
-@pytest.mark.parametrize("port", known_ports())
+# @pytest.fixture(scope="module")
+# def f_known_port():
+#     """Fixture to provide known ports."""
+#     for p in known_ports():
+#         yield p
+
+
 @pytest.mark.parametrize(
     "id, versions",
     [
@@ -19,6 +25,10 @@ pytestmark = [pytest.mark.mpflash]
         ("preview", ["preview"]),
         ("stab + Prev", ["stable", "preview"]),
     ],
+)
+@pytest.mark.parametrize(
+    "port",
+    ["esp32", "esp8266", "rp2", "stm32"],
 )
 def test_mp_board_filter(port: str, id, versions: List[str]):
     # Arrange

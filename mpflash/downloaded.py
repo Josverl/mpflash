@@ -6,7 +6,7 @@ import jsonlines
 from loguru import logger as log
 
 from mpflash.common import PORT_FWTYPES
-from mpflash.db import Session
+from mpflash.db.core import Session
 from mpflash.db.models import Board, Firmware
 from mpflash.versions import clean_version
 

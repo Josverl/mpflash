@@ -1,20 +1,21 @@
-import pytest
-from unittest import mock
 from pathlib import Path
-from subprocess import CompletedProcess, CalledProcessError
+from subprocess import CalledProcessError, CompletedProcess
+from unittest import mock
+
+import pytest
 
 # test_basicgit.py
 from mpflash.basicgit import (
+    checkout_commit,
+    checkout_tag,
     clone,
+    fetch,
+    get_git_describe,
     get_local_tag,
     get_local_tags,
-    checkout_tag,
-    checkout_commit,
-    switch_tag,
-    switch_branch,
-    fetch,
     pull,
-    get_git_describe,
+    switch_branch,
+    switch_tag,
 )
 
 
@@ -32,12 +33,12 @@ def mock_subprocess_check_output():
 
 def test_clone_success(mock_subprocess_run):
     mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stderr="")
-    assert clone("https://github.com/user/repo.git", Path("/tmp/repo")) is True
+    assert clone("https://github.com/user1/repo.git", Path("/tmp/repo")) is True
 
 
 def test_clone_failure(mock_subprocess_run):
     mock_subprocess_run.side_effect = CalledProcessError(returncode=1, cmd="git clone")
-    assert clone("https://github.com/user/repo.git", Path("/tmp/repo")) is False
+    assert clone("https://github.com/user2/repo.git", Path("/tmp/repo")) is False
 
 
 def test_get_local_tag(mock_subprocess_run):

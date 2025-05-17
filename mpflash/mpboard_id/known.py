@@ -34,17 +34,18 @@ def known_versions(port: str | None = None) -> list[str]:
     return [row.version for row in versions]
 
 
-def get_known_boards_for_port(port: str = "", version: List[str] = []):
+def get_known_boards_for_port(port: str = "", versions: List[str] = []):
     """
     Returns a list of boards for the given port and version(s)
 
     port: The Micropython port to filter for
     versions:  Optional, The Micropython versions to filter for (actual versions required)
     """
+    versions = [clean_version(v) for v in versions] if versions else []
     with Session() as session:
         qry = session.query(Board).filter(Board.port.like(port))
-        if version:
-            qry = qry.filter(Board.version.in_(version))
+        if versions:
+            qry = qry.filter(Board.version.in_(versions))
         boards = qry.all()
         return boards
 

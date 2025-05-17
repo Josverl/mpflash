@@ -121,6 +121,93 @@ markers = [
 
 ]
 
+############################################################
+#                     Coverage (pytest-cov)                #
+############################################################
+
+
+# coverage reports
+
+[tool.coverage.run]
+parallel = false
+branch = true
+source = ["mpflash"]
+omit = [
+    # vendored 
+    "mpflash/vendor/*",
+    # pytest code
+    "*/test_*.py",
+    "*/*_test.py",
+
+]
+
+
+[tool.coverage.html]
+directory = "coverage"
+
+[tool.coverage.xml]
+output = "results/coverage.xml"
+
+[tool.coverage.json]
+output = "results/coverage.json"
+
+[tool.coverage.lcov]
+output = "results/coverage.lcov"
+
+[tool.coverage.report]
+show_missing = true
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    "pragma: nocover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "self._log.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    "except subprocess.CalledProcessError as e:",
+    "except OSError:",
+    "except OSError as e:",
+    "except OSError as e2:",
+    "except (OSError, KeyError):",
+    "except (OSError, AttributeError):",
+    "except (OSError, KeyError, NameError):",
+    "except KeyError:",
+    "except AttributeError as e:",
+
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+
+    # mind the quotes 
+    'if __name__ == "__main__" or isMicroPython():',
+    "main()",
+
+    # utility functions
+    "show_help()",
+    "isMicroPython()",
+    "read_path()",
+
+    #unreachable
+    # mind the quotes 
+    'info["release"] = "2.0.0" ',
+    "if arch",
+
+    # Micropython detection
+    "except (NotImplementedError, SyntaxError):",
+    # catch error
+    "except (OSError, KeyError):",
+    "except (OSError, AttributeError):",
+
+    # Backward compat <= 3.7 
+    "if sys.version_info.major == 3 and sys.version_info.minor <= 7:",
+
+]
+
 
 ############################################################
 #                         RUFF linter                      #

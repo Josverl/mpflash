@@ -7,11 +7,14 @@ from turtle import up
 
 from loguru import logger as log
 
+from mpflash.errors import MPFlashError
+
 from .core import Session, engine
 from .meta import get_metadata, set_metadata_value
 from .models import Board, Firmware
 
 HERE = Path(__file__).parent.resolve()
+
 
 def load_data_from_zip(zip_file: Path):
     log.debug("Loading data from zip file")
@@ -37,6 +40,7 @@ def load_data_from_zip(zip_file: Path):
                     # based on primary key (board_id and version)
                     session.merge(board)
                 session.commit()
+
 
 def load_jsonl_to_db(jsonl_path: Path):
     """
@@ -97,15 +101,15 @@ def load_jsonl_to_db(jsonl_path: Path):
             session.commit()
     return num_records
 
+
 def update_boards():
-    meta = get_metadata()
-    log.info(f"Metadata: {meta}")
-    if meta.get("boards_version", "") < "v1.25.0":
-        # Load data from the zip file into the database
-        load_data_from_zip(HERE/"micropython_boards.zip")
-        set_metadata_value("boards_version", "v1.25.0")
+    try:
         meta = get_metadata()
-
-
-
-
+        log.info(f"Metadata: {meta}")
+        if meta.get("boards_version", "") < "v1.25.0":
+            # Load data from the zip file into the database
+            load_data_from_zip(HERE / "micropython_boards.zip")
+            set_metadata_value("boards_version", "v1.25.0")
+            meta = get_metadata()
+    except Exception as e:
+        raise MPFlashError(f"Error updating boards: {e}") from e

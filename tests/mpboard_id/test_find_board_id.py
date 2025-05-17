@@ -1,6 +1,9 @@
+import re
 from pathlib import Path
+from typing import reveal_type
 
 import pytest
+from numpy import test
 
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id.board_id import _find_board_id_by_description, find_board_id_by_description  # type: ignore
@@ -10,6 +13,35 @@ pytestmark = [pytest.mark.mpflash]
 # Constants for test
 HERE = Path(__file__).parent
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+
+@pytest.fixture(scope="session")
+def engine_fx():
+    # engine = create_engine("sqlite:///:memory:")
+    # engine = create_engine("sqlite:///D:/mypython/mpflash/mpflash.db")
+    test_db = HERE.parent / "data/mpflash.db"
+    engine = create_engine(f"sqlite:///{test_db.as_posix()}")
+
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="module")
+def connection_fx(engine_fx):
+    connection = engine_fx.connect()
+    yield connection
+    connection.close()
+
+
+@pytest.fixture(scope="function")
+def session_fx(connection_fx):
+    transaction = connection_fx.begin()
+    testSession = sessionmaker(bind=connection_fx)
+    yield testSession
+    transaction.rollback()
 
 @pytest.mark.parametrize(
     "test_id,version, descr, short_descr,  expected_result",
@@ -73,14 +105,18 @@ HERE = Path(__file__).parent
         ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
-def test_find_board_id_real(test_id, descr, short_descr, expected_result, version):
+def test_find_board_id_real(test_id, descr, short_descr, expected_result, version, mocker, session_fx):
     # Act
-    if not expected_result:
-        with pytest.raises(MPFlashError):
-            # internal method raises exception
-            _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
-    else:
+    # patch the Session
+
+    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
+
+    if expected_result:
         result = find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
         # Assert
         assert result == expected_result
+    else:
+        with pytest.raises(MPFlashError):
+            # internal method raises exception
+            _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
 
