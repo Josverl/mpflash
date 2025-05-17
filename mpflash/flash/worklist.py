@@ -111,7 +111,7 @@ def single_auto_worklist(
     log.trace(f"Auto updating {serial} to {version}")
     conn_boards = [MPRemoteBoard(serial)]
     todo = auto_update(conn_boards, version)  # type: ignore # List / list
-    show_mcus(conn_boards)  # type: ignore
+    show_mcus(conn_boards)
     return todo
 
 
