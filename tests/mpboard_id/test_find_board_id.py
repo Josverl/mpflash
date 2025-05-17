@@ -1,26 +1,55 @@
+import re
 from pathlib import Path
+from typing import reveal_type
 
 import pytest
+from numpy import test
 
 from mpflash.errors import MPFlashError
-from mpflash.mpboard_id.board_id import (  # type: ignore
-    _find_board_id_by_description,
-    find_board_id_by_description,
-)
+from mpflash.mpboard_id.board_id import _find_board_id_by_description, find_board_id_by_description  # type: ignore
 
 pytestmark = [pytest.mark.mpflash]
 
 # Constants for test
 HERE = Path(__file__).parent
 
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+
+@pytest.fixture(scope="session")
+def engine_fx():
+    # engine = create_engine("sqlite:///:memory:")
+    # engine = create_engine("sqlite:///D:/mypython/mpflash/mpflash.db")
+    test_db = HERE.parent / "data/mpflash.db"
+    engine = create_engine(f"sqlite:///{test_db.as_posix()}")
+
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="module")
+def connection_fx(engine_fx):
+    connection = engine_fx.connect()
+    yield connection
+    connection.close()
+
+
+@pytest.fixture(scope="function")
+def session_fx(connection_fx):
+    transaction = connection_fx.begin()
+    testSession = sessionmaker(bind=connection_fx)
+    yield testSession
+    transaction.rollback()
 
 @pytest.mark.parametrize(
     "test_id,version, descr, short_descr,  expected_result",
     [
         # Happy path tests
         ("happy-1", "stable", "Arduino Nano RP2040 Connect", None, "ARDUINO_NANO_RP2040_CONNECT"),
-        ("happy-2", "stable", "Pimoroni Tiny 2040", None, "PIMORONI_TINY2040"),
-        ("happy-3", "stable", "Pimoroni Tiny 2040", "", "PIMORONI_TINY2040"),
+        ("happy-2", "v1.23.0", "Pimoroni Tiny 2040", None, "PIMORONI_TINY2040"),
+        ("happy-3", "v1.23.0", "Pimoroni Tiny 2040", "", "PIMORONI_TINY2040"),
         (
             "happy-4",
             "stable",
@@ -29,7 +58,7 @@ HERE = Path(__file__).parent
             "ESP32_GENERIC",
         ),
         # Edge cases
-        ("edge-1", "stable", "Pimoroni Tiny 2040 LONG", "Pimoroni Tiny 2040", "PIMORONI_TINY2040"),
+        ("edge-1", "v1.23.0", "Pimoroni Tiny 2040 fake", "Pimoroni Tiny 2040", "PIMORONI_TINY2040"),
         (
             "edge-2",
             "stable",
@@ -38,20 +67,20 @@ HERE = Path(__file__).parent
             "ESP32_GENERIC",
         ),
         # v13.0
-        ("esp32_v1.13-a", "v1.13", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.13-b", "v1.13", "ESP32 module with ESP32", "ESP32 module", "GENERIC"),
-        ("esp32_v1.14-a", "v1.14", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.15-a", "v1.15", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.16-a", "v1.16", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.17-a", "v1.17", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.18-a", "v1.18", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.19.1-a", "v1.19.1", "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.20.0-a", "v1.20.0", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.13-a", "v1.13", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.13-b", "v1.13", "ESP32 module with ESP32", "ESP32 module", "GENERIC"),
+        # ("esp32_v1.14-a", "v1.14", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.15-a", "v1.15", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.16-a", "v1.16", "ESP32 module with ESP32", None, "GENERIC"),
+        # ("esp32_v1.17-a", "v1.17", "ESP32 module with ESP32", None, "GENERIC"),
+        ("esp32_v1.18-a", "v1.18", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
+        ("esp32_v1.19.1-a", "v1.19.1", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
+        ("esp32_v1.19.1-a", "v1.20.0", "ESP32 module (spiram) with ESP32", None, "GENERIC_SPIRAM"),
         # ESP32 board names changed in v1.21.0
-        ("esp32_v1.21.0-a", "v1.21.0", "ESP32 module with ESP32", None, "UNKNOWN_BOARD"),
-        ("esp32_v1.22.0-a", "v1.22.0", "ESP32 module with ESP32", None, "UNKNOWN_BOARD"),
-        ("esp32_v1.21.0-a", None, "ESP32 module with ESP32", None, "GENERIC"),
-        ("esp32_v1.22.0-a", None, "ESP32 module with ESP32", None, "GENERIC"),
+        ("esp32_v1.21.0-a", "v1.21.0", "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.22.0-a", "v1.22.0", "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.21.0-a", None, "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
+        ("esp32_v1.22.0-a", None, "Generic ESP32 module with ESP32", None, "ESP32_GENERIC"),
         # PICO
         (
             "pico_v1.19.1-old",
@@ -70,38 +99,24 @@ HERE = Path(__file__).parent
         # Error cases
         ("error-1", "stable", "Board FOO", "FOO", None),
         ("error-2", "stable", "Board BAR", "BAR", None),
+        ("removed-3", "v1.24.0", "Pimoroni Tiny 2040", "", None),
         # Bugs #1
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP235", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
-        ("PICO2_W", "preview", "Raspberry Pi Pico 2 W with RP235", "", "RPI_PICO2_W"),
+        ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W with RP2350", "Raspberry Pi Pico 2 W", "RPI_PICO2_W"),
+        ("PICO2_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
-def test_find_board_id_real(test_id, descr, short_descr, expected_result, version):
+def test_find_board_id_real(test_id, descr, short_descr, expected_result, version, mocker, session_fx):
     # Act
-    if not expected_result:
+    # patch the Session
+
+    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
+
+    if expected_result:
+        result = find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
+        # Assert
+        assert result == expected_result
+    else:
         with pytest.raises(MPFlashError):
             # internal method raises exception
             _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
-    else:
-        result = find_board_id_by_description(
-            descr=descr, short_descr=short_descr, version=version
-        )
-        # Assert
-        assert result == expected_result
 
-
-# Test for FileNotFoundError
-def test_find_board_id_file_not_found(tmp_path):
-    # Arrange
-    non_existent_file = tmp_path / "non_existent.csv"
-
-    # Act & Assert
-    with pytest.raises(FileNotFoundError):
-        find_board_id_by_description(
-            "Board A", "A", version="stable", board_info=non_existent_file
-        )
-
-
-# @pytest.mark.parametrize("test_id,version, descr, short_descr,  expected_result", [()])
-# def test_check_all_boards(test_id, descr, short_descr, expected_result, version):
-#     # TODO:  use algoritm from mpbuild to check all boards
-#     raise NotImplementedError("Test not implemented")

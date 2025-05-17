@@ -1,8 +1,7 @@
-
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.download import board_firmware_urls, get_board_urls, get_page
+from mpflash.download.from_web import board_firmware_urls, get_board_urls, get_page
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -14,7 +13,6 @@ def test_get_page(mocker: MockerFixture):
 
 
 def test_get_board_urls(mocker: MockerFixture):
-
     urls = get_board_urls("https://micropython.org/download/")
     assert urls
 

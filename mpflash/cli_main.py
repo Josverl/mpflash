@@ -9,15 +9,19 @@ from .cli_download import cli_download
 from .cli_flash import cli_flash_board
 from .cli_group import cli
 from .cli_list import cli_list_mcus
+from .db.core import migrate_database
 
 
 def mpflash():
+    """Main entry point for the mpflash CLI."""
+    migrate_database(boards=True, firmwares=True)
+
     cli.add_command(cli_list_mcus)
     cli.add_command(cli_download)
     cli.add_command(cli_flash_board)
 
     # cli(auto_envvar_prefix="MPFLASH")
-    if False and os.environ.get("COMPUTERNAME").startswith("JOSVERL"):
+    if False and os.environ.get("COMPUTERNAME").upper().startswith("JOSVERL"):
         # intentional less error suppression on dev machine
         result = cli(standalone_mode=False)
     else:

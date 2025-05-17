@@ -31,8 +31,8 @@ from mpflash.versions import clean_version
     "-f",
     "fw_folder",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    default=config.firmware_folder,
-    show_default=True,
+    default=None,
+    show_default=False,
     help="The folder to retrieve the firmware from.",
 )
 @click.option(
@@ -124,7 +124,8 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
-    "--flash_mode", "-fm",
+    "--flash_mode",
+    "-fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
     default="keep",
     show_default=True,
@@ -137,7 +138,7 @@ def cli_flash_board(**kwargs) -> int:
         kwargs["boards"] = []
         kwargs.pop("board")
     else:
-        kwargs["boards"] = [kwargs.pop("board")]   
+        kwargs["boards"] = [kwargs.pop("board")]
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -150,7 +151,8 @@ def cli_flash_board(**kwargs) -> int:
     # make it simple for the user to flash one board by asking for the serial port if not specified
     if params.boards == ["?"] and params.serial == "*":
         params.serial = ["?"]
-
+    if params.fw_folder: 
+        config.firmware_folder = Path(params.fw_folder)
     # Detect connected boards if not specified,
     # and ask for input if boards cannot be detected
     all_boards: List[MPRemoteBoard] = []
@@ -191,12 +193,11 @@ def cli_flash_board(**kwargs) -> int:
         # if variant id provided on the cmdline, treat is as an override
         if params.variant:
             for b in all_boards:
-                b.variant = params.variant if (params.variant != "-") else ""
+                b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
 
         worklist = full_auto_worklist(
             all_boards=all_boards,
             version=params.versions[0],
-            fw_folder=params.fw_folder,
             include=params.serial,
             ignore=params.ignore,
         )
@@ -206,22 +207,19 @@ def cli_flash_board(**kwargs) -> int:
             params.serial[0],
             board_id=params.boards[0],
             version=params.versions[0],
-            fw_folder=params.fw_folder,
         )
     else:
         # just this serial port on auto
         worklist = single_auto_worklist(
             serial=params.serial[0],
             version=params.versions[0],
-            fw_folder=params.fw_folder,
         )
 
     if flashed := flash_list(
         worklist,
-        params.fw_folder,
         params.erase,
         params.bootloader,
-        flash_mode = params.flash_mode,
+        flash_mode=params.flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")

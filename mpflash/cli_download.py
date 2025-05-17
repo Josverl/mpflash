@@ -26,8 +26,8 @@ from .download import download
     "-d",
     "fw_folder",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    default=config.firmware_folder,
-    show_default=True,
+    default=None,
+    show_default=False,
     help="The folder to download the firmware to.",
 )
 @click.option(
@@ -92,7 +92,8 @@ def cli_download(**kwargs) -> int:
     params.boards = list(params.boards)
     params.serial = list(params.serial)
     params.ignore = list(params.ignore)
-
+    if params.fw_folder: 
+        config.firmware_folder = Path(params.fw_folder)
     # all_boards: List[MPRemoteBoard] = []
     if params.boards:
         if not params.ports:
@@ -116,7 +117,6 @@ def cli_download(**kwargs) -> int:
 
     try:
         download(
-            params.fw_folder,
             params.ports,
             params.boards,
             params.versions,

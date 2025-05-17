@@ -51,7 +51,6 @@ def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
     ],
 )
 def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, serialport: str):
-
     # fake COM99 as connected board
     fake = fakeboard(serialport)
 
@@ -78,10 +77,10 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
         m_connected_ports_boards.assert_called_once()
 
     m_ask_missing_params.assert_called_once()
-    # if "?" not in args:
-    #     m_mpr_connected.assert_called_once()
     m_flash_list.assert_called_once()
     assert result.exit_code == ex_code
+    # if "?" not in args:
+    #     m_mpr_connected.assert_called_once()
 
 
 # TODO : Add more tests scenarios for flash

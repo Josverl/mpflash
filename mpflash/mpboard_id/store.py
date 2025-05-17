@@ -5,14 +5,15 @@ from typing import Final, List, Optional
 
 import jsons
 
-from mpflash.mpboard_id.board import Board
+from mpflash.logger import log
+from mpflash.mpboard_id.board import __Board
 
 ###############################################################################################
 HERE: Final = Path(__file__).parent
 ###############################################################################################
 
 
-def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = None):
+def write_boardinfo_json(board_list: List[__Board], *, folder: Optional[Path] = None):
     """Writes the board information to a JSON file.
 
     Args:
@@ -28,19 +29,3 @@ def write_boardinfo_json(board_list: List[Board], *, folder: Optional[Path] = No
         with zipf.open("board_info.json", "w") as fp:
             fp.write(jsons.dumps(board_list, jdkwargs={"indent": 4}).encode())
 
-
-@functools.lru_cache(maxsize=20)
-def read_known_boardinfo(board_info: Optional[Path] = None) -> List[Board]:
-    """Reads the board information from a JSON file in a zip file."""
-
-
-    if not board_info:
-        board_info = HERE / "board_info.zip"
-    if not board_info.exists():
-        raise FileNotFoundError(f"Board info file not found: {board_info}")
-
-    with zipfile.ZipFile(board_info, "r") as zf:
-        with zf.open("board_info.json", "r") as file:
-            info = jsons.loads(file.read().decode(encoding="utf-8"), List[Board])
-
-    return info

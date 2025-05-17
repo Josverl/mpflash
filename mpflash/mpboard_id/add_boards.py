@@ -14,7 +14,7 @@ from rich.progress import track
 
 import mpflash.basicgit as git
 from mpflash.logger import log
-from mpflash.mpboard_id import Board
+from mpflash.mpboard_id.board import __Board
 from mpflash.mpboard_id.store import write_boardinfo_json
 from mpflash.versions import get_preview_mp_version, micropython_versions
 
@@ -29,7 +29,7 @@ RE_CMAKE_MICROPY_HW_MCU_NAME = re.compile(r"MICROPY_HW_MCU_NAME\s?=\s?\"(?P<vari
 # TODO: normal make files
 
 
-def boards_from_repo(mpy_path: Path, version: str, family: Optional[str] = None) -> List[Board]:
+def boards_from_repo(mpy_path: Path, version: str, family: Optional[str] = None) -> List[__Board]:
     """Collects board name and decriptions from mpconfigboard.h files.
 
     Args:
@@ -48,7 +48,7 @@ def boards_from_repo(mpy_path: Path, version: str, family: Optional[str] = None)
     elif version in ["main", "master"]:
         version = get_preview_mp_version()
 
-    board_list: List[Board] = []
+    board_list: List[__Board] = []
     # look in mpconfigboard.h files
     board_list = boards_from_cmake(mpy_path, version, family)
 
@@ -73,7 +73,7 @@ def boards_from_cmake(mpy_path: Path, version: str, family: str):
                 if match := RE_CMAKE_MICROPY_HW_BOARD_NAME.match(line):
                     description = match["variant"]
                     board_list.append(
-                        Board(
+                        __Board(
                             board_id=board,
                             port=port,
                             board_name=board_name,
@@ -87,7 +87,7 @@ def boards_from_cmake(mpy_path: Path, version: str, family: str):
                 elif match := RE_CMAKE_MICROPY_HW_MCU_NAME.match(line):
                     description = match["variant"]
                     board_list.append(
-                        Board(
+                        __Board(
                             board_id=board,
                             port=port,
                             board_name=board_name,
@@ -120,7 +120,7 @@ def boards_from_headers(mpy_path: Path, version: str, family: str):
                 if found == 2:
                     description = f"{board_name} with {mcu_name}" if mcu_name != "-" else board_name
                     board_list.append(
-                        Board(
+                        __Board(
                             board_id=board,
                             port=port,
                             board_name=board_name,
@@ -135,7 +135,7 @@ def boards_from_headers(mpy_path: Path, version: str, family: str):
             if found == 1:
                 description = board_name
                 board_list.append(
-                    Board(
+                    __Board(
                         board_id=board,
                         port=port,
                         board_name=board_name,
@@ -159,7 +159,7 @@ def boards_for_versions(versions: List[str], mpy_path: Path):
     Returns:
         List[Board]: The list of Board objects.
     """
-    board_list: List[Board] = []
+    board_list: List[__Board] = []
     # first fetch all tags from the repository
     git.fetch(mpy_path)
     for version in track(versions, description="Searching MicroPython versions"):
@@ -178,7 +178,7 @@ def boards_for_versions(versions: List[str], mpy_path: Path):
     return board_list
 
 
-def unique_boards(board_list: List[Board], *, key_version: bool = True):
+def unique_boards(board_list: List[__Board], *, key_version: bool = True):
     """Remove duplicate boards by 'BOARD_ID description' from the list."""
     seen = set()
     result = []
@@ -194,7 +194,7 @@ def unique_boards(board_list: List[Board], *, key_version: bool = True):
     return result
 
 
-def make_table(board_list: List[Board]) -> rich.table.Table:
+def make_table(board_list: List[__Board]) -> rich.table.Table:
     """Creates a rich table with board information."""
     is_wide = True
 

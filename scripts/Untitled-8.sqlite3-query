@@ -1,0 +1,16 @@
+-- database: ./c:/Users/josverl/Downloads/firmware/mpflash.db
+
+-- Look for a specific board_id and version
+SELECT 
+    board_id,
+    variant,
+    version,
+    build,
+    description
+    filename
+
+FROM board_downloaded
+
+WHERE 
+    board_id IN ('PICO', 'RPI_PICO')
+    AND version like 'v1.20%'

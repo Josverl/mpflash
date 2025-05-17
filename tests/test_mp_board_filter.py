@@ -2,13 +2,19 @@ from typing import List
 
 import pytest
 
-from mpflash.mpboard_id import get_known_boards_for_port, get_known_ports
+from mpflash.mpboard_id import get_known_boards_for_port, known_ports
 from mpflash.versions import get_stable_mp_version
 
 pytestmark = [pytest.mark.mpflash]
 
 
-@pytest.mark.parametrize("port", get_known_ports())
+# @pytest.fixture(scope="module")
+# def f_known_port():
+#     """Fixture to provide known ports."""
+#     for p in known_ports():
+#         yield p
+
+
 @pytest.mark.parametrize(
     "id, versions",
     [
@@ -20,6 +26,10 @@ pytestmark = [pytest.mark.mpflash]
         ("stab + Prev", ["stable", "preview"]),
     ],
 )
+@pytest.mark.parametrize(
+    "port",
+    ["esp32", "esp8266", "rp2", "stm32"],
+)
 def test_mp_board_filter(port: str, id, versions: List[str]):
     # Arrange
 
@@ -29,7 +39,7 @@ def test_mp_board_filter(port: str, id, versions: List[str]):
 
     if not result:
         pytest.skip(f"No boards found for port: {port} and versions: {versions}")
-    assert all(board.port == port for board in result) , f"all boards should be for port: {port}"
+    assert all(board.port == port for board in result), f"all boards should be for port: {port}"
 
     if versions:
         versions = versions if versions else []
