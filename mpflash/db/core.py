@@ -8,10 +8,9 @@ from sqlalchemy.orm import sessionmaker
 from mpflash.config import config
 
 # TODO:  lazy import to avoid slowdowns ?
-from .loader import load_jsonl_to_db, update_boards
 from .models import Base
 
-TRACE = False
+TRACE = True
 connect_str = f"sqlite:///{config.db_path.as_posix()}"
 engine = create_engine(connect_str, echo=TRACE)
 Session = sessionmaker(bind=engine)
@@ -19,6 +18,9 @@ Session = sessionmaker(bind=engine)
 
 def migrate_database(boards: bool = True, firmwares: bool = True):
     """Migrate from 1.24.x to 1.25.x"""
+    # Move import here to avoid circular import
+    from .loader import load_jsonl_to_db, update_boards
+
     create_database()
     if boards:
         log.info("Update boards from CSV to SQLite database.")
@@ -28,7 +30,6 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
         if jsonl_file.exists():
             log.info(f"Migrating JSONL data {jsonl_file}to SQLite database.")
             load_jsonl_to_db(jsonl_file)
-        if False:
             # TODO Rename the original JSONL file to a backup
             log.info(f"Renaming {jsonl_file} to {jsonl_file.with_suffix('.jsonl.bak')}")
 
