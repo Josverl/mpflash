@@ -1,47 +1,17 @@
-import re
 from pathlib import Path
-from typing import reveal_type
 
 import pytest
-from numpy import test
 
 from mpflash.errors import MPFlashError
-from mpflash.mpboard_id.board_id import _find_board_id_by_description, find_board_id_by_description  # type: ignore
+from mpflash.mpboard_id.board_id import _find_board_id_by_description, find_board_id_by_description
 
 pytestmark = [pytest.mark.mpflash]
 
 # Constants for test
 HERE = Path(__file__).parent
 
-import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 
-@pytest.fixture(scope="session")
-def engine_fx():
-    # engine = create_engine("sqlite:///:memory:")
-    # engine = create_engine("sqlite:///D:/mypython/mpflash/mpflash.db")
-    test_db = HERE.parent / "data/mpflash.db"
-    engine = create_engine(f"sqlite:///{test_db.as_posix()}")
-
-    yield engine
-    engine.dispose()
-
-
-@pytest.fixture(scope="module")
-def connection_fx(engine_fx):
-    connection = engine_fx.connect()
-    yield connection
-    connection.close()
-
-
-@pytest.fixture(scope="function")
-def session_fx(connection_fx):
-    transaction = connection_fx.begin()
-    testSession = sessionmaker(bind=connection_fx)
-    yield testSession
-    transaction.rollback()
 
 @pytest.mark.parametrize(
     "test_id,version, descr, short_descr,  expected_result",
@@ -121,4 +91,3 @@ def test_find_board_id_real(test_id, test_data, descr, short_descr, expected_res
         with pytest.raises(MPFlashError):
             # internal method raises exception
             _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
-
