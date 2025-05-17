@@ -51,6 +51,7 @@ def _info():  # type:() -> dict[str, str]
     try:
         _machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
         info["board"] = _machine.strip()
+        info["description"] = _machine.strip()
         si_build = sys.implementation._build if "_build" in dir(sys.implementation) else ""
         if si_build:
             info["board"] = si_build.split("-")[0]

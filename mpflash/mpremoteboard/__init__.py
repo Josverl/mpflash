@@ -170,7 +170,7 @@ class MPRemoteBoard:
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]
-            self.description = descr = info["board"]
+            self.description = descr = info["description"] if 'description' in info else info["board"]
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
             if info.get("board_id", None):
