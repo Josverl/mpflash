@@ -48,8 +48,8 @@ def test_load_jsonl_to_db():
 
 def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
     """Test the JSONL to DB migration"""
-    mocker.patch("mpflash.db.core.load_jsonl_to_db", return_value=None)
-    mocker.patch("mpflash.db.core.update_boards", return_value=None)
+    mocker.patch("mpflash.db.loader.load_jsonl_to_db", return_value=None)
+    mocker.patch("mpflash.db.loader.update_boards", return_value=None)
     mocker.patch("mpflash.db.core.create_database", return_value=None)
 
     from mpflash.db.core import migrate_database
