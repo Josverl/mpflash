@@ -21,9 +21,7 @@ pytestmark = pytest.mark.mpflash
 @pytest.mark.parametrize(
     "id, ex_code, args",
     [
-        
         ("10", 0, ["download"]),
-        # ("20", 0, ["download", "--destination", "firmware"]),
         ("30", 0, ["download", "--version", "1.22.0"]),
         ("31", 0, ["download", "--version", "stable"]),
         ("32", 0, ["download", "--version", "stable", "--version", "1.22.0"]),
@@ -31,13 +29,14 @@ pytestmark = pytest.mark.mpflash
         ("41", 0, ["download", "--board", "?"]),
         ("42", 0, ["download", "--board", "?", "--board", "ESP32_GENERIC"]),
         ("43", 0, ["download", "--board", "ESP32_GENERIC", "--board", "?"]),
-        # ("50", 0, ["download", "--destination", "firmware", "--version", "1.22.0", "--board", "ESP32_GENERIC"]),
         ("60", 0, ["download", "--no-clean"]),
         ("61", 0, ["download", "--clean"]),
         ("62", 0, ["download", "--force"]),
+        # ("20", 0, ["download", "--destination", "firmware"]),
+        # ("50", 0, ["download", "--destination", "firmware", "--version", "1.22.0", "--board", "ESP32_GENERIC"]),
     ],
 )
-def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture):
+def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, session_fx):
     def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
         if "?" in params.ports:
             params.ports = ["esp32"]
@@ -58,7 +57,8 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture):
         "mpflash.cli_download.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
-
+    mocker.patch("mpflash.download.Session", session_fx)
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
     assert result.exit_code == ex_code

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from mock import MagicMock
 
 from mpflash.db.core import create_database, migrate_database
 from mpflash.db.loader import load_data_from_zip, load_jsonl_to_db, update_boards
@@ -45,7 +46,9 @@ def test_update_boards(session_fx, engine_fx, mocker, pytestconfig):
     metadata = {"boards_version": "v0.0.0"}
     # mock old  metadata
     mocker.patch("mpflash.db.loader.get_metadata", return_value=metadata)
-
+    mocker.patch("mpflash.db.loader.set_metadata_value", autospec=True)
+    # create empty database
+    create_database()
     update_boards()
 
 

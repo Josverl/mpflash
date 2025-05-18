@@ -5,7 +5,9 @@ from mpflash.mpboard_id import find_known_board, known_ports, known_stored_board
 
 pytestmark = [pytest.mark.mpflash]
 
-def test_get_known_ports():
+def test_get_known_ports(session_fx, mocker):
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
+
     ports = known_ports()
     assert isinstance(ports, list)
     assert all(isinstance(port, str) for port in ports)
@@ -21,7 +23,8 @@ def test_get_known_ports():
         ("rp2", None),
     ],
 )
-def test_known_stored_boards_basic(port, versions):
+def test_known_stored_boards_basic(port, versions, session_fx, mocker):
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
     l = known_stored_boards(port, versions)
     assert isinstance(l, list)
     assert all(isinstance(t, tuple) for t in l)
@@ -31,7 +34,8 @@ def test_known_stored_boards_basic(port, versions):
     assert all("[preview]" not in t[0] for t in l)
 
 
-def test_find_known_board():
+def test_find_known_board(session_fx, mocker):
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
     board = find_known_board("PYBV11")
     assert isinstance(board, Board)
     assert board.board_id == "PYBV11"

@@ -30,8 +30,8 @@ pytestmark = [pytest.mark.mpflash]
     "port",
     ["esp32", "esp8266", "rp2", "stm32"],
 )
-def test_mp_board_filter(port: str, id, versions: List[str]):
-    # Arrange
+def test_mp_board_filter(port: str, id, versions: List[str], mocker, session_fx):
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
 
     # Act
     result = get_known_boards_for_port(port, versions)

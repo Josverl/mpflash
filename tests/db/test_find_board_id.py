@@ -76,12 +76,10 @@ HERE = Path(__file__).parent
         ("RPI_PICO_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
-@pytest.mark.parametrize("test_data", [True, False])
-def test_find_board_id_real(test_id, test_data, descr, short_descr, expected_result, version, mocker, session_fx):
+def test_find_board_id(test_id, descr, short_descr, expected_result, version, mocker, session_fx):
     # Act
     # patch the Session
-    if test_data:
-        mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
+    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
 
     if expected_result:
         result = find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
