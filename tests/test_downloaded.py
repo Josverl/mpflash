@@ -46,7 +46,8 @@ def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
         ("fake", "NO_BOARD", "1.22.2", False),
     ],
 )
-def test_find_downloaded_firmware(port, board_id, version, OK):
+def test_find_downloaded_firmware(port, board_id, version, OK, mocker: MockerFixture, session_fx):
+    mocker.patch("mpflash.downloaded.Session", session_fx)
 
     result = find_downloaded_firmware(
         version=version,
