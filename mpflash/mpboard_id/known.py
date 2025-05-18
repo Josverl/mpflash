@@ -16,7 +16,7 @@ from mpflash.logger import log
 from mpflash.versions import clean_version
 
 
-def known_ports(version: str | None = None) -> list[str]:
+def known_ports(version: str = "") -> list[str]:
     """Return a list of known ports for a given version."""
     version = clean_version(version) if version else "%%"
     with Session() as session:
@@ -25,7 +25,7 @@ def known_ports(version: str | None = None) -> list[str]:
     return [row.port for row in ports]
 
 
-def known_versions(port: str | None = None) -> list[str]:
+def known_versions(port: str = "") -> list[str]:
     """Return a list of known versions for a given port."""
     port = port.strip() if port else "%%"
     with Session() as session:
