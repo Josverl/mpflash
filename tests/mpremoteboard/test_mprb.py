@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import pytest
-from annotated_types import T
 from mock import MagicMock
 from pytest_mock import MockerFixture
 

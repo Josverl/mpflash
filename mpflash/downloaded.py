@@ -1,16 +1,10 @@
-import sqlite3
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
 
-import jsonlines
 from loguru import logger as log
 
-from mpflash.common import PORT_FWTYPES
 from mpflash.db.core import Session
-from mpflash.db.models import Board, Firmware
+from mpflash.db.models import Firmware
 from mpflash.versions import clean_version
-
-from .config import config
 
 # #########################################################################################################
 

@@ -3,10 +3,8 @@ Translate board description to board designator
 """
 
 
-from pathlib import Path
 from typing import List, Optional
 
-from mpflash.config import config
 from mpflash.db.core import Session
 from mpflash.db.models import Board
 from mpflash.errors import MPFlashError
