@@ -133,6 +133,8 @@ parallel = false
 branch = true
 source = ["mpflash"]
 omit = [
+    # micropython code
+    "mpflash/mpremoteboard/mpy_fw_info.py",
     # vendored 
     "mpflash/vendor/*",
     # pytest code
@@ -179,6 +181,7 @@ exclude_lines = [
     "except (OSError, KeyError, NameError):",
     "except KeyError:",
     "except AttributeError as e:",
+    "except requests.RequestException as e:",
 
     # Don't complain if non-runnable code isn't run:
     "if __name__ == .__main__.:",
