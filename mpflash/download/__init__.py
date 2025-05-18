@@ -34,12 +34,12 @@ jsonlines.ujson = None  # type: ignore
 
 # def key_fw_ver_pre_ext_bld(x: FWInfo):
 #     "sorting key for the retrieved board urls"
-#     return x.variant, x.version, x.preview, x.ext, x.build
+#     return x.board_id, x.version, x.preview, x.ext, x.build
 
 
 def key_fw_var_pre_ext(x: Firmware):
     "Grouping key for the retrieved board urls"
-    return x.board.variant, x.preview, x.ext
+    return x.board_id, x.preview, x.ext
 
 
 def download_firmwares(
@@ -66,7 +66,7 @@ def download_firmwares(
 
     skipped = downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
-    # handle renamed boards
+    # handle downloading firmware for renamed boards
     boards = add_renamed_boards(boards)
 
     available_firmwares = get_firmware_list(ports, boards, versions, clean)
@@ -137,10 +137,18 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
     board_urls = get_boards(ports, boards, clean)
 
     log.debug(f"Total {len(board_urls)} firmwares")
-
-    relevant = [
-        board for board in board_urls if board.version in versions and board.build == "0" and board.board in boards and not board.preview
-    ]
+    if versions:
+        # filter out the boards that are not in the versions list
+        relevant = [
+            board for board in board_urls if ( 
+                board.version in versions 
+                # and board.board_id in boards 
+                # and board.build == "0" 
+                # and not board.preview
+            )
+        ]
+    else:
+        relevant = board_urls
 
     if preview:
         relevant.extend([board for board in board_urls if board.board in boards and board.preview])

@@ -10,7 +10,7 @@ from mpflash.config import config
 # TODO:  lazy import to avoid slowdowns ?
 from .models import Base
 
-TRACE = True
+TRACE = False
 connect_str = f"sqlite:///{config.db_path.as_posix()}"
 engine = create_engine(connect_str, echo=TRACE)
 Session = sessionmaker(bind=engine)
@@ -21,17 +21,23 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
     # Move import here to avoid circular import
     from .loader import load_jsonl_to_db, update_boards
 
+    # get the location of the database from the session
+    with Session() as session:
+        bind = session.get_bind()
+        db_location = session.get_bind().url.database
+        log.debug(f"Database location: {Path(db_location)}")
+
     create_database()
     if boards:
-        log.info("Update boards from CSV to SQLite database.")
+
         update_boards()
     if firmwares:
         jsonl_file = config.firmware_folder / "firmware.jsonl"
         if jsonl_file.exists():
             log.info(f"Migrating JSONL data {jsonl_file}to SQLite database.")
             load_jsonl_to_db(jsonl_file)
-            # TODO Rename the original JSONL file to a backup
             log.info(f"Renaming {jsonl_file} to {jsonl_file.with_suffix('.jsonl.bak')}")
+            jsonl_file.rename(jsonl_file.with_suffix(".jsonl.bak"))
 
 
 def create_database():

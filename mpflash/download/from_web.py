@@ -113,7 +113,7 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmwar
     Args:
         ports (List[str]): The list of ports to check for firmware.
         boards (List[str]): The list of boards to retrieve firmware information for.
-        clean (bool): A flag indicating whether to perform a clean retrieval.
+        clean (bool): Remove date and hash from the firmware name.
 
     Returns:
         List[FWInfo]: A list of firmware information for the specified ports and boards.
@@ -151,28 +151,21 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmwar
                     # remove hash from firmware name
                     fname = re.sub(RE_HASH, ".", fname)
                 fw_info = Firmware(
-                    filename=fname,
+                    firmware_file=fname,
                     port=port,
-                    board=board["board"],
-                    preview="preview" in _url,
-                    url=_url,
+                    board_id=board["board"],
+                    source=_url,
                     version="",
+                    custom=False,
+                    description="",  # todo : add description from download page
                 )
-                # board["firmware"] = _url
-                # board["preview"] = "preview" in _url  # type: ignore
                 if ver_match := re.search(RE_VERSION_PREVIEW, _url):
-                    fw_info.version = clean_version(ver_match.group(1))
-                    fw_info.build = int(ver_match.group(2)) or 0
-                # fw_info.preview = fw_info.build != "0"
-                # # else:
-                # #     board.$1= ""
-                # if "preview." in fw_info.version:
-                #     fw_info.build = fw_info.version.split("preview.")[-1]
-                # else:
-                #     fw_info.build = "0"
-
-                # fw_info.ext = Path(fw_info.url).suffix
-                # fw_info.variant = fw_info.filename.split("-v")[0] if "-v" in fw_info.filename else ""
+                    fw_info.version = clean_version(ver_match[1])
+                    fw_info.build = int(ver_match[2] or 0)
+                if "-v" in fname:
+                    # get the full board_id[-variant] from the filename
+                    # filename : 'ESP32_GENERIC-v1.25.0.bin'
+                    fw_info.board_id = fname.split("-v")[0]
 
                 board_urls.append(fw_info)
     return board_urls

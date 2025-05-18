@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import re
 import zipfile
 from pathlib import Path
 from turtle import up
@@ -9,21 +10,21 @@ from loguru import logger as log
 
 from mpflash.errors import MPFlashError
 
-from .core import Session, engine
+from .core import Session
 from .meta import get_metadata, set_metadata_value
 from .models import Board, Firmware
 
 HERE = Path(__file__).parent.resolve()
 
 
-def load_data_from_zip(zip_file: Path):
+def load_data_from_zip(zip_file: Path) -> int:
     log.debug("Loading data from zip file")
     csv_filename = "micropython_boards.csv"  # name of the .csv inside the .zip
     # Check if the zip file exists
     if not zip_file.exists() or not zip_file.is_file():
         log.error(f"Zip file {zip_file} not found.")
         return
-
+    count = 0 
     # Load data directly from the zip file
     with zipfile.ZipFile(zip_file, "r") as zipf:
         # Read the CSV file from the zip
@@ -39,7 +40,10 @@ def load_data_from_zip(zip_file: Path):
                     # Use merge to update existing or insert new record
                     # based on primary key (board_id and version)
                     session.merge(board)
+                    count += 1
                 session.commit()
+    log.info(f"Loaded {count} boards from {zip_file}")
+    return count
 
 
 def load_jsonl_to_db(jsonl_path: Path):
@@ -105,11 +109,12 @@ def load_jsonl_to_db(jsonl_path: Path):
 def update_boards():
     try:
         meta = get_metadata()
-        log.info(f"Metadata: {meta}")
+        log.debug(f"Metadata: {meta}")
         if meta.get("boards_version", "") < "v1.25.0":
+            log.info("Update boards from CSV to SQLite database.")
             # Load data from the zip file into the database
             load_data_from_zip(HERE / "micropython_boards.zip")
             set_metadata_value("boards_version", "v1.25.0")
             meta = get_metadata()
     except Exception as e:
-        raise MPFlashError(f"Error updating boards: {e}") from e
+        raise MPFlashError(f"Error updating boards table: {e}") from e
