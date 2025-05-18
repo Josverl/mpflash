@@ -1,7 +1,8 @@
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.download.from_web import board_firmware_urls, get_board_urls, get_page
+from mpflash.download import download_firmwares
+from mpflash.download.from_web import board_firmware_urls, get_board_urls, get_boards, get_page
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -33,3 +34,35 @@ def test_board_firmware_urls(mocker: MockerFixture):
         assert url.startswith("/resources/firmware")
         assert "esp32".upper() in url.upper()
         assert url.endswith("bin")
+
+@pytest.mark.parametrize(
+    "port, board_id",
+    [
+        ("stm32", "PYBV11"),
+        ("rp2", "RPI_PICO"),
+        ("esp32", "ESP32_GENERIC"),
+    ],
+)
+def test_get_boards(mocker: MockerFixture, port, board_id):
+    boards_fw = get_boards(ports=[port], boards=[board_id], clean=True)
+    assert boards_fw
+    assert len(boards_fw) >= 1
+    for fw in boards_fw:
+        assert fw.port == port  # same port
+        assert fw.board_id.startswith(board_id)  # same or variant
+
+
+def test_download_firmwares(mocker: MockerFixture, tmp_path, session_fx):
+    mocker.patch("mpflash.download.Session", session_fx)
+    count = download_firmwares(
+        firmware_folder=tmp_path,
+        ports=["esp32"],
+        boards=["ESP32_GENERIC"],
+        versions=["v1.25.0"],
+        force=True,
+        clean=True,
+    )
+    assert count > 0
+    # Check if the files are downloaded
+    downloads = (tmp_path / "esp32").rglob("*.*")
+    assert len(list(downloads)) > 0
