@@ -34,10 +34,19 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
     if firmwares:
         jsonl_file = config.firmware_folder / "firmware.jsonl"
         if jsonl_file.exists():
-            log.info(f"Migrating JSONL data {jsonl_file}to SQLite database.")
+            log.info(f"Migrating JSONL data {jsonl_file} to SQLite database.")
             load_jsonl_to_db(jsonl_file)
+            # rename the jsonl file to jsonl.bak
             log.info(f"Renaming {jsonl_file} to {jsonl_file.with_suffix('.jsonl.bak')}")
-            jsonl_file.rename(jsonl_file.with_suffix(".jsonl.bak"))
+            try:
+                jsonl_file.rename(jsonl_file.with_suffix(".jsonl.bak"))
+            except OSError as e:
+                for i in range(1, 10):
+                    try:
+                        jsonl_file.rename(jsonl_file.with_suffix(f".jsonl.{i}.bak"))
+                        break
+                    except OSError:
+                        continue
 
 
 def create_database():
