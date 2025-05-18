@@ -52,17 +52,33 @@ def test_get_boards(mocker: MockerFixture, port, board_id):
         assert fw.board_id.startswith(board_id)  # same or variant
 
 
-def test_download_firmwares(mocker: MockerFixture, tmp_path, session_fx):
+@pytest.mark.parametrize(
+    "port, board_id, version",
+    [
+        ("rp2", "RPI_PICO", "v1.25.0"),
+        ("stm32", "PYBV11", "stable"),
+        ("esp32", "ESP32_GENERIC", "v1.25.0"),
+        ("esp32", "ESP32_GENERIC", "preview"),
+    ],
+)
+def test_download_firmwares(
+    mocker: MockerFixture,
+    tmp_path,
+    session_fx,
+    port,
+    board_id,
+    version,
+):
     mocker.patch("mpflash.download.Session", session_fx)
     count = download_firmwares(
         firmware_folder=tmp_path,
-        ports=["esp32"],
-        boards=["ESP32_GENERIC"],
-        versions=["v1.25.0"],
+        ports=[port],
+        boards=[board_id],
+        versions=[version],
         force=True,
         clean=True,
     )
     assert count > 0
     # Check if the files are downloaded
-    downloads = (tmp_path / "esp32").rglob("*.*")
-    assert len(list(downloads)) > 0
+    downloads = (tmp_path / port).rglob("*.*")
+    assert len(list(downloads)) == count

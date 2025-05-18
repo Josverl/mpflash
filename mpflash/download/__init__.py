@@ -31,13 +31,7 @@ jsonlines.ujson = None  # type: ignore
 
 
 
-
-# def key_fw_ver_pre_ext_bld(x: FWInfo):
-#     "sorting key for the retrieved board urls"
-#     return x.board_id, x.version, x.preview, x.ext, x.build
-
-
-def key_fw_var_pre_ext(x: Firmware):
+def key_fw_boardid_preview_ext(x: Firmware):
     "Grouping key for the retrieved board urls"
     return x.board_id, x.preview, x.ext
 
@@ -142,6 +136,7 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
         relevant = [
             board for board in board_urls if ( 
                 board.version in versions 
+                or (preview and board.preview )
                 # and board.board_id in boards 
                 # and board.build == "0" 
                 # and not board.preview
@@ -150,16 +145,14 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
     else:
         relevant = board_urls
 
-    if preview:
-        relevant.extend([board for board in board_urls if board.board in boards and board.preview])
     log.debug(f"Matching firmwares: {len(relevant)}")
     # select the unique boards
     unique_boards: List[Firmware] = []
-    for _, g in itertools.groupby(relevant, key=key_fw_var_pre_ext):
-        # list is aleady sorted by build so we can just get the last item
+    for _, g in itertools.groupby(relevant, key=key_fw_boardid_preview_ext):
+        # list is aleady sorted by build (desc)  so we can just get the first item
         sub_list = list(g)
-        unique_boards.append(sub_list[-1])
-    log.debug(f"Last preview only: {len(unique_boards)}")
+        unique_boards.append(sub_list[0])
+    log.debug(f"Including preview: {len(unique_boards)}")
     return unique_boards
 
 

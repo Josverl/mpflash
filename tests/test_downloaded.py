@@ -1,21 +1,13 @@
-import sqlite3
-
 import pytest
 from pytest_mock import MockerFixture
 
-from mpflash.config import config
 from mpflash.db.models import Firmware
 
 # from mpflash.db.downloads import downloaded_fw
 from mpflash.downloaded import find_downloaded_firmware
+from mpflash.versions import clean_version
 
 pytestmark = [pytest.mark.mpflash]
-
-
-# def test_downloaded_firmwares(mocker: MockerFixture, test_fw_path):
-#     firmwares = downloaded_fw(test_fw_path / "mpflash.db")
-#     assert firmwares
-#     assert all(f.filename for f in firmwares)
 
 
 #########################################################################
@@ -25,25 +17,6 @@ pytestmark = [pytest.mark.mpflash]
 # mpflash download --version 1.22.2 --board RPI_PICO_W
 # mpflash download --version preview --board ESP32_GENRIC
 #########################################################################
-
-def test_load_jsonl_to_db():
-    """Test the JSONL to DB migration"""
-    from mpflash.db.core import migrate_database
-
-    # Create a test database
-    # test_db_path = config.db_path / "mpflash_test.db"
-    # test_db_path.unlink(missing_ok=True)
-    # config.db_path = test_db_path
-    # Run the migration
-    migrate_database(boards=True, firmwares=True)
-
-    pass
-
-    # # Check if the database was created
-    # assert test_db_path.exists()
-
-    # # Clean up
-    # test_db_path.unlink()
 
 
 def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
@@ -83,53 +56,16 @@ def test_find_downloaded_firmware(port, board_id, version, OK):
     if not OK:
         assert not result
         return
-
+    version = clean_version(version)
     assert result
-    assert all(isinstance(fw, Firmware) for fw in result), "All elements should be FWInfo objects"
-    assert all(fw.board.port == port for fw in result)
-
-    assert all(version in fw.version for fw in result), "Must be the same version"
-    assert all(version in fw.firmware_file for fw in result), "Must be the same version in filename"
-    assert all(fw.firmware_file for fw in result), "All elements must have a filename"
-
-# @pytest.mark.parametrize(
-#     "port, board_id, version, OK",
-#     [
-#         ("esp32", "ESP32_GENERIC", "preview", True),
-#         ("rp2", "RPI_PICO", "1.22.2", True),
-#         ("rp2", "RPI_PICO_W", "1.22.2", True),
-#         ("rp2", "PICO_W", "1.22.2", False),  # name change
-#         ("rp2", "PICO", "1.22.2", False),  # name change
-#         ("esp32", "GENERIC", "preview", False),  # name change
-#         # ("fake", "NO_BOARD", "1.22.2", False),
-#         # test for board_id = board.replace("_", "-")
-#     ],
-# )
-# @pytest.mark.parametrize(
-#     "testdata",
-#     [
-#         False,
-#         # True,
-#     ],
-# )  # , True still fails in CI
-# def test_filter_downloaded_fwlist(port, board_id, version, OK, test_fw_path, testdata: bool):
-#     if testdata:
-#         db_path = test_fw_path
-#     else:
-#         db_path = config.db_path
-#         if not db_path.exists():
-#             pytest.xfail("This test may not work in CI, as the firmware may/will not be downloaded.")
-#     fw_list = downloaded_fw(db_path)
-
-#     fwlist = filter_downloaded_fwlist(
-#         fw_list=fw_list,
-#         board_id=board_id,
-#         version=version,
-#         port=port,
-#         variants=False,
-#         selector={},
-#     )
-#     if not OK:
-#         assert not fwlist
-#         return
-#     assert fwlist
+    for fw in result:
+        assert isinstance(fw, Firmware), "All elements should be FWInfo objects"
+        assert fw.port == port, f"Expected {port}, got {fw.port}"
+        assert fw.version == version, f"Expected {version}, got {fw.version}"
+        assert version in fw.firmware_file, f"Expected {version} in {fw.firmware_file}"
+        if fw.board:
+            assert fw.board.port == port, f"Expected {port}, got {fw.board.port}"
+        else:
+            # firware not linked to a board is OK
+            pass
+        assert board_id in fw.board_id, f"Expected {board_id}, got {fw.board_id}"
