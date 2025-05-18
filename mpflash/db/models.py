@@ -58,25 +58,24 @@ class Firmware(Base):
     """
 
     __tablename__ = "firmwares"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(["board_id", "version"], ["boards.board_id", "boards.version"]),
+        {"sqlite_autoincrement": False},
+    )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    # Corrected Foreign keys to Board
-    board_id: Mapped[str] = mapped_column(String(40), sa.ForeignKey("boards.board_id"), index=True)
-    version: Mapped[str] = mapped_column(String(12), sa.ForeignKey("boards.version"))
-
+    board_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    version: Mapped[str] = mapped_column(String(12), primary_key=True)
+    firmware_file: Mapped[str] = mapped_column(String, primary_key=True, index=True, comment="Path to the firmware file")
     # Relationship to Board
     board: Mapped["Board"] = relationship(
         "Board",
         back_populates="firmwares",
         lazy="joined",
+        primaryjoin="and_(Firmware.board_id==Board.board_id, Firmware.version==Board.version)",
     )
-
     port: Mapped[str] = mapped_column(String(20), default="")  # duplicate of board.port
     description: Mapped[str] = mapped_column(default="")
-    firmware_file: Mapped[str] = mapped_column(String, index=True, unique=True, comment="Path to the firmware file")
     source: Mapped[str] = mapped_column()
-    version: Mapped[str] = mapped_column()
     build: Mapped[int] = mapped_column(default=0, comment="Build number")
     custom: Mapped[bool] = mapped_column(default=False, comment="True if this is a custom firmware")
 
@@ -91,4 +90,4 @@ class Firmware(Base):
         return Path(self.firmware_file).suffix
 
     def __repr__(self) -> str:
-        return f"Firmware(id={self.id!r}, file_name={self.firmware_file!r}, board_id={self.board_id!r})"
+        return f"Firmware(board_id={self.board_id!r}, version={self.version!r}, firmware_file={self.firmware_file!r})"
