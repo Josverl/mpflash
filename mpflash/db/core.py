@@ -23,9 +23,8 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
 
     # get the location of the database from the session
     with Session() as session:
-        bind = session.get_bind()
-        db_location = session.get_bind().url.database
-        log.debug(f"Database location: {Path(db_location)}")
+        db_location = session.get_bind().url.database # type: ignore
+        log.debug(f"Database location: {Path(db_location)}") # type: ignore
 
     create_database()
     if boards:

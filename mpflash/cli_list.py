@@ -48,7 +48,7 @@ from .logger import make_quiet
 )
 @click.option(
     "--bluetooth/--no-bluetooth",
-    "-b/-nb",
+    "--bt/--no-bt",
     is_flag=True,
     default=False,
     show_default=True,

@@ -69,7 +69,7 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--bluetooth/--no-bluetooth",
-    "-b/-nb",
+    "--bt/--no-bt",
     is_flag=True,
     default=False,
     show_default=True,
@@ -116,7 +116,7 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--bootloader",
-    "-bl",
+    "--bl",
     "bootloader",
     type=click.Choice([e.value for e in BootloaderMethod]),
     default="auto",
