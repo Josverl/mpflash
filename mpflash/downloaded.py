@@ -27,15 +27,21 @@ def find_downloaded_firmware(
 ) -> List[Firmware]:
     version = clean_version(version)
     log.debug(f"Looking for firmware for {board_id} {version} ")
-    # fw_list = search_downloaded_fw(conn=conn, board_id=board_id, version=version, port=port)
+    # Special handling for preview versions
     with Session() as session:
-        fw_list = (
-            session.query(Firmware)
-            .filter(Firmware.board_id == board_id, Firmware.version == version)
-            .all()
-        )
-    if fw_list:
-        return fw_list
+        if version == "preview" or "preview" in version:
+            # Find all preview firmwares for this board/port, return the latest (highest build)
+            query = session.query(Firmware).filter(Firmware.board_id == board_id)
+            if port:
+                query = query.filter(Firmware.port == port)
+            query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
+            fw_list = query.all()
+            if fw_list:
+                return [fw_list[0]]  # Return the latest preview only
+        else:
+            fw_list = session.query(Firmware).filter(Firmware.board_id == board_id, Firmware.version == version).all()
+            if fw_list:
+                return fw_list
     #
     log.debug("try for renamed board_id")
     if board_id.startswith("PICO"):
@@ -51,12 +57,17 @@ def find_downloaded_firmware(
     #        
     log.debug(f"2nd search with renamed board_id :{board_id}")
     with Session() as session:
-        fw_list = (
-            session.query(Firmware)
-            .filter(Firmware.board_id == board_id, Firmware.version == version)
-            .all()
-        )
-    if fw_list:
-        return fw_list
-    log.error("No firmware files found. Please download the firmware first.")
+        if version == "preview" or "preview" in version:
+            query = session.query(Firmware).filter(Firmware.board_id == board_id)
+            if port:
+                query = query.filter(Firmware.port == port)
+            query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
+            fw_list = query.all()
+            if fw_list:
+                return [fw_list[0]]
+        else:
+            fw_list = session.query(Firmware).filter(Firmware.board_id == board_id, Firmware.version == version).all()
+            if fw_list:
+                return fw_list
+    log.warning("No firmware files found. Please download the firmware first.")
     return []

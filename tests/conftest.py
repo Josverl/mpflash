@@ -90,6 +90,6 @@ def connection_mem(engine_mem):
 @pytest.fixture(scope="function")
 def session_mem(connection_mem):
     transaction = connection_mem.begin()
-    testSession = sessionmaker(bind=connection_fx)
+    testSession = sessionmaker(bind=connection_fx)  # type: ignore
     yield testSession
     transaction.rollback()

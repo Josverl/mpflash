@@ -4,7 +4,6 @@ Uses the micropython.org website to get the available versions and locations to 
 """
 
 import itertools
-import sqlite3
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -160,8 +159,8 @@ def download(
     ports: List[str],
     boards: List[str],
     versions: List[str],
-    force: bool,
-    clean: bool,
+    force: bool = False,
+    clean: bool = True,
 ) -> int:
     """
     Downloads firmware files based on the specified destination, ports, boards, versions, force flag, and clean flag.

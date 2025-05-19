@@ -4,6 +4,8 @@ from typing import List
 import rich_click as click
 from loguru import logger as log
 
+import mpflash.download.jit as jit
+import mpflash.mpboard_id as mpboard_id
 from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards
 from mpflash.cli_group import cli
@@ -13,7 +15,6 @@ from mpflash.config import config
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
 from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
-from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
@@ -169,14 +170,12 @@ def cli_flash_board(**kwargs) -> int:
             # assume manual mode if no board is detected
             params.bootloader = BootloaderMethod("manual")
     else:
-        resolve_board_ids(params)
+        mpboard_id.resolve_board_ids(params)
 
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
         return 2
-    # TODO: Just in time Download of firmware
-
     assert isinstance(params, FlashParams)
 
     if len(params.versions) > 1:
@@ -185,6 +184,7 @@ def cli_flash_board(**kwargs) -> int:
 
     params.versions = [clean_version(v) for v in params.versions]
     worklist: WorkList = []
+
     # if serial port == auto and there are one or more specified/detected boards
     if params.serial == ["*"] and params.boards:
         if not all_boards:
@@ -202,7 +202,7 @@ def cli_flash_board(**kwargs) -> int:
             ignore=params.ignore,
         )
     elif params.versions[0] and params.boards[0] and params.serial:
-        # A one or more  serial port including the board / variant
+        # A one or more serial port including the board / variant
         worklist = manual_worklist(
             params.serial[0],
             board_id=params.boards[0],
@@ -214,7 +214,7 @@ def cli_flash_board(**kwargs) -> int:
             serial=params.serial[0],
             version=params.versions[0],
         )
-
+    jit.ensure_firmware_downloaded(worklist, version=params.versions[0])
     if flashed := flash_list(
         worklist,
         params.erase,
@@ -229,17 +229,3 @@ def cli_flash_board(**kwargs) -> int:
         return 1
 
 
-def resolve_board_ids(params: Params):
-    """Resolve board descriptions to board_id, and remove empty strings from list of boards"""
-    for board_id in params.boards:
-        if board_id == "":
-            params.boards.remove(board_id)
-            continue
-        if " " in board_id:
-            try:
-                if info := find_known_board(board_id):
-                    log.info(f"Resolved board description: {info.board_id}")
-                    params.boards.remove(board_id)
-                    params.boards.append(info.board_id)
-            except Exception as e:
-                log.warning(f"Unable to resolve board description: {e}")

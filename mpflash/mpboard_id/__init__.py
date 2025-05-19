@@ -8,3 +8,4 @@ from mpflash.versions import clean_version
 
 from .known import (find_known_board, get_known_boards_for_port, known_ports,
                     known_stored_boards)
+from .resolve import resolve_board_ids

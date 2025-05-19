@@ -14,7 +14,7 @@ from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # #########################################################################################################
-WorkList = List[Tuple[MPRemoteBoard, Firmware]]
+WorkList = List[Tuple[MPRemoteBoard, Optional[Firmware]]]
 # #########################################################################################################
 
 
@@ -44,7 +44,8 @@ def auto_update(
         )
 
         if not board_firmwares:
-            log.error(f"No {target_version} firmware found for {mcu.board} on {mcu.serialport}.")
+            log.warning(f"No {target_version} firmware found for {mcu.board} on {mcu.serialport}.")
+            wl.append((mcu, None))
             continue
 
         if len(board_firmwares) > 1:
