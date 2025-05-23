@@ -19,6 +19,7 @@ from mpflash.db.core import Session
 from mpflash.db.models import Firmware
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
+from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
 
 from .from_web import fetch_firmware_files, get_boards
@@ -57,7 +58,7 @@ def download_firmwares(
     """
 
 
-    skipped = downloaded = 0
+    downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
     # handle downloading firmware for renamed boards
     boards = add_renamed_boards(boards)
@@ -200,31 +201,3 @@ def download(
 
     return result
 
-
-def add_renamed_boards(boards: List[str]) -> List[str]:
-    """
-    Adds the renamed boards to the list of boards.
-
-    Args:
-        boards : The list of boards to add the renamed boards to.
-
-    Returns:
-        List[str]: The list of boards with the renamed boards added.
-    """
-
-    renamed = {
-        "PICO": ["RPI_PICO"],
-        "RPI_PICO": ["PICO"],
-        "PICO_W": ["RPI_PICO_W"],
-        "RPI_PICO_W": ["PICO_W"],
-        "GENERIC": ["ESP32_GENERIC", "ESP8266_GENERIC"],  # just add both of them
-        "ESP32_GENERIC": ["GENERIC"],
-        "ESP8266_GENERIC": ["GENERIC"],
-    }
-    _boards = boards.copy()
-    for board in boards:
-        if board in renamed and renamed[board] not in boards:
-            _boards.extend(renamed[board])
-        if board != board.upper() and board.upper() not in boards:
-            _boards.append(board.upper())
-    return _boards

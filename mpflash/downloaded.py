@@ -4,6 +4,7 @@ from loguru import logger as log
 
 from mpflash.db.core import Session
 from mpflash.db.models import Firmware
+from mpflash.mpboard_id.alternate import alternate_board_names
 from mpflash.versions import clean_version
 
 # #########################################################################################################
@@ -43,22 +44,12 @@ def find_downloaded_firmware(
             if fw_list:
                 return fw_list
     #
-    log.debug("try for renamed board_id")
-    if board_id.startswith("PICO"):
-        board_id = board_id.replace("PICO", "RPI_PICO")
-    elif board_id.startswith("RPI_"):
-        board_id = board_id.replace("RPI_", "")
-    elif board_id.startswith("GENERIC"):
-        board_id = board_id.replace("GENERIC", f"{port.upper()}_GENERIC")
-    elif board_id.startswith("ESP32_"):
-        board_id = board_id.replace("ESP32_", "")
-    elif board_id.startswith("ESP8266_"):
-        board_id = board_id.replace("ESP8266_", "")
+    more_board_ids = alternate_board_names(board_id, port)
     #        
     log.debug(f"2nd search with renamed board_id :{board_id}")
     with Session() as session:
         if version == "preview" or "preview" in version:
-            query = session.query(Firmware).filter(Firmware.board_id == board_id)
+            query = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids))
             if port:
                 query = query.filter(Firmware.port == port)
             query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
@@ -66,8 +57,9 @@ def find_downloaded_firmware(
             if fw_list:
                 return [fw_list[0]]
         else:
-            fw_list = session.query(Firmware).filter(Firmware.board_id == board_id, Firmware.version == version).all()
+            fw_list = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids), Firmware.version == version).all()
             if fw_list:
                 return fw_list
     log.warning("No firmware files found. Please download the firmware first.")
     return []
+

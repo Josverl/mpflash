@@ -8,6 +8,7 @@ from loguru import logger as log
 from mpflash.connected import connected_ports_boards
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id import find_known_board
+from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
 
 from .ask_input import ask_missing_params
@@ -118,7 +119,7 @@ def cli_download(**kwargs) -> int:
     try:
         download(
             params.ports,
-            params.boards,
+            add_renamed_boards(params.boards),
             params.versions,
             params.force,
             params.clean,
