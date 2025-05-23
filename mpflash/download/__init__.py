@@ -31,9 +31,9 @@ jsonlines.ujson = None  # type: ignore
 
 
 
-def key_fw_boardid_preview_ext(x: Firmware):
+def key_fw_boardid_preview_ext(fw: Firmware):
     "Grouping key for the retrieved board urls"
-    return x.board_id, x.preview, x.ext
+    return fw.board_id, fw.preview, fw.ext
 
 
 def download_firmwares(
@@ -69,7 +69,7 @@ def download_firmwares(
         log.debug(b.firmware_file)
     # relevant
 
-    log.info(f"Found {len(available_firmwares)} relevant unique firmwares")
+    log.info(f"Found {len(available_firmwares)} potentially relevant firmwares")
     if not available_firmwares:
         log.error("No relevant firmwares could be found on https://micropython.org/download")
         log.info(f"{versions=} {ports=} {boards=}")
@@ -136,7 +136,7 @@ def get_firmware_list(ports: List[str], boards: List[str], versions: List[str], 
         relevant = [
             board for board in board_urls if ( 
                 board.version in versions 
-                or (preview and board.preview )
+                # or (preview and board.preview )
                 # and board.board_id in boards 
                 # and board.build == "0" 
                 # and not board.preview

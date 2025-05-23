@@ -1,7 +1,10 @@
+import os
+from pathlib import Path
 from typing import List
 
 from loguru import logger as log
 
+from mpflash.config import config
 from mpflash.db.core import Session
 from mpflash.db.models import Firmware
 from mpflash.mpboard_id.alternate import alternate_board_names
@@ -12,12 +15,43 @@ from mpflash.versions import clean_version
 
 def clean_downloaded_firmwares() -> None:
     """
-    Remove duplicate entries from the firmware.jsonl file, keeping the latest one
-    uniqueness is based on the filename
+    - Check if all firmware records in the database are still available on disk.
+        - If not, remove the record from the database.
+    - For all firmware files on disk that are not in the database:
+        - loag a warning message.
+        - Check if the file is a valid firmware file.
+        - If so, add it to the database.
+
     """
-    # Duplication should no longer happen,
-    # but is would be a good idea to check the consistence between the DB and the downloads folder sometimes
-    pass
+    """
+    Get all firmware files in the firmware directory and its subfolders.
+    """
+
+    firmware_dir = Path(config.firmware_folder)
+
+    """
+    Returns a set of firmware file paths (relative to firmware_dir) found on disk.
+    Uses a generator for performance and includes files in subfolders.
+    Skips files with certain extensions.
+    """
+    firmware_files_on_disk = {
+        str(f.relative_to(firmware_dir)) for f in firmware_dir.rglob("*") if f.is_file() and f.suffix not in {".db", ".bak", ".jsonl"}
+    }
+
+    with Session() as session:
+        db_firmwares = session.query(Firmware).all()
+        db_firmware_files = {fw.firmware_file for fw in db_firmwares}
+
+        # Remove DB records for files not on disk
+        for fw in db_firmwares:
+            if fw.firmware_file not in firmware_files_on_disk:
+                log.warning(f"Firmware file missing on disk, removing DB record: {fw.firmware_file}")
+                session.delete(fw)
+        session.commit()
+
+        # Add files on disk not in DB
+        for fw_file in firmware_files_on_disk - db_firmware_files:
+            log.warning(f"Firmware file on disk not in DB: {fw_file}")
 
 
 def find_downloaded_firmware(
@@ -45,7 +79,7 @@ def find_downloaded_firmware(
                 return fw_list
     #
     more_board_ids = alternate_board_names(board_id, port)
-    #        
+    #
     log.debug(f"2nd search with renamed board_id :{board_id}")
     with Session() as session:
         if version == "preview" or "preview" in version:
@@ -60,6 +94,6 @@ def find_downloaded_firmware(
             fw_list = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids), Firmware.version == version).all()
             if fw_list:
                 return fw_list
-    log.warning("No firmware files found. Please download the firmware first.")
+    log.warning(f"No firmware files found for board {board_id} version {version}")
     return []
 

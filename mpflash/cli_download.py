@@ -6,6 +6,7 @@ import rich_click as click
 from loguru import logger as log
 
 from mpflash.connected import connected_ports_boards
+from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id import find_known_board
 from mpflash.mpboard_id.alternate import add_renamed_boards
@@ -124,6 +125,7 @@ def cli_download(**kwargs) -> int:
             params.force,
             params.clean,
         )
+        clean_downloaded_firmwares()
         return 0
     except MPFlashError as e:
         log.error(f"{e}")

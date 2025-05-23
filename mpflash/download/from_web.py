@@ -22,8 +22,8 @@ MICROPYTHON_ORG_URL = "https://micropython.org/"
 RE_DATE = r"(-\d{8}-)"
 RE_HASH = r"(.g[0-9a-f]+\.)"
 # regex to extract the version and the build from the firmware filename
-# group 1 is the version, group 2 is the build
-RE_VERSION_PREVIEW = r"v([\d\.]+)-?(?:preview\.)?(\d+)?\."
+# group 1 is the version+Preview , gr2 just the version, group 3 is the build
+RE_VERSION_PREVIEW = r"v(([\d\.]+)(?:-preview)?)\.?(\d+)?\."
 
 
 # 'RPI_PICO_W-v1.23.uf2'
@@ -161,7 +161,7 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmwar
                 )
                 if ver_match := re.search(RE_VERSION_PREVIEW, _url):
                     fw_info.version = clean_version(ver_match[1])
-                    fw_info.build = int(ver_match[2] or 0)
+                    fw_info.build = int(ver_match[3] or 0)
                 if "-v" in fname:
                     # get the full board_id[-variant] from the filename
                     # filename : 'ESP32_GENERIC-v1.25.0.bin'
