@@ -1,0 +1,23 @@
+-- database: c:\Users\josverl\Downloads\firmware\mpflash.db
+
+SELECT 
+    board_id,
+    variant,
+    version,
+    build,
+    description
+    filename
+
+FROM board_downloaded
+
+WHERE 
+    board_id IN (
+        SELECT  DISTINCT board_id
+        FROM board_downloaded
+        WHERE description IN ('ESP module with ESP8266' , 'ESP module' )
+        -- WHERE description IN ('Generic ESP32 module with ESP32' , 'Generic ESP32 module' )
+        -- WHERE description IN ('Raspberry Pi Pico W' )
+        -- WHERE description IN ('Raspberry Pi Pico2' )
+    )
+    -- AND version like 'v1.22%'
+    -- AND variant = ''

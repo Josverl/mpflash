@@ -91,11 +91,12 @@ def run(
         )
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Failed to start {cmd[0]}") from e
-
+    _timed_out = False
     def timed_out():
-        proc.kill()
+        _timed_out = True
         if log_warnings:
             log.warning(f"Command {cmd} timed out after {timeout} seconds")
+        proc.kill()
 
     timer = Timer(timeout, timed_out)
     try:
@@ -135,6 +136,8 @@ def run(
         log.error(f"Failed to decode output: {e}")
     finally:
         timer.cancel()
+        if _timed_out:
+            raise TimeoutError(f"Command {cmd} timed out after {timeout} seconds")
 
     proc.wait(timeout=1)
     return proc.returncode or 0, output

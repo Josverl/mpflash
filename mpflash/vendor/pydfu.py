@@ -338,7 +338,7 @@ def read_dfu_file(filename):
     #   I   uint32_t    size        Size of the DFU file (without suffix)
     #   B   uint8_t     targets     Number of targets
     dfu_prefix, data = consume("<5sBIB", data, "signature version size targets")
-    print("    %(signature)s v%(version)d, image size: %(size)d, " "targets: %(targets)d" % dfu_prefix)
+    print("    %(signature)s v%(version)d, image size: %(size)d, targets: %(targets)d" % dfu_prefix)
     for target_idx in range(dfu_prefix["targets"]):
         # Decode the Image Prefix
         #
@@ -350,15 +350,14 @@ def read_dfu_file(filename):
         #   255s    char[255]   name        Name of the target
         #   I       uint32_t    size        Size of image (without prefix)
         #   I       uint32_t    elements    Number of elements in the image
-        img_prefix, data = consume("<6sBI255s2I", data, "signature altsetting named name " "size elements")
+        img_prefix, data = consume("<6sBI255s2I", data, "signature altsetting named name size elements")
         img_prefix["num"] = target_idx
         if img_prefix["named"]:
             img_prefix["name"] = cstring(img_prefix["name"])
         else:
             img_prefix["name"] = ""
         print(
-            "    %(signature)s %(num)d, alt setting: %(altsetting)s, "
-            'name: "%(name)s", size: %(size)d, elements: %(elements)d' % img_prefix
+            '    %(signature)s %(num)d, alt setting: %(altsetting)s, name: "%(name)s", size: %(size)d, elements: %(elements)d' % img_prefix
         )
 
         target_size = img_prefix["size"]
@@ -395,7 +394,7 @@ def read_dfu_file(filename):
     #   B   uint8_t     len         16
     #   I   uint32_t    crc32       Checksum
     dfu_suffix = named(struct.unpack("<4H3sBI", data[:16]), "device product vendor dfu ufd len crc")
-    print("    usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, " "dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x" % dfu_suffix)
+    print("    usb: %(vendor)04x:%(product)04x, device: 0x%(device)04x, dfu: 0x%(dfu)04x, %(ufd)s, %(len)d, 0x%(crc)08x" % dfu_suffix)
     if crc != dfu_suffix["crc"]:
         print("CRC ERROR: computed crc32 is 0x%08x" % crc)
         return

@@ -55,7 +55,7 @@ def enter_bootloader_manual(mcu: MPRemoteBoard, timeout: int = 10):
     message: str
     if mcu.port == "rp2":
         message = f"""\
-Please put your {" ".join([mcu.port,mcu.board])} device into bootloader mode by either:
+Please put your {" ".join([mcu.port, mcu.board])} device into bootloader mode by either:
 Method 1:
   1. Unplug the USB cable, 
   2. Press and hold the BOOTSEL button on the device, 

@@ -6,8 +6,10 @@ import rich_click as click
 from loguru import logger as log
 
 from mpflash.connected import connected_ports_boards
+from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id import find_known_board
+from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
 
 from .ask_input import ask_missing_params
@@ -26,8 +28,8 @@ from .download import download
     "-d",
     "fw_folder",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    default=config.firmware_folder,
-    show_default=True,
+    default=None,
+    show_default=False,
     help="The folder to download the firmware to.",
 )
 @click.option(
@@ -92,7 +94,8 @@ def cli_download(**kwargs) -> int:
     params.boards = list(params.boards)
     params.serial = list(params.serial)
     params.ignore = list(params.ignore)
-
+    if params.fw_folder: 
+        config.firmware_folder = Path(params.fw_folder)
     # all_boards: List[MPRemoteBoard] = []
     if params.boards:
         if not params.ports:
@@ -116,13 +119,13 @@ def cli_download(**kwargs) -> int:
 
     try:
         download(
-            params.fw_folder,
             params.ports,
-            params.boards,
+            add_renamed_boards(params.boards),
             params.versions,
             params.force,
             params.clean,
         )
+        clean_downloaded_firmwares()
         return 0
     except MPFlashError as e:
         log.error(f"{e}")

@@ -10,6 +10,9 @@ from mpflash.vendor.click_aliases import ClickAliasedGroup
 from .config import __version__, config
 from .logger import log, make_quiet, set_loglevel
 
+# default log level
+set_loglevel("INFO")
+config.verbose = False
 
 def cb_verbose(ctx, param, value):
     """Callback to set the log level to DEBUG if verbose is set"""

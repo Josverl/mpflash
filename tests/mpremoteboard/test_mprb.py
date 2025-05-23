@@ -1,14 +1,18 @@
 import sys
+from pathlib import Path
+from typing import List, Optional
 
 import pytest
 from mock import MagicMock
 from pytest_mock import MockerFixture
 
+from mpflash.db.loader import HERE
 from mpflash.mpremoteboard import OK, MPRemoteBoard
+from mpflash.mpremoteboard.runner import run
+
+HERE = Path(__file__).parent.resolve()
 
 pytestmark = [pytest.mark.mpflash]
-
-
 def test_mpremoteboard_new():
     # Make sure that the prompt is not called when interactive is False
     mprb = MPRemoteBoard()
@@ -120,15 +124,18 @@ def test_mpremoteboard_disconnect(port, mocker: MockerFixture):
         # should show error if no port
         m_log_error.assert_called_once()
 
-# TODO; Add test for different micrpython boards / versions / variants with and withouth sys.implementation._build 
+
+# TODO; Add test for different micrpython boards / versions / variants with and withouth sys.implementation._build
 
 
-def test_mpremoteboard_info(mocker: MockerFixture):
+def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     output = [
         "{'port': 'esp32', 'build': '236', 'arch': 'xtensawin', 'family': 'micropython', 'board': 'Generic ESP32 module with ESP32','_build': '', 'cpu': 'ESP32', 'version': '1.23.0-preview', 'mpy': 'v6.2', 'ver': 'v1.23.0-preview-236'}"
     ]
 
     m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
+    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
+
     mprb = MPRemoteBoard("COM20")
     result = mprb.get_mcu_info()  # type: ignore
 
@@ -144,3 +151,29 @@ def test_mpremoteboard_info(mocker: MockerFixture):
     assert mprb.description == "Generic ESP32 module with ESP32"
     assert mprb.board == "ESP32_GENERIC"
     assert mprb.variant == ""
+
+
+@pytest.mark.parametrize(
+    "id, cmd, ret_code, exception",
+    [
+        (1, [sys.executable, "-m", "mpremote", "--help"], 0, None),
+        (2, [sys.executable, str(HERE / "fake_output.py")], 0, None),
+        (3, [sys.executable, str(HERE / "fake_slow_output.py")], 1, None),  # timeout
+        (4, [sys.executable, str(HERE / "fake_reset.py")], 1, RuntimeError),
+    ],
+)
+@pytest.mark.xfail(reason="Different error messages across platforms")
+def test_runner_run(id, cmd: List[str], ret_code: int, exception: Optional[Exception]):
+    # Test the run function with different commands
+    # and check the return code and output
+
+    if exception:
+        with pytest.raises(exception): # type: ignore
+            run(cmd, timeout=1, success_tags=["OK    :"], log_warnings=True)
+        return
+    ret, output = run(cmd, timeout=1, success_tags=["OK    :"], log_warnings=True)
+    if id == 3:
+        # timeout test behaves differently across platforms
+        return
+    assert ret == ret_code
+    assert isinstance(output, List)

@@ -16,7 +16,7 @@ def show_mcus(
     refresh: bool = True,
     *,
     title_style="magenta",
-    header_style="bold magenta",    
+    header_style="bold magenta",
 ):
     console.print(mcu_table(conn_mcus, title, refresh, title_style=title_style, header_style=header_style))
 
@@ -38,7 +38,7 @@ def mcu_table(
 ):
     """
     builds a rich table with the connected boards information
-    The columns of the table are adjusted to the terminal width > 90 
+    The columns of the table are adjusted to the terminal width > 90
     the columns are :
                 Narrow      Wide
     - Serial    Yes         Yes
@@ -83,7 +83,7 @@ def mcu_table(
         table.add_column("Port")
     table.add_column("Board", overflow="fold")
     if needs_variant:
-        table.add_column("Variant") 
+        table.add_column("Variant")
     if is_wide:
         table.add_column("CPU")
     table.add_column("Version", overflow="fold", min_width=5, max_width=16)

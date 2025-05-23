@@ -49,14 +49,15 @@ def _info():  # type:() -> dict[str, str]
     except AttributeError:
         pass
     try:
-        machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
-        info["board"] = machine.strip()
-        _build = sys.implementation._build if "_build" in dir(sys.implementation) else ""
-        if _build:
-            info["board"] = _build.split("-")[0]
-            info["variant"] = _build.split("-")[1] if "-" in _build else ""
-        info["board_id"] = _build
-        info["cpu"] = machine.split("with")[-1].strip() if "with" in machine else ""
+        _machine = sys.implementation._machine if "_machine" in dir(sys.implementation) else os.uname().machine  # type: ignore
+        info["board"] = _machine.strip()
+        info["description"] = _machine.strip()
+        si_build = sys.implementation._build if "_build" in dir(sys.implementation) else ""
+        if si_build:
+            info["board"] = si_build.split("-")[0]
+            info["variant"] = si_build.split("-")[1] if "-" in si_build else ""
+        info["board_id"] = si_build
+        info["cpu"] = _machine.split("with")[-1].strip() if "with" in _machine else ""
         info["mpy"] = (
             sys.implementation._mpy
             if "_mpy" in dir(sys.implementation)

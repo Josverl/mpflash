@@ -1,0 +1,12 @@
+-- database: ./c:/Users/josverl/Downloads/firmware/mpflash.db
+
+-- select on version and partial board_id
+SELECT * FROM board_downloaded
+WHERE 
+    version LIKE "v1.22.1"
+    AND board_id like "PYBV11%"
+ORDER BY 
+    variant DESC
+
+-- UNION ALL
+
