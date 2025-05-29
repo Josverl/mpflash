@@ -11,8 +11,8 @@ console = Console()
 def _log_formatter(record: dict) -> str:
     """Log message formatter to combine loguru and rich formatting."""
     color_map = {
-        "TRACE": "dim blue",
-        "DEBUG": "cyan",
+        "TRACE": "cyan",
+        "DEBUG": "orange",
         "INFO": "bold",
         "SUCCESS": "bold green",
         "WARNING": "yellow",

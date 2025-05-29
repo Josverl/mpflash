@@ -4,7 +4,7 @@ from typing import List
 import rich_click as click
 from loguru import logger as log
 
-import mpflash.download.jit as jit
+import mpflash.download.jid as jid
 import mpflash.mpboard_id as mpboard_id
 from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards
@@ -214,7 +214,7 @@ def cli_flash_board(**kwargs) -> int:
             serial=params.serial[0],
             version=params.versions[0],
         )
-    jit.ensure_firmware_downloaded(worklist, version=params.versions[0])
+    jid.ensure_firmware_downloaded(worklist, version=params.versions[0])
     if flashed := flash_list(
         worklist,
         params.erase,

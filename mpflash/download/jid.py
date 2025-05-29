@@ -1,4 +1,4 @@
-# Just-in-time download of firmware if not already available
+# Just In-time Download of firmware if not already available
 from loguru import logger as log
 
 from mpflash.common import Params
@@ -9,9 +9,14 @@ from mpflash.flash.worklist import WorkList
 from mpflash.mpboard_id.alternate import alternate_board_names
 
 
-def ensure_firmware_downloaded(worklist: WorkList, version) -> None:
+def ensure_firmware_downloaded(worklist: WorkList, version: str) -> None:
     """
-    ensure firmware is downloaded.
+    Ensure all firmware in the worklist is downloaded for the given version.
+
+    Iterates over the worklist, downloads missing firmware, and updates the worklist
+    with the downloaded firmware.
+
+    Raises MPFlashError if download fails.
     """
     # iterate over the worklist ann update missing firmware
     newlist: WorkList = []

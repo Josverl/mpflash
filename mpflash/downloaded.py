@@ -49,14 +49,14 @@ def clean_downloaded_firmwares() -> None:
                 session.delete(fw)
         session.commit()
 
-        # Add files on disk not in DB
+        # Warn about files on disk not in DB
         for fw_file in firmware_files_on_disk - db_firmware_files:
-            log.warning(f"Firmware file on disk not in DB: {fw_file}")
+            log.warning(f"Found file in firmware folder but not in DB: {fw_file}")
 
 
 def find_downloaded_firmware(
     board_id: str,
-    version: str = "",  # v1.2.3
+    version: str = "",
     port: str = "",
     variants: bool = False,
 ) -> List[Firmware]:
