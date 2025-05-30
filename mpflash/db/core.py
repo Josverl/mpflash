@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from mpflash.config import config
+from mpflash.errors import MPFlashError
 
 # TODO:  lazy import to avoid slowdowns ?
 from .models import Base
@@ -24,11 +25,15 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
     # get the location of the database from the session
     with Session() as session:
         db_location = session.get_bind().url.database # type: ignore
-        log.debug(f"Database location: {Path(db_location)}") # type: ignore
+        log.debug(f"Database location: {Path(db_location)}")  # type: ignore
 
-    create_database()
+    try:
+        create_database()
+    except (DatabaseError, OperationalError) as e:
+        log.error(f"Error creating database: {e}")
+        log.error("Database might already exist, trying to migrate.")
+        raise MPFlashError("Database migration failed. Please check the logs for more details.") from e
     if boards:
-
         update_boards()
     if firmwares:
         jsonl_file = config.firmware_folder / "firmware.jsonl"
