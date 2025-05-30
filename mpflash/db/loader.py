@@ -76,6 +76,8 @@ def load_jsonl_to_db(jsonl_path: Path):
                 if "preview" in record:
                     record["version"] = f"{record['version']}-preview" if record["preview"] else record["version"]
                     record.pop("preview", None)  # Remove 'preview' column
+                if not "custom" in record:
+                    record["custom"] = False
                 firmware_file = str(Path(record["filename"]).as_posix()) if record["filename"] else ""
 
                 # Check if Firmware with this firmware_file exists
