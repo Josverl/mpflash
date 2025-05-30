@@ -1,4 +1,5 @@
 import json
+import time
 from typing import List
 
 import rich_click as click
@@ -82,5 +83,9 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
         show_mcus(conn_mcus, refresh=False)
     for mcu in conn_mcus:
         # reset the board so it can continue to whatever it was running before
-        mcu.run_command("reset")
+        if mcu.family == "circuitpython":
+            # CircuitPython boards need a special reset command
+            mcu.run_command(["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"], resume=False)
+        else:
+            mcu.run_command("reset")
     return 0 if conn_mcus else 1
