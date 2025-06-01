@@ -9,7 +9,7 @@ from mpflash.flash.worklist import WorkList
 from mpflash.mpboard_id.alternate import alternate_board_names
 
 
-def ensure_firmware_downloaded(worklist: WorkList, version: str) -> None:
+def ensure_firmware_downloaded(worklist: WorkList, version: str, force: bool) -> None:
     """
     Ensure all firmware in the worklist is downloaded for the given version.
 
@@ -21,16 +21,19 @@ def ensure_firmware_downloaded(worklist: WorkList, version: str) -> None:
     # iterate over the worklist ann update missing firmware
     newlist: WorkList = []
     for mcu, firmware in worklist:
-        if firmware:
-            # firmware is already downloaded
-            newlist.append((mcu, firmware))
-            continue
-        # check if the firmware is already downloaded
-        board_firmwares = find_downloaded_firmware(
-            board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
-            version=version,
-            port=mcu.port,
-        )
+        if force:
+            board_firmwares = []
+        else:
+            if firmware:
+                # firmware is already downloaded
+                newlist.append((mcu, firmware))
+                continue
+            # check if the firmware is already downloaded
+            board_firmwares = find_downloaded_firmware(
+                board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
+                version=version,
+                port=mcu.port,
+            )
         if not board_firmwares:
             # download the firmware
             log.info(f"Downloading {version} firmware for {mcu.board} on {mcu.serialport}.")

@@ -10,7 +10,6 @@ from typing import List, Optional, Union
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-
 # from mpflash.flash.esp import FlashMode
 from .logger import log
 
@@ -41,6 +40,7 @@ class Params:
     serial: List[str] = field(default_factory=list)
     ignore: List[str] = field(default_factory=list)
     bluetooth: bool = False
+    force: bool = False
 
 
 @dataclass
@@ -48,7 +48,6 @@ class DownloadParams(Params):
     """Parameters for downloading firmware"""
 
     clean: bool = False
-    force: bool = False
 
 
 class BootloaderMethod(Enum):

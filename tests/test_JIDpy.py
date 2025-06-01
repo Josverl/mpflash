@@ -93,7 +93,7 @@ def test_ensure_firmware_downloaded_raises_on_failure(dummy_worklist, patched_de
 
     worklist = dummy_worklist.copy()
     with pytest.raises(MPFlashError):
-        ensure_firmware_downloaded(worklist, "v1.23.0")
+        ensure_firmware_downloaded(worklist, "v1.23.0", False)
 
 
 def test_ensure_firmware_downloaded_preserves_existing_firmware(dummy_worklist, patched_dependencies):
@@ -105,6 +105,6 @@ def test_ensure_firmware_downloaded_preserves_existing_firmware(dummy_worklist, 
     alt_names.side_effect = lambda board, port: [board]
 
     worklist = dummy_worklist.copy()
-    ensure_firmware_downloaded(worklist, "v1.23.0")
+    ensure_firmware_downloaded(worklist, "v1.23.0", False)
     # Second entry should remain unchanged
     assert worklist[1][1].firmware_file == "firmware.bin"

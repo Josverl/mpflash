@@ -125,6 +125,14 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--force",
+    "-f",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="""Force download of firmware even if it already exists.""",
+)
+@click.option(
     "--flash_mode",
     "-fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
@@ -214,7 +222,7 @@ def cli_flash_board(**kwargs) -> int:
             serial=params.serial[0],
             version=params.versions[0],
         )
-    jid.ensure_firmware_downloaded(worklist, version=params.versions[0])
+    jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
     if flashed := flash_list(
         worklist,
         params.erase,
