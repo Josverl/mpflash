@@ -158,8 +158,12 @@ def cli_flash_board(**kwargs) -> int:
     params.bootloader = BootloaderMethod(params.bootloader)
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
-    if params.boards == ["?"] and params.serial == "*":
+    if params.boards == ["?"] or params.serial == "?":
         params.serial = ["?"]
+        if params.boards == ["*"]:
+            # No bard specified
+            params.boards = ["?"]
+
     if params.fw_folder: 
         config.firmware_folder = Path(params.fw_folder)
     # Detect connected boards if not specified,
