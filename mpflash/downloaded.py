@@ -51,7 +51,7 @@ def clean_downloaded_firmwares() -> None:
 
         # Warn about files on disk not in DB
         for fw_file in firmware_files_on_disk - db_firmware_files:
-            log.warning(f"Found file in firmware folder but not in DB: {fw_file}")
+            log.debug(f"Found file in firmware folder but not in DB: {fw_file}")
 
 
 def find_downloaded_firmware(
