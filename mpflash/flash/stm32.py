@@ -15,5 +15,5 @@ def flash_stm32(mcu: MPRemoteBoard, fw_file: Path, *, erase: bool):
     dfu_init()
     if updated := flash_stm32_dfu(mcu, fw_file=fw_file, erase=erase):
         mcu.wait_for_restart()
-        log.success(f"Flashed {mcu.version} to {mcu.board}")
+        log.success(f"Flashed {mcu.board_id} {mcu.version} to {mcu.serialport}.")
     return updated

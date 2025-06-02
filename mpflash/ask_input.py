@@ -11,8 +11,7 @@ from loguru import logger as log
 
 from .common import DownloadParams, FlashParams, ParamType
 from .config import config
-from .mpboard_id import (get_known_boards_for_port, known_ports,
-                         known_stored_boards)
+from .mpboard_id import get_known_boards_for_port, known_ports, known_stored_boards
 from .mpremoteboard import MPRemoteBoard
 from .versions import micropython_versions
 
@@ -227,7 +226,7 @@ def ask_serialport(*, multi_select: bool = False, bluetooth: bool = False):
     # import only when needed to reduce load time
     import inquirer
 
-    comports = MPRemoteBoard.connected_boards(bluetooth=bluetooth, description=True)
+    comports = MPRemoteBoard.connected_boards(bluetooth=bluetooth, description=True) + ["auto"]
     return inquirer.List(
         "serial",
         message="Which serial port do you want to {action} ?",
