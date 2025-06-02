@@ -22,7 +22,8 @@ Not yet implemented: `nrf`, `cc3200`, `mimxrt`, `renesas`
 ## Release v1.25.0 - 🪲Yanked🪲
 I have yanked the release of 1.25.0 from PyPI. 
 It was missing a step to upgrade from a .json to a sqlite database to better identify connected boards, and I failed to identify that in testing.
-The plan to to add the code, and upgrade tests, and re-release when it is ready.
+
+There is a preview release available on PyPI, that has the fix for this issue, and it is available as `mpflash==1.25.0rc2`.
  
 ## Features
  1. List the connected boards including their firmware details, in a tabular or json format
@@ -44,12 +45,15 @@ You can use mpflash to perform various operations on your MicroPython boards. He
 | `mpflash download` | Download the MicroPython firmware(s) for the connected board(s) |
 | `mpflash flash` | Flash the latest stable firmware to the connected board(s) |
 
-## selecting or ignoring specific serial ports
+## Selecting or ignoring specific serial ports
 
-You can use the `--serial` option to select a specific serial port to flash, or the `--ignore` option to ignore a specific serial port.
-both options can be specified multiple times 
-Both can be globs (e.g. COM*) or exact port names (e.g. COM1)
-in addition there is a --bluetooth option to simplify ignoring bluetooth ports
+You can use the `--serial` option to select a specific serial port(s) to flash, 
+Or you can use the `--ignore` option to ignore a specific serial port(s). 
+In addition there is a --bluetooth option to simplify ignoring bluetooth ports, where the default is to ignore bluetooth ports.
+E
+ither option can be specified multiple times, can be globs (e.g. COM*) or exact port names (e.g. /dev/ttyUSB0).
+To permenently ignore a port, you can set the `MPFLASH_IGNORE` environment variable to a space-separated list of serial ports or globs.
+
 
 ```
 --serial,--serial-port      -s      SERIALPORT  Serial port(s) (or globs) to list. [default: *]                                                                                                                                                                           > > --ignore                    -i      SERIALPORT  Serial port(s) (or globs) to ignore. Defaults to MPFLASH_IGNORE.                                                                                                                                                          │
@@ -64,9 +68,9 @@ This file can contain a description of the board, which will be shown in the lis
 description = "Blue Norwegian actuator"
 ```
 
-If you want the board to be ignored by mpflash, you can add the following to the board_info.toml file:
+If you want the board to be ignored by mpflash, no matter which serial port it is connected to, you can add the following to the `board_info.toml` file:
 ```toml
-description = "Blue Norwegian feeder"
+description = "Blue Norwegian actuator"
 [mpflash]
 ignore = true
 ```
