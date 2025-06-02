@@ -42,18 +42,46 @@ You can use mpflash to perform various operations on your MicroPython boards. He
 | Command | Description |
 |---------|-------------|
 | `mpflash list` | List the connected board(s) including their firmware details |
+| `mpflash flash` | Flash the latest stable firmware to the connected board(s), downloading the firmware if needed |
 | `mpflash download` | Download the MicroPython firmware(s) for the connected board(s) |
-| `mpflash flash` | Flash the latest stable firmware to the connected board(s) |
+
+**Listing connected boards:**  
+`mpflash list` will list all connected boards in a table , including their serial port, family, board name, CPU, version and build number.
+Options are available to list the boards in a json format, or to filter the list by serial port or board type.
+
+
+**Flashing boards with new firmware:**  
+`mpflash flash` will flash the latest stable firmware to all connected boards, downloading the firmware if needed.
+It will try to determine the current micropython borad and variant, download the firmware if needed, and flash the correct firmware to each board.
+
+Common options are:
+
+ - `--version` to specify the version of the firmware to flash, defaults to the latest stable version.
+ - `--serial` to specify the serial port(s) to flash, defaults to all connected boards.
+ - `--board` to specify which firmware to flash to a single board
+ - `--variant` to specify a specific variant of the board
+
+**Downloading firmware:**
+`mpflash download` will download the latest stable firmware for all connected boards, or a specific board if specified. It will download the firmware from the official MicroPython website and save it in your `Downloads/firmware` directory.  
+When a board is specified for which multiple variants are available, all variants will be downloaded.
+
+Common options are:
+
+ - `--version` to specify the version of the firmware to download, defaults to the latest stable version. (e.g. `stable`, `preview`, `x.y.z`)
+ - `--serial` to specify the serial port(s) to flash, defaults to all connected boards.
+ - `--board` to specify which firmware to flash to a single board
+
+
 
 ## Selecting or ignoring specific serial ports
 
-You can use the `--serial` option to select a specific serial port(s) to flash, 
-Or you can use the `--ignore` option to ignore a specific serial port(s). 
-In addition there is a --bluetooth option to simplify ignoring bluetooth ports, where the default is to ignore bluetooth ports.
-E
-ither option can be specified multiple times, can be globs (e.g. COM*) or exact port names (e.g. /dev/ttyUSB0).
+You can use the `--serial` option to select a specific serial port(s) to flash,  
+Or you can use the `--ignore` option to ignore a specific serial port(s).  
+
+Either option can be specified multiple times, can be globs (e.g. COM*) or exact port names (e.g. /dev/ttyUSB0).
 To permenently ignore a port, you can set the `MPFLASH_IGNORE` environment variable to a space-separated list of serial ports or globs.
 
+In addition there is a --bluetooth option to simplify ignoring bluetooth ports, where the default is to ignore bluetooth ports.
 
 ```
 --serial,--serial-port      -s      SERIALPORT  Serial port(s) (or globs) to list. [default: *]                                                                                                                                                                           > > --ignore                    -i      SERIALPORT  Serial port(s) (or globs) to ignore. Defaults to MPFLASH_IGNORE.                                                                                                                                                          │
