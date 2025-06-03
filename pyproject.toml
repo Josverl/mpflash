@@ -5,7 +5,7 @@
 
 [tool.poetry]
 name = "mpflash"
-version = "1.25.0.rc3"
+version = "1.25.0.rc4"
 description = "Flash and download tool for MicroPython firmwares"
 authors = ["Jos Verlinde <jos_verlinde@hotmail.com>"]
 license = "MIT"
@@ -38,7 +38,7 @@ loguru = "^0.7.2"
 mpremote = "^1.22.0"
 packaging = "^24.2"
 platformdirs = "^4.2.0"
-psutil = ">=5.9.8,<8.0.0"
+psutil = ">=7.0.0,<8.0.0"
 pygithub = "^2.1.1"
 pyusb = "^1.2.1"
 requests = "^2.31.0"
@@ -88,13 +88,8 @@ build-backend = "poetry.core.masonry.api"
 minversion = "7.0"
 python_functions = ["test_", "*_test"]
 python_files = ["test_*.py", "*_test.py"]
-testpaths = [
-    "tests",
-]
-norecursedirs = [
-    ".*",
-    ".*/*",
-]
+testpaths = ["tests"]
+norecursedirs = [".*", ".*/*"]
 junit_family = "xunit1"
 
 addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
@@ -243,5 +238,4 @@ line-ending = "auto"
 
 [tool.ruff.lint]
 exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
-ignore = ["F821" ]
-
+ignore = ["F821"]
