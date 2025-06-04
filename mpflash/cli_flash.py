@@ -29,7 +29,7 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--firmware",
-    "-f",
+    "--ff",
     "fw_folder",
     type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
     default=None,
@@ -95,7 +95,7 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--variant",
-    "-var",
+    "--var",
     "variant",  # single board
     multiple=False,
     help="The board VARIANT to flash or '-'. If not specified will try to read the variant from the connected MCU.",
@@ -134,7 +134,7 @@ from mpflash.versions import clean_version
 )
 @click.option(
     "--flash_mode",
-    "-fm",
+    "--fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
     default="keep",
     show_default=True,
