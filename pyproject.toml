@@ -5,7 +5,7 @@
 
 [tool.poetry]
 name = "mpflash"
-version = "1.24.8"
+version = "1.25.0.rc4"
 description = "Flash and download tool for MicroPython firmwares"
 authors = ["Jos Verlinde <jos_verlinde@hotmail.com>"]
 license = "MIT"
@@ -38,20 +38,21 @@ loguru = "^0.7.2"
 mpremote = "^1.22.0"
 packaging = "^24.2"
 platformdirs = "^4.2.0"
-psutil = ">=5.9.8,<8.0.0"
+psutil = ">=7.0.0,<8.0.0"
 pygithub = "^2.1.1"
 pyusb = "^1.2.1"
 requests = "^2.31.0"
 rich-click = "^1.8.1"
 tenacity = "9.0.0"
 cache-to-disk = "^2.0.0"
-poetry = "^2.0.1"
+sqlalchemy = "^2.0.41"
 
 
 [tool.poetry.group.dev]
 optional = true
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+pandas = "^2.2.3"
 
 [tool.poetry.group.test]
 optional = true
@@ -69,7 +70,8 @@ fasteners = "^0.19"
 mock = ">=4.0.3,<6.0.0"
 
 
-
+[tool.poetry.group.perf]
+optional = true
 [tool.poetry.group.perf.dependencies]
 scalene = "^1.5.51"
 
@@ -86,13 +88,8 @@ build-backend = "poetry.core.masonry.api"
 minversion = "7.0"
 python_functions = ["test_", "*_test"]
 python_files = ["test_*.py", "*_test.py"]
-testpaths = [
-    "tests",
-]
-norecursedirs = [
-    ".*",
-    ".*/*",
-]
+testpaths = ["tests"]
+norecursedirs = [".*", ".*/*"]
 junit_family = "xunit1"
 
 addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
@@ -116,6 +113,96 @@ markers = [
     "darwin: run test only on Mac",
     # micropython version dependencies 
 
+
+]
+
+############################################################
+#                     Coverage (pytest-cov)                #
+############################################################
+
+
+# coverage reports
+
+[tool.coverage.run]
+parallel = false
+branch = true
+source = ["mpflash"]
+omit = [
+    # micropython code
+    "mpflash/mpremoteboard/mpy_fw_info.py",
+    # vendored 
+    "mpflash/vendor/*",
+    # pytest code
+    "*/test_*.py",
+    "*/*_test.py",
+
+]
+
+
+[tool.coverage.html]
+directory = "coverage"
+
+[tool.coverage.xml]
+output = "results/coverage.xml"
+
+[tool.coverage.json]
+output = "results/coverage.json"
+
+[tool.coverage.lcov]
+output = "results/coverage.lcov"
+
+[tool.coverage.report]
+show_missing = true
+# Regexes for lines to exclude from consideration
+exclude_lines = [
+    # Have to re-enable the standard pragma
+    "pragma: no cover",
+    "pragma: nocover",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "self._log.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    "except subprocess.CalledProcessError as e:",
+    "except OSError:",
+    "except OSError as e:",
+    "except OSError as e2:",
+    "except (OSError, KeyError):",
+    "except (OSError, AttributeError):",
+    "except (OSError, KeyError, NameError):",
+    "except KeyError:",
+    "except AttributeError as e:",
+    "except requests.RequestException as e:",
+
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+
+    # mind the quotes 
+    'if __name__ == "__main__" or isMicroPython():',
+    "main()",
+
+    # utility functions
+    "show_help()",
+    "isMicroPython()",
+    "read_path()",
+
+    #unreachable
+    # mind the quotes 
+    'info["release"] = "2.0.0" ',
+    "if arch",
+
+    # Micropython detection
+    "except (NotImplementedError, SyntaxError):",
+    # catch error
+    "except (OSError, KeyError):",
+    "except (OSError, AttributeError):",
+
+    # Backward compat <= 3.7 
+    "if sys.version_info.major == 3 and sys.version_info.minor <= 7:",
 
 ]
 
@@ -151,5 +238,4 @@ line-ending = "auto"
 
 [tool.ruff.lint]
 exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
-ignore = ["F821" ]
-
+ignore = ["F821"]

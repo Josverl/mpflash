@@ -10,7 +10,6 @@ from typing import List, Optional, Union
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-
 # from mpflash.flash.esp import FlashMode
 from .logger import log
 
@@ -28,41 +27,6 @@ PORT_FWTYPES = {
 
 UF2_PORTS = [port for port, exts in PORT_FWTYPES.items() if ".uf2" in exts]
 
-@dataclass
-class FWInfo:
-    """
-    Downloaded Firmware information
-    is somewhat related to the BOARD class in the mpboard_id module
-    """
-
-    port: str  # MicroPython port
-    board: str  # MicroPython board
-    filename: str = field(default="")  # relative filename of the firmware image
-    firmware: str = field(default="")  # url or path to original firmware image
-    variant: str = field(default="")  # MicroPython variant
-    preview: bool = field(default=False)  # True if the firmware is a preview version
-    version: str = field(default="")  # MicroPython version (NO v prefix)
-    url: str = field(default="")  # url to the firmware image download folder
-    build: str = field(default="0")  # The build = number of commits since the last release
-    ext: str = field(default="")  # the file extension of the firmware
-    family: str = field(default="micropython")  # The family of the firmware
-    custom: bool = field(default=False)  # True if the firmware is a custom build
-    description: str = field(default="")  # Description used by this firmware (custom only)
-
-    def to_dict(self) -> dict:
-        """Convert the object to a dictionary"""
-        return self.__dict__
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "FWInfo":
-        """Create a FWInfo object from a dictionary"""
-        # add missing keys
-        if "ext" not in data:
-            data["ext"] = Path(data["firmware"]).suffix
-        if "family" not in data:
-            data["family"] = "micropython"
-        return cls(**data)
-
 
 @dataclass
 class Params:
@@ -72,10 +36,11 @@ class Params:
     boards: List[str] = field(default_factory=list)
     variant: str = ""
     versions: List[str] = field(default_factory=list)
-    fw_folder: Path = Path()
+    fw_folder: Optional[Path] = None
     serial: List[str] = field(default_factory=list)
     ignore: List[str] = field(default_factory=list)
     bluetooth: bool = False
+    force: bool = False
 
 
 @dataclass
@@ -83,7 +48,6 @@ class DownloadParams(Params):
     """Parameters for downloading firmware"""
 
     clean: bool = False
-    force: bool = False
 
 
 class BootloaderMethod(Enum):

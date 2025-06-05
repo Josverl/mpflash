@@ -2,7 +2,6 @@
 Module to run mpremote commands, and retry on failure or timeout
 """
 
-
 import contextlib
 import sys
 import time
@@ -35,7 +34,9 @@ RETRIES = 3
 class MPRemoteBoard:
     """Class to run mpremote commands"""
 
-    def __init__(self, serialport: str = "", update: bool = False, *, location: str = ""):
+    def __init__(
+        self, serialport: str = "", update: bool = False, *, location: str = ""
+    ):
         """
         Initialize MPRemoteBoard object.
 
@@ -62,20 +63,32 @@ class MPRemoteBoard:
         self.toml = {}
         if update:
             self.get_mcu_info()
+
     ###################################
     # board_id := board[-variant]
     @property
     def board_id(self) -> str:
         return self._board_id
+
     @board_id.setter
     def board_id(self, value: str) -> None:
-        self._board_id = value.rstrip('-')
+        self._board_id = value.rstrip("-")
+
     @property
     def board(self) -> str:
         return self._board_id.split("-")[0]
+
+    @board.setter
+    def board(self, value: str) -> None:
+        self.board_id = f"{value}-{self.variant}" if self.variant else value
+
     @property
     def variant(self) -> str:
-        return self._board_id.split("-")[1] if "-" in self._board_id else ""        
+        return self._board_id.split("-")[1] if "-" in self._board_id else ""
+
+    @variant.setter
+    def variant(self, value: str) -> None:
+        self.board_id = f"{self.board}-{value}"
 
     ###################################
     def __str__(self):
@@ -88,7 +101,9 @@ class MPRemoteBoard:
         return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}{f'-{self.variant}' if self.variant else ''}, {self.version})"
 
     @staticmethod
-    def connected_boards(bluetooth: bool = False, description: bool = False) -> List[str]:
+    def connected_boards(
+        bluetooth: bool = False, description: bool = False
+    ) -> List[str]:
         # TODO: rename to connected_comports
         """
         Get a list of connected comports.
@@ -116,7 +131,10 @@ class MPRemoteBoard:
         if sys.platform == "win32":
             # Windows sort of comports by number - but fallback to device name
             return sorted(
-                output, key=lambda x: int(x.split()[0][3:]) if x.split()[0][3:].isdigit() else x
+                output,
+                key=lambda x: int(x.split()[0][3:])
+                if x.split()[0][3:].isdigit()
+                else x,
             )
         # sort by device name
         return sorted(output)
@@ -138,11 +156,11 @@ class MPRemoteBoard:
             timeout=timeout,
             resume=False,  # Avoid restarts
         )
-        if rc not in (0,1): ## WORKAROUND - SUDDEN RETURN OF 1 on success 
+        if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
             log.debug(f"rc: {rc}, result: {result}")
             raise ConnectionError(f"Failed to get mcu_info for {self.serialport}")
         # Ok we have the info, now parse it
-        raw_info = result[0].strip()
+        raw_info = result[0].strip() if result else ""
         if raw_info.startswith("{") and raw_info.endswith("}"):
             info = eval(raw_info)
             self.family = info["family"]
@@ -152,19 +170,19 @@ class MPRemoteBoard:
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]
-            self.description = descr = info["board"]
+            self.description = descr = info["description"] if 'description' in info else info["board"]
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
-            if info.get("board_id", None): 
+            if info.get("board_id", None):
                 # we have a board_id - so use that to get the board name
                 self.board_id = info["board_id"]
-            else: 
-                self.board_id = f"{info['board']}-{info.get('variant','')}"
+            else:
+                self.board_id = f"{info['board']}-{info.get('variant', '')}"
                 board_name = find_board_id_by_description(
                     descr, short_descr, version=self.version
                 )
                 self.board_id = board_name or "UNKNOWN_BOARD"
-                # TODO: Get the variant as well 
+                # TODO: Get the variant as well
             # get the board_info.toml
             self.get_board_info_toml()
             # TODO: get board_id from the toml file if it exists
@@ -191,7 +209,9 @@ class MPRemoteBoard:
                 log_errors=False,
             )
         except Exception as e:
-            raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
+            raise ConnectionError(
+                f"Failed to get board_info.toml for {self.serialport}:"
+            ) from e
         # this is optional - so only parse if we got the file
         self.toml = {}
         if rc in [OK]:  # sometimes we get an -9 ???
@@ -298,6 +318,7 @@ class MPRemoteBoard:
         Returns:
         - str: A JSON string representation of the object.
         """
+
         def get_properties(obj):
             """Helper function to get all readable properties."""
             return {
@@ -310,9 +331,9 @@ class MPRemoteBoard:
         data = {**self.__dict__, **get_properties(self)}
 
         # remove the path and firmware attibutes from the json output as they are always empty
-        del(data["_board_id"]) # dup of board_id
-        del(data["connected"])
-        del(data["path"])
-        del(data["firmware"])
+        del data["_board_id"]  # dup of board_id
+        del data["connected"]
+        del data["path"]
+        del data["firmware"]
 
         return data

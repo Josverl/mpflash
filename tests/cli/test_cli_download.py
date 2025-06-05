@@ -22,7 +22,6 @@ pytestmark = pytest.mark.mpflash
     "id, ex_code, args",
     [
         ("10", 0, ["download"]),
-        ("20", 0, ["download", "--destination", "firmware"]),
         ("30", 0, ["download", "--version", "1.22.0"]),
         ("31", 0, ["download", "--version", "stable"]),
         ("32", 0, ["download", "--version", "stable", "--version", "1.22.0"]),
@@ -30,13 +29,14 @@ pytestmark = pytest.mark.mpflash
         ("41", 0, ["download", "--board", "?"]),
         ("42", 0, ["download", "--board", "?", "--board", "ESP32_GENERIC"]),
         ("43", 0, ["download", "--board", "ESP32_GENERIC", "--board", "?"]),
-        ("50", 0, ["download", "--destination", "firmware", "--version", "1.22.0", "--board", "ESP32_GENERIC"]),
         ("60", 0, ["download", "--no-clean"]),
         ("61", 0, ["download", "--clean"]),
         ("62", 0, ["download", "--force"]),
+        # ("20", 0, ["download", "--destination", "firmware"]),
+        # ("50", 0, ["download", "--destination", "firmware", "--version", "1.22.0", "--board", "ESP32_GENERIC"]),
     ],
 )
-def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture):
+def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, session_fx):
     def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
         if "?" in params.ports:
             params.ports = ["esp32"]
@@ -57,7 +57,8 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture):
         "mpflash.cli_download.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
-
+    mocker.patch("mpflash.download.Session", session_fx)
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
     assert result.exit_code == ex_code
@@ -69,13 +70,13 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture):
     assert m_download.call_args.args[1], "one or more ports should be specified for download"
 
     if "--clean" in args:
-        assert m_download.call_args.args[5] == True, "clean should be True"
+        assert m_download.call_args.args[4] == True, "clean should be True"
     if "--no-clean" in args:
-        assert m_download.call_args.args[5] == False, "clean should be False"
+        assert m_download.call_args.args[4] == False, "clean should be False"
     else:
-        assert m_download.call_args.args[5] == True, "clean should be True"
+        assert m_download.call_args.args[4] == True, "clean should be True"
 
     if "--force" in args:
-        assert m_download.call_args.args[4] == True, "force should be True"
+        assert m_download.call_args.args[3] == True, "force should be True"
     else:
-        assert m_download.call_args.args[4] == False, "force should be False"
+        assert m_download.call_args.args[3] == False, "force should be False"

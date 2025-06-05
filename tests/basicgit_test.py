@@ -20,6 +20,7 @@ pytestmark = [pytest.mark.mpflash, pytest.mark.basicgit]
 # Module Under Test
 import mpflash.basicgit as git
 
+
 def common_tst(tag):
     # print(tag)
     assert isinstance(tag, str), "tag must be a string"
@@ -87,6 +88,7 @@ def test_get_tag_current():
         # get tag of current repro
         tag = git.get_local_tag()
         common_tst(tag)
+
 
 @pytest.mark.xfail(reason="fails for some reason in CI only")
 def test_get_tags():

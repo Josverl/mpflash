@@ -45,6 +45,6 @@ src/mpflash/coverag*
 # no hypothesis patches
 **/.hypothesis
 
-firmware
 profile.*
+
 

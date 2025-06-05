@@ -52,7 +52,7 @@ jobs:
             #----------------------------------------------
             - name: Install poetry and codecov
               run: |
-                  pipx install poetry==2.1
+                  pipx install poetry
 
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v5
@@ -60,21 +60,22 @@ jobs:
                   python-version: ${{ matrix.python-version }}
                   #   cache: "poetry"
 
-            #   #----------------------------------------------
-            #   # install project
-            #   #----------------------------------------------
+            #----------------------------------------------
+            # install project
+            #----------------------------------------------
             - name: Install mpflash & test dependencies
-              run: |
-                  poetry install --with test
+              run: poetry install --with test
 
             - name: Test mpflash
               run: |
+                  # run once to bootstrap database (test hack)
+                  poetry run mpflash download --board RPI_PICO
                   poetry run pytest --cov --cov-branch --cov-report=xml
 
-            #   #----------------------------------------------
-            #   # upload coverage stats
-            #   # .XML  to Codecov
-            #   #----------------------------------------------
+            #----------------------------------------------
+            # upload coverage stats
+            # .XML  to Codecov
+            #----------------------------------------------
 
             - name: Upload coverage-mpflash-*.xml to Codecov
               if: always() # ignore errors

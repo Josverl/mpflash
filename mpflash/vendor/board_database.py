@@ -37,7 +37,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from glob import glob
+from os import path
 from pathlib import Path
+import re
 
 
 @dataclass(order=True)
@@ -51,6 +53,15 @@ class Variant:
     Example: "Double precision float + Threads"
     """
     board: Board = field(repr=False)
+
+    @property
+    def description(self) -> str:
+        """
+        Description of the board, if available.
+        Example: "Pyboard v1.1 with STM32F4"
+        """
+        return description_from_source(self.board.path, self.name) or self.board.description
+        # f"{self.board.description}-{self.name}"
 
 
 @dataclass(order=True)
@@ -93,6 +104,12 @@ class Board:
     """
     port: Port | None = field(default=None, compare=False)
 
+    path: str = ""
+    """
+    the relative path to the boards files.
+    Example: "ports/stm32/boards/PYBV11"
+    """
+
     @staticmethod
     def factory(filename_json: Path) -> Board:
         with filename_json.open() as f:
@@ -101,17 +118,26 @@ class Board:
         board = Board(
             name=filename_json.parent.name,
             variants=[],
-            url=board_json["url"],
+            url=board_json["url"] if "url" in board_json else "",  # fix missing url
             mcu=board_json["mcu"],
             product=board_json["product"],
             vendor=board_json["vendor"],
             images=board_json["images"],
             deploy=board_json["deploy"],
+            path=filename_json.parent.as_posix(),
         )
         board.variants.extend(
             sorted([Variant(*v, board) for v in board_json.get("variants", {}).items()])  # type: ignore
         )
         return board
+
+    @property
+    def description(self) -> str:
+        """
+        Description of the board, if available.
+        Example: "Pyboard v1.1 with STM32F4"
+        """
+        return description_from_source(self.path, "") or self.name
 
 
 @dataclass(order=True)
@@ -140,6 +166,8 @@ class Database:
 
     def __post_init__(self) -> None:
         mpy_dir = self.mpy_root_directory
+        if not mpy_dir.is_dir():
+            raise ValueError(f"Invalid path to micropython directory: {mpy_dir}")
         # Take care to avoid using Path.glob! Performance was 15x slower.
         for p in glob(f"{mpy_dir}/ports/**/boards/**/board.json"):
             filename_json = Path(p)
@@ -176,6 +204,7 @@ class Database:
                 "",
                 [],
                 [],
+                path=path.as_posix(),
             )
             board.variants = [Variant(v, "", board) for v in variant_names]
             port = Port(special_port_name, {special_port_name: board})
@@ -183,3 +212,59 @@ class Database:
 
             self.ports[special_port_name] = port
             self.boards[board.name] = board
+
+
+# look for all mpconfigboard.h files and extract the board name
+# from the #define MICROPY_HW_BOARD_NAME "PYBD_SF6"
+# and the #define MICROPY_HW_MCU_NAME "STM32F767xx"
+RE_H_MICROPY_HW_BOARD_NAME = re.compile(r"#define\s+MICROPY_HW_BOARD_NAME\s+\"(.+)\"")
+RE_H_MICROPY_HW_MCU_NAME = re.compile(r"#define\s+MICROPY_HW_MCU_NAME\s+\"(.+)\"")
+# find boards and variants in the mpconfigboard*.cmake files
+RE_CMAKE_MICROPY_HW_BOARD_NAME = re.compile(r"MICROPY_HW_BOARD_NAME\s?=\s?\"(?P<variant>[\w\s\S]*)\"")
+RE_CMAKE_MICROPY_HW_MCU_NAME = re.compile(r"MICROPY_HW_MCU_NAME\s?=\s?\"(?P<variant>[\w\s\S]*)\"")
+
+
+def description_from_source(board_path: str | Path, variant: str = "") -> str:
+    """Get the board's description from the header or make files."""
+    return description_from_header(board_path, variant) or description_from_cmake(board_path, variant)
+
+
+def description_from_header(board_path: str | Path, variant: str = "") -> str:
+    """Get the board's description from the mpconfigboard.h file."""
+
+    mpconfig_path = path.join(board_path, f"mpconfigboard_{variant}.h" if variant else "mpconfigboard.h")
+    if not path.exists(mpconfig_path):
+        return f""
+
+    with open(mpconfig_path, "r") as f:
+        board_name = mcu_name = "-"
+        found = 0
+        for line in f:
+            if match := RE_H_MICROPY_HW_BOARD_NAME.match(line):
+                board_name = match[1]
+                found += 1
+            elif match := RE_H_MICROPY_HW_MCU_NAME.match(line):
+                mcu_name = match[1]
+                found += 1
+            if found == 2:
+                return f"{board_name} with {mcu_name}" if mcu_name != "-" else board_name
+    return board_name if found == 1 else ""
+
+
+def description_from_cmake(board_path: str | Path, variant: str = "") -> str:
+    """Get the board's description from the mpconfig[board|variant].cmake file."""
+
+    cmake_path = path.join(board_path, f"mpconfigvariant_{variant}.cmake" if variant else "mpconfigboard.cmake")
+    if not path.exists(cmake_path):
+        return f""
+    with open(cmake_path, "r") as f:
+        board_name = mcu_name = "-"
+        for line in f:
+            line = line.strip()
+            if match := RE_CMAKE_MICROPY_HW_BOARD_NAME.match(line):
+                description = match["variant"]
+                return description
+            elif match := RE_CMAKE_MICROPY_HW_MCU_NAME.match(line):
+                description = match["variant"]
+                return description
+    return ""

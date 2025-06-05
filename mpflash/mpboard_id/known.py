@@ -7,59 +7,50 @@ This module provides access to the board info and the known ports and boards."""
 from functools import lru_cache
 from typing import List, Optional, Tuple
 
+from sqlalchemy import text
+
+from mpflash.db.core import Session
+from mpflash.db.models import Board
 from mpflash.errors import MPFlashError
+from mpflash.logger import log
 from mpflash.versions import clean_version
 
-from .board import Board
-from .store import read_known_boardinfo
+
+def known_ports(version: str = "") -> list[str]:
+    """Return a list of known ports for a given version."""
+    version = clean_version(version) if version else "%%"
+    with Session() as session:
+        qry = text("SELECT distinct port FROM boards WHERE version like :version ORDER BY port;")
+        ports = session.execute(qry, {"version": version}).columns("port").fetchall()
+    return [row.port for row in ports]
 
 
-def get_known_ports() -> List[str]:
-    # TODO: Filter for Version
-    mp_boards = read_known_boardinfo()
-    # select the unique ports from info
-    ports = set({board.port for board in mp_boards if board.port})
-    return sorted(list(ports))
+def known_versions(port: str = "") -> list[str]:
+    """Return a list of known versions for a given port."""
+    port = port.strip() if port else "%%"
+    with Session() as session:
+        qry = text("SELECT distinct version FROM boards WHERE port like :port ORDER BY version;")
+        versions = session.execute(qry, {"port": port}).columns("version").fetchall()
+    return [row.version for row in versions]
 
 
-def get_known_boards_for_port(port: Optional[str] = "", versions: Optional[List[str]] = None) -> List[Board]:
+def get_known_boards_for_port(port: str = "", versions: List[str] = []):
     """
     Returns a list of boards for the given port and version(s)
 
     port: The Micropython port to filter for
     versions:  Optional, The Micropython versions to filter for (actual versions required)
     """
-    mp_boards = read_known_boardinfo()
-    if versions:
-        preview_or_stable = "preview" in versions or "stable" in versions
-    else:
-        preview_or_stable = False
-
-    # filter for 'preview' as they are not in the board_info.json
-    # instead use stable version
-    versions = versions or []
-    if "preview" in versions:
-        versions.remove("preview")
-        versions.append("stable")
-    # filter for the port
-    if port:
-        mp_boards = [board for board in mp_boards if board.port == port]
-    if versions:
-        # make sure of the v prefix
-        versions = [clean_version(v) for v in versions]
-        # filter for the version(s)
-        mp_boards = [board for board in mp_boards if board.version in versions]
-        if not mp_boards and preview_or_stable:
-            # nothing found - perhaps there is a newer version for which we do not have the board info yet
-            # use the latest known version from the board info
-            mp_boards = read_known_boardinfo()
-            last_known_version = sorted({b.version for b in mp_boards})[-1]
-            mp_boards = [board for board in mp_boards if board.version == last_known_version]
-
-    return mp_boards
+    versions = [clean_version(v) for v in versions] if versions else []
+    with Session() as session:
+        qry = session.query(Board).filter(Board.port.like(port))
+        if versions:
+            qry = qry.filter(Board.version.in_(versions))
+        boards = qry.all()
+        return boards
 
 
-def known_stored_boards(port: str, versions: Optional[List[str]] = None) -> List[Tuple[str, str]]:
+def known_stored_boards(port: str, versions: List[str] = []) -> List[Tuple[str, str]]:
     """
     Returns a list of tuples with the description and board name for the given port and version
 
@@ -68,27 +59,22 @@ def known_stored_boards(port: str, versions: Optional[List[str]] = None) -> List
     """
     mp_boards = get_known_boards_for_port(port, versions)
 
-    boards = set({(f"{board.version} {board.description}", board.board_id) for board in mp_boards})
+    boards = set({(f"{board.version} {board.board_id:<30} {board.description}", board.board_id) for board in mp_boards})
     return sorted(list(boards))
 
 
-@lru_cache(maxsize=20)
-def find_known_board(board_id: str) -> Board:
+def find_known_board(board_id: str, version="") -> Board:
     """Find the board for the given BOARD_ID or 'board description' and return the board info as a Board object"""
-    # Some functional overlap with:
-    # mpboard_id\board_id.py _find_board_id_by_description
-    info = read_known_boardinfo()
-    for board_info in info:
-        if board_id in (
-            board_info.board_id,
-            board_info.description,
-        ) or board_info.description.startswith(board_id):
-            if not board_info.cpu:
-                # failsafe for older board_info.json files
-                print(f"Board {board_id} has no CPU info, using port as CPU")
-                if " with " in board_info.description:
-                    board_info.cpu = board_info.description.split(" with ")[-1]
-                else:
-                    board_info.cpu = board_info.port
-            return board_info
+    with Session() as session:
+        qry = session.query(Board).filter(Board.board_id == board_id)
+        if version:
+            qry = qry.filter(Board.version == version)
+        board = qry.first()
+        if not board:
+            # if no board found, try to find it by description
+            qry = session.query(Board).filter(Board.description == board_id)
+            if version:
+                qry = qry.filter(Board.version == version)
+        if board:
+            return board
     raise MPFlashError(f"Board {board_id} not found")

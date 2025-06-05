@@ -15,6 +15,7 @@ from mpflash.mpremoteboard import MPRemoteBoard
 
 FlashMode = Literal["keep", "qio", "qout", "dio", "dout"]
 
+
 def flash_esp(
     mcu: MPRemoteBoard,
     fw_file: Path,
@@ -30,7 +31,7 @@ def flash_esp(
     log.info(f"Flashing {fw_file} on {mcu.board} on {mcu.serialport}")
     if not mcu.cpu:
         # Lookup CPU based on the board name
-        mcu.cpu = find_known_board(mcu.board).cpu
+        mcu.cpu = find_known_board(mcu.board).mcu
 
     cmds: List[List[str]] = []
 

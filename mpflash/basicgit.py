@@ -24,6 +24,7 @@ from mpflash.config import config
 
 # GH_CLIENT = None
 
+
 def _run_local_git(
     cmd: List[str],
     repo: Optional[Union[Path, str]] = None,
@@ -180,7 +181,6 @@ def checkout_tag(tag: str, repo: Optional[Union[str, Path]] = None) -> bool:
     return True
 
 
-
 def checkout_commit(commit_hash: str, repo: Optional[Union[Path, str]] = None) -> bool:
     """
     Checkout a specific commit
@@ -267,7 +267,7 @@ def pull(repo: Union[Path, str], branch: str = "main") -> bool:
     return result.returncode == 0
 
 
-def get_git_describe(folder: Optional[str] = None):
+def get_git_describe(folder: Optional[Union[Path, str]] = None):
     """
     Based on MicroPython makeversionhdr.py
     returns : current git tag, commits ,commit hash : "v1.19.1-841-g3446"
