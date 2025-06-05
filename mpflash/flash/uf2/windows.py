@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import psutil
 from rich.progress import track
 
 from .boardid import get_board_id
@@ -14,7 +15,6 @@ from .boardid import get_board_id
 
 def wait_for_UF2_windows(board_id: str, s_max: int = 10) -> Optional[Path]:
     """Wait for the MCU to mount as a drive"""
-    import psutil
 
     if s_max < 1:
         s_max = 10

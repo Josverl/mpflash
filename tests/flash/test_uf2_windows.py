@@ -1,6 +1,8 @@
-import pytest
-from unittest import mock
 from pathlib import Path
+from unittest import mock
+
+import pytest
+
 from mpflash.flash.uf2.windows import wait_for_UF2_windows
 
 
@@ -22,6 +24,7 @@ def mock_time_sleep():
         yield mock_sleep
 
 
+@pytest.mark.win32
 def test_wait_for_UF2_windows_success(mock_psutil_disk_partitions, mock_get_board_id, mock_time_sleep):
     mock_psutil_disk_partitions.return_value = [mock.Mock(device="D:\\")]
     mock_get_board_id.return_value = "TEST_BOARD_ID"
@@ -30,12 +33,14 @@ def test_wait_for_UF2_windows_success(mock_psutil_disk_partitions, mock_get_boar
         assert result == Path("D:\\")
 
 
+@pytest.mark.win32
 def test_wait_for_UF2_windows_timeout(mock_psutil_disk_partitions, mock_get_board_id, mock_time_sleep):
     mock_psutil_disk_partitions.return_value = []
     result = wait_for_UF2_windows("TEST_BOARD_ID", s_max=1)
     assert result is None
 
 
+@pytest.mark.win32
 def test_wait_for_UF2_windows_oserror(mock_psutil_disk_partitions, mock_get_board_id, mock_time_sleep):
     mock_psutil_disk_partitions.return_value = [mock.Mock(device="D:\\")]
     mock_get_board_id.side_effect = OSError
