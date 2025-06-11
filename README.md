@@ -19,11 +19,18 @@ This tool was initially created to be used in a CI/CD pipeline to automate the p
 
 Not yet implemented: `nrf`, `cc3200`, `mimxrt`, `renesas`
 
-## Release v1.25.0 - 🪲Yanked🪲
-I have yanked the release of 1.25.0 from PyPI. 
-It was missing a step to upgrade from a .json to a sqlite database to better identify connected boards, and I failed to identify that in testing.
+## Release v1.25.0(.post2)
 
-There is a preview release available on PyPI, that has the fix for this issue, and it is available as `mpflash==1.25.0rc2`.
+This release includes several new features and improvements:
+- **New features:**
+  - Added support for `--variant` option to specify a specific variant of the board when flashing.
+  - mpflash now uses a slqlite database to store information on all possible micropython firmwares, and the management of the downloaded firmware files.
+  - This allows for a better identification of boards, and matches to the correct firmware.
+  - Use the MicroPython v1.25.0 `sys.implementation._build` to as board_id when avaialable
+  - Automatically try to download firmware if not yet available locally. No lonmger need to specify the `--download` option.
+  - Restructured mpboard_id to use a SQLite db to be able to ID more boards and variants
+  - vendored and adapted `board_database.py` from mpflash, kudos @mattytrentini
+
  
 ## Features
  1. List the connected boards including their firmware details, in a tabular or json format
