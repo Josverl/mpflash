@@ -5,6 +5,7 @@ Ensures log messages are compatible with the current console encoding.
 Removes or replaces Unicode icons if the encoding is not UTF-8.
 """
 
+import functools
 import sys
 
 from loguru import logger as log
@@ -15,12 +16,15 @@ from .config import config
 console = Console()
 
 # Detect if the output encoding supports Unicode (UTF-8)
+@functools.lru_cache(maxsize=1)
 def _is_utf8_encoding() -> bool:
-    encoding = getattr(sys.stdout, "encoding", None)
-    if encoding is None:
+    try:
+        encoding = getattr(sys.stdout, "encoding", None)
+        if encoding is None:
+            return False
+        return encoding.lower().replace("-", "") == "utf8"
+    except BaseException:
         return False
-    return encoding.lower().replace("-", "") == "utf8"
-
 
 def _log_formatter(record: dict) -> str:
     """

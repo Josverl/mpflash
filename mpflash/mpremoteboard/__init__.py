@@ -216,9 +216,10 @@ class MPRemoteBoard:
         self.toml = {}
         if rc in [OK]:  # sometimes we get an -9 ???
             try:
+                log.trace(result)
                 # Ok we have the info, now parse it
                 self.toml = tomllib.loads("".join(result))
-                log.debug(f"board_info.toml: {self.toml}")
+                log.debug(f"board_info.toml: {self.toml["description"]}")
             except Exception as e:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
