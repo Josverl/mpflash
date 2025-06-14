@@ -28,15 +28,6 @@ from mpflash.versions import clean_version
     short_help="Flash one or all connected MicroPython boards with a specific firmware and version.",
 )
 @click.option(
-    "--firmware",
-    "--ff",
-    "fw_folder",
-    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    default=None,
-    show_default=False,
-    help="The folder to retrieve the firmware from.",
-)
-@click.option(
     "--version",
     "-v",
     "version",  # single version
@@ -164,8 +155,6 @@ def cli_flash_board(**kwargs) -> int:
             # No bard specified
             params.boards = ["?"]
 
-    if params.fw_folder: 
-        config.firmware_folder = Path(params.fw_folder)
     # Detect connected boards if not specified,
     # and ask for input if boards cannot be detected
     all_boards: List[MPRemoteBoard] = []

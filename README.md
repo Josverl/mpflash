@@ -78,7 +78,15 @@ Common options are:
  - `--serial` to specify the serial port(s) to flash, defaults to all connected boards.
  - `--board` to specify which firmware to flash to a single board
 
+## Setting the Firmware Files and Database Location
 
+You can override the default location for firmware files and the MPFlash database by setting the `MPFLASH_FIRMWARE` environment variable. For example, in a Bash shell:
+
+```bash
+export MPFLASH_FIRMWARE="/path/to/custom/firmware"
+```
+
+When this variable is set, `mpflash` will use that location to store firmware files and estabish it's database.
 
 ## Selecting or ignoring specific serial ports
 

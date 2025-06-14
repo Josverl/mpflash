@@ -32,8 +32,6 @@ pytestmark = pytest.mark.mpflash
         ("60", 0, ["download", "--no-clean"]),
         ("61", 0, ["download", "--clean"]),
         ("62", 0, ["download", "--force"]),
-        # ("20", 0, ["download", "--destination", "firmware"]),
-        # ("50", 0, ["download", "--destination", "firmware", "--version", "1.22.0", "--board", "ESP32_GENERIC"]),
     ],
 )
 def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, session_fx):

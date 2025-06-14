@@ -4,8 +4,9 @@ import os
 from importlib.metadata import version
 from pathlib import Path
 from typing import List, Optional
-
 import platformdirs
+
+from mpflash.errors import MPFlashError
 
 
 def get_version():
@@ -44,7 +45,15 @@ class MPFlashConfig:
     def firmware_folder(self) -> Path:
         """The folder where firmware files are stored"""
         if not self._firmware_folder:
-            self._firmware_folder = platformdirs.user_downloads_path() / "firmware"
+            from mpflash.logger import log
+            # Check if MPFLASH_FIRMWARE environment variable is set
+            env_firmware_path = os.getenv("MPFLASH_FIRMWARE")
+            if env_firmware_path:
+                firmware_path = Path(env_firmware_path)
+                if firmware_path.exists() and firmware_path.is_dir():
+                    self._firmware_folder = firmware_path
+                else:
+                    log.warning(f"Environment variable MPFLASH_FIRMWARE points to invalid directory: {env_firmware_path}. Using default location.")
             # allow testing in CI
             if Path(os.getenv("GITHUB_ACTIONS", "")).as_posix().lower() == "true":
                 workspace = os.getenv("GITHUB_WORKSPACE")
@@ -53,6 +62,13 @@ class MPFlashConfig:
                     ws_path.mkdir(parents=True, exist_ok=True)
                     print(f"Detected GitHub Actions environment. Using workspace path: {ws_path}")
                     self._firmware_folder = ws_path
+            if not self._firmware_folder:
+                self._firmware_folder = platformdirs.user_downloads_path() / "firmware"
+            if not self._firmware_folder.exists():
+                log.info(f"Creating firmware folder at {self._firmware_folder}")
+                self._firmware_folder.mkdir(parents=True, exist_ok=True)
+            if not self._firmware_folder.is_dir():
+                raise MPFlashError(f"Firmware folder {self._firmware_folder} is not a directory.")
         return self._firmware_folder
 
     @firmware_folder.setter

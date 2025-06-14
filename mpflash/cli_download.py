@@ -24,15 +24,6 @@ from .download import download
     help="Download MicroPython firmware for specific ports, boards and versions.",
 )
 @click.option(
-    "--destination",
-    "-d",
-    "fw_folder",
-    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
-    default=None,
-    show_default=False,
-    help="The folder to download the firmware to.",
-)
-@click.option(
     "--version",
     "-v",
     "versions",
@@ -94,9 +85,6 @@ def cli_download(**kwargs) -> int:
     params.boards = list(params.boards)
     params.serial = list(params.serial)
     params.ignore = list(params.ignore)
-    if params.fw_folder: 
-        config.firmware_folder = Path(params.fw_folder)
-    # all_boards: List[MPRemoteBoard] = []
     if params.boards:
         if not params.ports:
             # no ports specified - resolve ports from specified boards by resolving board IDs

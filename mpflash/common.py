@@ -36,7 +36,6 @@ class Params:
     boards: List[str] = field(default_factory=list)
     variant: str = ""
     versions: List[str] = field(default_factory=list)
-    fw_folder: Optional[Path] = None
     serial: List[str] = field(default_factory=list)
     ignore: List[str] = field(default_factory=list)
     bluetooth: bool = False
