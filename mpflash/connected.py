@@ -4,7 +4,7 @@ from rich import print
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Column
 
-from mpflash.common import filtered_comports, find_serial_by_path
+from mpflash.common import filtered_portinfos, find_serial_by_path
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -21,6 +21,7 @@ def connected_ports_boards(
             - A list of unique board names of the connected MCUs.
             - A list of MPRemoteBoard instances of the connected MCUs.
     """
+    conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth)]
     conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth) if b.connected]
     # ignore boards that have the [mpflash] ignore flag set
     conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
@@ -47,7 +48,7 @@ def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False)
     """
     # conn_mcus = [MPRemoteBoard(sp) for sp in MPRemoteBoard.connected_boards(bluetooth) if sp not in config.ignore_ports]
 
-    comports = filtered_comports(
+    comports = filtered_portinfos(
         ignore=ignore,
         include=include,
         bluetooth=bluetooth,

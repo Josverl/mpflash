@@ -4,8 +4,8 @@ import pytest
 from mock import MagicMock, Mock
 from pytest_mock import MockerFixture
 
-from mpflash.common import DownloadParams, FlashParams
 from mpflash.ask_input import ask_missing_params
+from mpflash.common import DownloadParams, FlashParams
 from mpflash.config import MPFlashConfig
 
 pytestmark = [pytest.mark.mpflash]
@@ -20,7 +20,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
     input = {
         "versions": ["?"],
         "boards": ["?"],
-        "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
         "clean": True,
         "force": False,
     }

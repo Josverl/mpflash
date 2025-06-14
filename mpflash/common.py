@@ -78,6 +78,17 @@ def filtered_comports(
     ignore: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
     bluetooth: bool = False,
+) -> List[str]:
+    """
+    Get a list of filtered comports using the include and ignore lists.
+    both can be globs (e.g. COM*) or exact port names (e.g. COM1)
+    """
+    return [p.device for p in filtered_portinfos(ignore, include, bluetooth)]
+
+def filtered_portinfos(
+    ignore: Optional[List[str]] = None,
+    include: Optional[List[str]] = None,
+    bluetooth: bool = False,
 ) -> List[ListPortInfo]:  # sourcery skip: assign-if-exp
     """
     Get a list of filtered comports using the include and ignore lists.

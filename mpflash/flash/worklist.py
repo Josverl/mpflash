@@ -1,11 +1,12 @@
 """Worklist for updating boards"""
 
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from loguru import logger as log
+from serial.tools.list_ports_common import ListPortInfo
+from typing_extensions import TypeAlias
 
-from mpflash.common import filtered_comports
+from mpflash.common import filtered_portinfos
 from mpflash.db.models import Firmware
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
@@ -14,11 +15,12 @@ from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # #########################################################################################################
-WorkList = List[Tuple[MPRemoteBoard, Optional[Firmware]]]
+FlashItem: TypeAlias = Tuple[MPRemoteBoard, Optional[Firmware]]
+WorkList: TypeAlias = List[FlashItem]
 # #########################################################################################################
 
 
-def auto_update(
+def auto_update_worklist(
     conn_boards: List[MPRemoteBoard],
     target_version: str,
 ) -> WorkList:
@@ -59,12 +61,26 @@ def auto_update(
 
 
 def manual_worklist(
-    serial: str,
+    serial: List[str],
     *,
     board_id: str,
     version: str,
 ) -> WorkList:
-    """Create a worklist for a single board specified manually.
+    """Create a worklist for manually specified boards."""
+    wl: WorkList = []
+    for comport in serial:
+        log.trace(f"Manual updating {comport} to {board_id} {version}")
+        wl.append(manual_board(comport, board_id=board_id, version=version))
+    return wl
+
+
+def manual_board(
+    serial: str,
+    *,
+    board_id: str,
+    version: str,
+) -> FlashItem:
+    """Create a Flash work item for a single board specified manually.
 
     Args:
         serial (str): Serial port of the board
@@ -72,7 +88,7 @@ def manual_worklist(
         version (str): Firmware version
 
     Returns:
-        WorkList: List of boards and firmware information to update
+        FlashItem: Board and firmware information to update
     """
     log.trace(f"Manual updating {serial} to {board_id} {version}")
     mcu = MPRemoteBoard(serial)
@@ -85,14 +101,14 @@ def manual_worklist(
     except (LookupError, MPFlashError) as e:
         log.error(f"Board {board_id} not found in board database")
         log.exception(e)
-        return []
+        return (mcu, None)
     mcu.board = board_id
     firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port)
     if not firmwares:
-        log.error(f"No firmware found for {mcu.port} {board_id} version {version}")
-        return []
+        log.trace(f"No firmware found for {mcu.port} {board_id} version {version}")
+        return (mcu, None)
     # use the most recent matching firmware
-    return [(mcu, firmwares[-1])]  # type: ignore
+    return (mcu, firmwares[-1])  # type: ignore
 
 
 def single_auto_worklist(
@@ -111,7 +127,7 @@ def single_auto_worklist(
     """
     log.trace(f"Auto updating {serial} to {version}")
     conn_boards = [MPRemoteBoard(serial)]
-    todo = auto_update(conn_boards, version)  # type: ignore # List / list
+    todo = auto_update_worklist(conn_boards, version)  # type: ignore # List / list
     show_mcus(conn_boards)
     return todo
 
@@ -125,7 +141,7 @@ def full_auto_worklist(
 ) -> WorkList:
     """
     Create a worklist for all connected micropython boards based on the information retrieved from the board.
-    This allows the firmware version of one or moae boards to be changed without needing to specify the port or board_id manually.
+    This allows the firmware version of one or more boards to be changed without needing to specify the port or board_id manually.
 
     Args:
         version (str): Firmware version
@@ -135,7 +151,7 @@ def full_auto_worklist(
     """
     log.trace(f"Auto updating all boards to {version}")
     if selected_boards := filter_boards(all_boards, include=include, ignore=ignore):
-        return auto_update(selected_boards, version)
+        return auto_update_worklist(selected_boards, version)
     else:
         return []
 
@@ -149,7 +165,7 @@ def filter_boards(
     try:
         comports = [
             p.device
-            for p in filtered_comports(
+            for p in filtered_portinfos(
                 ignore=ignore,
                 include=include,
                 bluetooth=False,

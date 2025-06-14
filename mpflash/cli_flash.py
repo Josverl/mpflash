@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List
 
 import rich_click as click
@@ -10,8 +9,7 @@ from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
-from mpflash.common import BootloaderMethod, FlashParams, Params
-from mpflash.config import config
+from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
 from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
@@ -186,8 +184,22 @@ def cli_flash_board(**kwargs) -> int:
     params.versions = [clean_version(v) for v in params.versions]
     worklist: WorkList = []
 
+    if len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
+        # A one or more serial port including the board / variant
+        comports = filtered_comports(
+            ignore=params.ignore,
+            include=params.ports,
+            bluetooth=params.bluetooth,
+        )
+        log.info(f"Flashing {params.boards[0]} {params.variant} {params.versions[0]} to {len(comports)} serial ports")
+        log.info(f"Target ports: {', '.join(comports)}")
+        worklist = manual_worklist(
+            comports,
+            board_id=params.boards[0],
+            version=params.versions[0],
+        )
     # if serial port == auto and there are one or more specified/detected boards
-    if params.serial == ["*"] and params.boards:
+    elif params.serial == ["*"] and params.boards:
         if not all_boards:
             log.trace("No boards detected yet, scanning for connected boards")
             _, _, all_boards = connected_ports_boards(include=params.ports, ignore=params.ignore)
@@ -204,8 +216,13 @@ def cli_flash_board(**kwargs) -> int:
         )
     elif params.versions[0] and params.boards[0] and params.serial:
         # A one or more serial port including the board / variant
+        comports = filtered_comports(
+            ignore=params.ignore,
+            include=params.ports,
+            bluetooth=params.bluetooth,
+        )
         worklist = manual_worklist(
-            params.serial[0],
+            comports,
             board_id=params.boards[0],
             version=params.versions[0],
         )

@@ -48,7 +48,7 @@ def ensure_firmware_downloaded(worklist: WorkList, version: str, force: bool) ->
             newlist.append((mcu, new_firmware[0]))
         else:
             log.info(f"Found {version} firmware {board_firmwares[-1].firmware_file} for {mcu.board} on {mcu.serialport}.")
-            newlist.append((mcu, firmware))
+            newlist.append((mcu, board_firmwares[0]))
 
     worklist.clear()
     worklist.extend(newlist)

@@ -2,8 +2,9 @@ from typing import List
 
 import jsons
 import pytest
-from mpflash.common import filtered_comports
 from serial.tools.list_ports_common import ListPortInfo
+
+from mpflash.common import filtered_portinfos
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -102,7 +103,7 @@ ci_linux_ports_json = """
 def test_filtered_comports_windows(id, include, ignore, bluetooth, expected, mocker):
     windows_ports = jsons.loads(windows_ports_json, List[ListPortInfo])
     mocker.patch("mpflash.common.list_ports.comports", return_value=windows_ports)
-    result = filtered_comports(include=include, ignore=ignore, bluetooth=bluetooth)
+    result = filtered_portinfos(include=include, ignore=ignore, bluetooth=bluetooth)
     devices = [port.device for port in result]
     assert all([(e in devices) for e in expected]), f"{expected} not in {devices}"
     assert all([(d in expected) for d in devices]), f"{devices} not in {expected}"
@@ -126,7 +127,7 @@ def test_filtered_comports_linux(id, include, ignore, bluetooth, expected, mocke
         port.location = f"1-1.{n}:x.0"
         n += 1
     mocker.patch("mpflash.common.list_ports.comports", return_value=linux_ports)
-    result = filtered_comports(include=include, ignore=ignore, bluetooth=bluetooth)
+    result = filtered_portinfos(include=include, ignore=ignore, bluetooth=bluetooth)
     devices = [port.device for port in result]
     assert all([(e in devices) for e in expected])
     assert all([(d in expected) for d in devices])
@@ -146,7 +147,7 @@ def test_skip_bogus_comports_linux(mocker):
 
     linux_ports[0].location = f"1-1.1:x.0"
     mocker.patch("mpflash.common.list_ports.comports", return_value=linux_ports)
-    result = filtered_comports(include=["*"], ignore=[], bluetooth=False)
+    result = filtered_portinfos(include=["*"], ignore=[], bluetooth=False)
     devices = [port.device for port in result]
     assert len(devices) == 1
 
@@ -181,7 +182,7 @@ def test_default_ignore_comports(mock_os: str, exp: int, ser_port: str, mocker, 
         pytest.skip(f"{ser_port} not in {devices}")
     mocker.patch("mpflash.common.list_ports.comports", return_value=platform_ports)
     mocker.patch("mpflash.common.platform.system", return_value=mock_os)
-    result = filtered_comports()  # include=include, ignore=ignore, bluetooth=bluetooth)
+    result = filtered_portinfos()  # include=include, ignore=ignore, bluetooth=bluetooth)
     devices = [port.device for port in result]
     if exp:
         assert ser_port in devices, f"{ser_port} not in {devices}"
