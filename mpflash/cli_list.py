@@ -86,6 +86,8 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
         if mcu.family == "circuitpython":
             # CircuitPython boards need a special reset command
             mcu.run_command(["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"], resume=False)
+        elif mcu.family == "unknown":
+            continue
         else:
             mcu.run_command("reset")
     return 0 if conn_mcus else 1
