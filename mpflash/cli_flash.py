@@ -191,11 +191,12 @@ def cli_flash_board(**kwargs) -> int:
             include=params.ports,
             bluetooth=params.bluetooth,
         )
-        log.info(f"Flashing {params.boards[0]} {params.variant} {params.versions[0]} to {len(comports)} serial ports")
+        board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
+        log.info(f"Flashing {board_id} {params.versions[0]} to {len(comports)} serial ports")
         log.info(f"Target ports: {', '.join(comports)}")
         worklist = manual_worklist(
             comports,
-            board_id=params.boards[0],
+            board_id=board_id,
             version=params.versions[0],
         )
     # if serial port == auto and there are one or more specified/detected boards
