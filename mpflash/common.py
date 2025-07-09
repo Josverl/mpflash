@@ -4,7 +4,6 @@ import os
 import platform
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import List, Optional, Union
 
 from serial.tools import list_ports
@@ -181,3 +180,4 @@ def find_serial_by_path(target_port: str):
             return symlink  # Return the matching symlink path
 
     return None  # Return None if no match is found
+

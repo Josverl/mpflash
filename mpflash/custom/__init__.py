@@ -14,6 +14,10 @@ from mpflash.db.core import Session
 from mpflash.db.models import Firmware
 from mpflash.versions import get_preview_mp_version, get_stable_mp_version
 
+from .naming import port_and_boardid_from_path, custom_fw_from_path, extract_commit_count
+
+
+# 
 # github.com/<owner>/<repo>@<branch>#<commit>
 # $remote_url = git remote get-url origin
 # $branch = git rev-parse --abbrev-ref HEAD
@@ -25,48 +29,41 @@ from mpflash.versions import get_preview_mp_version, get_stable_mp_version
 # }
 
 
+# 1) local path 
+
+
 def add_firmware(
-    source: Union[Path, str],
-    new_fw: Firmware,
+    source: Path,  
+    fw: dict,
     *,
     force: bool = False,
     custom: bool = False,
-    description: str = "",
 ) -> bool:
-    """Add a firmware to the firmware folder.
-
-    stored in the port folder, with the same filename as the source.
     """
-    # Check minimal info needed
-
-    if not new_fw.board_id or not new_fw.board or not new_fw.port:
-        log.error("board_id, board and port are required")
+    Add a firmware to the firmware folder.
+    stored in the port folder, with the specified filename.
+    """
+    source = source.expanduser().absolute()
+    if not source.exists() or not source.is_file():
+        log.error(f"Source file {source} does not exist or is not a file")
         return False
-    if not isinstance(source, Path) and not source.startswith("http"):
-        log.error(f"Invalid source {source}")
-        return False
-
-    # use sensible defaults
-    source_2 = Path(source)
-    # new_fw.variant = new_fw.variant or new_fw.board
-    new_fw.custom = new_fw.custom or custom
-    if not new_fw.version:
-        # TODO: Get version from filename
-        # or use the last preview version
-        new_fw.version = get_preview_mp_version()
-
-    config.firmware_folder.mkdir(exist_ok=True)
-
-    fw_filename = config.firmware_folder / new_fw.port / source_2.name
-
-    new_fw.firmware_file = str(fw_filename.relative_to(config.firmware_folder))
-    new_fw.source = source.as_uri() if isinstance(source, Path) else source
-
-    if not copy_firmware(source, fw_filename, force):
-        log.error(f"Failed to copy {source} to {fw_filename}")
-        return False
-    # add to inventory
     with Session() as session:
+        # Check minimal info needed
+        new_fw = Firmware(**fw)
+        if custom:
+            new_fw.custom = True
+
+        if not new_fw.board_id:
+            log.error("board_id is required")
+            return False
+
+        # assume the the firmware_file has already been prepared 
+        fw_filename = config.firmware_folder / new_fw.firmware_file
+
+        if not copy_firmware(source, fw_filename, force):
+            log.error(f"Failed to copy {source} to {fw_filename}")
+            return False
+        # add to inventory
         # check if the firmware already exists
         existing_fw = (
             session.query(Firmware)
@@ -74,6 +71,7 @@ def add_firmware(
                 Firmware.board_id == new_fw.board_id,
                 Firmware.version == new_fw.version,
                 Firmware.port == new_fw.port,
+                Firmware.custom == new_fw.custom,
             )
             .first()
         )
@@ -85,14 +83,15 @@ def add_firmware(
             existing_fw.firmware_file = new_fw.firmware_file
             existing_fw.source = new_fw.source
             existing_fw.custom = custom
-            existing_fw.description = description
+            existing_fw.description = new_fw.description
         else:
             session.add(new_fw)
+        session.commit()
 
     return True
 
 
-def copy_firmware(source: Union[Path, str], fw_filename: Path, force: bool = False):
+def copy_firmware(source: Path, fw_filename: Path, force: bool = False):
     """Add a firmware to the firmware folder.
     stored in the port folder, with the same filename as the source.
     """
