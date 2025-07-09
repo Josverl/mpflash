@@ -4,6 +4,7 @@ import os
 from importlib.metadata import version
 from pathlib import Path
 from typing import List, Optional
+
 import platformdirs
 
 from mpflash.errors import MPFlashError
@@ -49,7 +50,7 @@ class MPFlashConfig:
             # Check if MPFLASH_FIRMWARE environment variable is set
             env_firmware_path = os.getenv("MPFLASH_FIRMWARE")
             if env_firmware_path:
-                firmware_path = Path(env_firmware_path)
+                firmware_path = Path(env_firmware_path).expanduser().resolve()
                 if firmware_path.exists() and firmware_path.is_dir():
                     self._firmware_folder = firmware_path
                 else:
