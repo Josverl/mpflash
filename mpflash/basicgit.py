@@ -135,6 +135,25 @@ def get_local_tags(repo: Optional[Path] = None, minver: Optional[str] = None) ->
     return sorted(tags)
 
 
+def get_current_branch(repo: Optional[Union[Path, str]] = None) -> Optional[str]:
+    """
+    Get the current branch name of a local repository.
+
+    Args:
+        repo: Path to the repository directory
+
+    Returns:
+        Current branch name or None if error
+    """
+    cmd = ["git", "branch", "--show-current"]
+    result = _run_local_git(cmd, repo=repo, expect_stderr=True)
+    if not result:
+        return None
+
+    branch = result.stdout.strip()
+    return branch if branch else None
+
+
 @cachetools.func.ttl_cache(maxsize=16, ttl=60)  # 60 seconds
 def get_tags(repo: str, minver: Optional[str] = None) -> List[str]:
     """
