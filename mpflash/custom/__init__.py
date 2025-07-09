@@ -34,14 +34,23 @@ from .naming import port_and_boardid_from_path, custom_fw_from_path, extract_com
 
 def add_firmware(
     source: Path,  
-    fw: dict,
+    fw_info: dict,
     *,
     force: bool = False,
     custom: bool = False,
 ) -> bool:
     """
-    Add a firmware to the firmware folder.
-    stored in the port folder, with the specified filename.
+    Add a firmware to the database , and firmware folder.
+    stored in the port folder, with the filename.
+
+    fw_info is a dict with the following keys:
+    - board_id: str, required
+    - version: str, required
+    - port: str, required
+    - firmware_file: str, required, the filename to store in the firmware folder
+    - source: str, optional, the source of the firmware, can be a local path
+    - description: str, optional, a description of the firmware
+    - custom: bool, optional, if the firmware is a custom firmware, default False
     """
     source = source.expanduser().absolute()
     if not source.exists() or not source.is_file():
@@ -49,7 +58,7 @@ def add_firmware(
         return False
     with Session() as session:
         # Check minimal info needed
-        new_fw = Firmware(**fw)
+        new_fw = Firmware(**fw_info)
         if custom:
             new_fw.custom = True
 
@@ -76,8 +85,8 @@ def add_firmware(
             .first()
         )
         if existing_fw:
-            log.warning(f"Firmware {existing_fw} already exists")
             if not force:
+                log.warning(f"Firmware {existing_fw} already exists")
                 return False
             # update the existing firmware
             existing_fw.firmware_file = new_fw.firmware_file

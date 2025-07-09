@@ -1,11 +1,11 @@
 import re
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import mpflash.basicgit as git
 
 
-def custom_fw_from_path(fw_path: Path) -> dict:
+def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
     """Generate a custom name for the firmware file based on its path.
 
     Args:
@@ -18,7 +18,7 @@ def custom_fw_from_path(fw_path: Path) -> dict:
     port, board_id = port_and_boardid_from_path(fw_path)
     if not port or not board_id:
         raise ValueError(f"Could not extract port and board_id from path: {fw_path}")
-    version = git.get_local_tag(repo_path)
+    version = git.get_local_tag(repo_path) or "unknown"
 
     describe = git.get_git_describe(repo_path)
     if describe:
