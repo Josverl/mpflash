@@ -206,6 +206,7 @@ def cli_flash_board(**kwargs) -> int:
             comports,
             board_id=board_id,
             version=params.versions[0],
+            custom = params.custom,
         )
     # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:

@@ -36,9 +36,8 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
 
     return {
         "port": port,
-        "board_id": board_id,
-        "description": f"{board_id}{branch_str}",
-        # "variant": board_id.split("-")[-1] if "-" in board_id else "",
+        "board_id": f"{board_id}",
+        "custom_id": f"{board_id}{branch_str}",
         "version": version,
         "build": build,
         "custom": True,

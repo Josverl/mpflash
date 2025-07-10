@@ -66,13 +66,14 @@ def manual_worklist(
     *,
     board_id: str,
     version: str,
+    custom: bool = False,
 ) -> WorkList:
     """Create a worklist for manually specified boards."""
     log.debug(f"manual_worklist: {len(serial)} serial ports, board_id: {board_id}, version: {version}")
     wl: WorkList = []
     for comport in serial:
         log.trace(f"Manual updating {comport} to {board_id} {version}")
-        wl.append(manual_board(comport, board_id=board_id, version=version))
+        wl.append(manual_board(comport, board_id=board_id, version=version, custom=custom))
     return wl
 
 
@@ -81,6 +82,7 @@ def manual_board(
     *,
     board_id: str,
     version: str,
+    custom: bool = False,
 ) -> FlashItem:
     """Create a Flash work item for a single board specified manually.
 
@@ -105,7 +107,7 @@ def manual_board(
         log.exception(e)
         return (mcu, None)
     mcu.board = board_id
-    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port)
+    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port, custom=custom)
     if not firmwares:
         log.trace(f"No firmware found for {mcu.port} {board_id} version {version}")
         return (mcu, None)

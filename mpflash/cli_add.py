@@ -44,6 +44,15 @@ from .download import download
     help="a local path to the firmware file to add.",
     metavar="FIRMWARE_PATH",
 )
+@click.option(
+    "--description",
+    "-d",
+    "description",
+    default="",
+    help="An Optional description for the firmware.",
+    metavar="TXT",
+)
+
 # @click.option(
 #     "--board",
 #     "-b",
@@ -93,6 +102,7 @@ from .download import download
 def cli_add_custom(
     fw_path: Union[Path, str],
     force: bool = False,
+    description: str = "",
 ) -> int:
     """Add a custom MicroPython firmware from a local file."""
     if not fw_path:
@@ -105,14 +115,18 @@ def cli_add_custom(
 
     try:
         fw_dict = custom_fw_from_path(fw_path)
-        add_firmware(
+        if description:
+            fw_dict["description"] = description
+        if add_firmware(
             source=fw_path,
             fw_info=fw_dict,
             custom=True,
             force=force,
-        )
-        log.success(f"Added custom firmware: {fw_dict['firmware_file']}")
-        return 0
+        ):
+            log.success(f"Added custom firmware: {fw_dict['custom_id']} for {fw_dict['firmware_file']}")
+            return 0
+        else:
+            return 1
     except MPFlashError as e:
         log.error(f"{e}")
         return 1
