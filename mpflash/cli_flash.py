@@ -12,7 +12,8 @@ from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
-from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
+from mpflash.flash.worklist import (WorkList, full_auto_worklist,
+                                    manual_worklist, single_auto_worklist)
 from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
@@ -188,7 +189,7 @@ def cli_flash_board(**kwargs) -> int:
         # A one or more serial port including the board / variant
         comports = filtered_comports(
             ignore=params.ignore,
-            include=params.ports,
+            include=params.serial,
             bluetooth=params.bluetooth,
         )
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
