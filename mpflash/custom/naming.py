@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import mpflash.basicgit as git
+from mpflash.logger import log
 
 
 def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
@@ -18,14 +19,14 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
     port, board_id = port_and_boardid_from_path(fw_path)
     if not port or not board_id:
         raise ValueError(f"Could not extract port and board_id from path: {fw_path}")
+    if "wsl.localhost" in str(repo_path):
+        log.info("Accessing WSL path; please note that it may take a few seconds to get git info across filesystems") 
     version = git.get_local_tag(repo_path) or "unknown"
-
     describe = git.get_git_describe(repo_path)
     if describe:
         build = extract_commit_count(describe)
     else:
         build = 0
-
     branch = git.get_current_branch(repo_path)
     if branch:
         branch = branch.split("/")[-1]  # Use only last part of the branch name (?)
@@ -55,7 +56,7 @@ def port_and_boardid_from_path(firmware_path: Path) -> Tuple[Optional[str], Opti
     Returns:
         Tuple of (port, board_id) or (None, None) if not found
     """
-    path_str = str(firmware_path)
+    path_str = str(firmware_path).replace("\\", "/")  # Normalize path for regex matching
 
     # Pattern: /path/to/micropython/ports/{port}/build-{board_id}/firmware.ext
     build_match = re.search(r"/ports/([^/]+)/build-([^/]+)/", path_str)
