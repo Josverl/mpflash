@@ -64,6 +64,7 @@ class FlashParams(Params):
     bootloader: BootloaderMethod = BootloaderMethod.NONE
     cpu: str = ""
     flash_mode: str = "keep"  # keep, qio, qout, dio, dout
+    custom: bool = False
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):
@@ -93,6 +94,7 @@ def filtered_portinfos(
     Get a list of filtered comports using the include and ignore lists.
     both can be globs (e.g. COM*) or exact port names (e.g. COM1)
     """
+    log.trace(f"filtered_portinfos: {ignore=}, {include=}, {bluetooth=}")
     if not ignore:
         ignore = []
     elif not isinstance(ignore, list):  # type: ignore

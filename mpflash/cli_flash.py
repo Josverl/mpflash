@@ -94,7 +94,6 @@ from mpflash.versions import clean_version
 @click.option(
     "--cpu",
     "--chip",
-    "-c",
     "cpu",
     help="The CPU type to flash. If not specified will try to read the CPU from the connected MCU.",
     metavar="CPU",
@@ -129,6 +128,14 @@ from mpflash.versions import clean_version
     default="keep",
     show_default=True,
     help="""Flash mode for ESP boards. (default: keep)""",
+)
+@click.option(
+    "--custom",
+    "-c",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="""Flash a custom firmware""",
 )
 def cli_flash_board(**kwargs) -> int:
     # version to versions, board to boards
@@ -234,7 +241,8 @@ def cli_flash_board(**kwargs) -> int:
             serial=params.serial[0],
             version=params.versions[0],
         )
-    jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
+    if not params.custom:
+        jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
     if flashed := flash_list(
         worklist,
         params.erase,
