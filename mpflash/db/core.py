@@ -14,6 +14,7 @@ from .models import Base
 
 TRACE = False
 connect_str = f"sqlite:///{config.db_path.as_posix()}"
+log.debug(f"Connecting to database at {connect_str}")
 engine = create_engine(connect_str, echo=TRACE)
 Session = sessionmaker(bind=engine)
 

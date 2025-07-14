@@ -74,6 +74,7 @@ def find_downloaded_firmware(
             if port:
                 query = query.filter(Firmware.port == port)
             query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
+            log.trace(f"Querying for preview firmware: {query}")
             fw_list = query.all()
             if fw_list:
                 return [fw_list[0]]  # Return the latest preview only

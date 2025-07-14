@@ -22,6 +22,8 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore
 
+import tomli_w
+
 ###############################################################################################
 HERE = Path(__file__).parent
 
@@ -224,6 +226,39 @@ class MPRemoteBoard:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
             log.trace(f"Did not find a board_info.toml: {result}")
+
+    def set_board_info_toml(self, timeout: int = 1):
+        """
+        Writes the current board information to the board_info.toml file on the connected board.
+
+        Parameters:
+        - timeout (int): The timeout value in seconds.
+        """
+        if not self.connected:
+            raise MPFlashError("Board is not connected")
+        if not self.toml:
+            log.warning("No board_info.toml to write")
+            return
+        # write the toml file to a temp file, then copy to the board
+
+        toml_path = HERE / "tmp_board_info.toml"
+        try:
+            with open(toml_path, "wb") as f:
+                tomli_w.dump(self.toml, f)
+
+            log.debug(f"Writing board_info.toml to {self.serialport}")
+            rc, result = self.run_command(
+                ["cp", str(toml_path), ":board_info.toml"],
+                no_info=True,
+                timeout=timeout,
+                log_errors=False,
+            )
+        except Exception as e:
+            raise MPFlashError(f"Failed to write board_info.toml for {self.serialport}: {e}") from e
+        finally:
+            # remove the temp file
+            if toml_path.exists():
+                toml_path.unlink()
 
     def disconnect(self) -> bool:
         """

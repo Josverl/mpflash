@@ -46,6 +46,7 @@ rich-click = "^1.8.1"
 tenacity = "9.0.0"
 cache-to-disk = "^2.0.0"
 sqlalchemy = "^2.0.41"
+tomli-w = "^1.2.0"
 
 
 [tool.poetry.group.dev]
