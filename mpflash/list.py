@@ -90,6 +90,7 @@ def mcu_table(
     if needs_build:
         table.add_column("Build" if is_wide else "Bld", justify="right")
     if config.usb:
+        table.add_column("vid:pid", overflow="fold", max_width=14)
         table.add_column("Location", overflow="fold", max_width=60)
     # fill the table with the data
     for mcu in conn_mcus:
@@ -111,6 +112,7 @@ def mcu_table(
         if needs_build:
             row.append(mcu.build)
         if config.usb:
+            row.append(f"{mcu.vid:04x}:{mcu.pid:04x}")
             row.append(mcu.location)
 
         table.add_row(*row)
