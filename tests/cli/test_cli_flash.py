@@ -187,6 +187,7 @@ def test_mpflash_no_detected_boards(
         assert m_ask_missing_params.call_args.args[0].serial == ["?"]
         assert m_ask_missing_params.call_args.args[0].boards == ["?"]
 
+
 @pytest.mark.skip("TODO: Test Broken")
 def test_flash_triggers_just_in_time_download(mocker: MockerFixture, session_fx):
     """
@@ -229,4 +230,3 @@ def test_flash_triggers_just_in_time_download(mocker: MockerFixture, session_fx)
     m_flash_list.assert_called_once()
     # CLI should succeed
     assert result.exit_code == 0
-

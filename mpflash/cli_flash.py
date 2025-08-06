@@ -12,8 +12,7 @@ from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
-from mpflash.flash.worklist import (WorkList, full_auto_worklist,
-                                    manual_worklist, single_auto_worklist)
+from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
 from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
@@ -206,7 +205,7 @@ def cli_flash_board(**kwargs) -> int:
             comports,
             board_id=board_id,
             version=params.versions[0],
-            custom = params.custom,
+            custom=params.custom,
         )
     # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:
@@ -256,5 +255,3 @@ def cli_flash_board(**kwargs) -> int:
     else:
         log.error("No boards were flashed")
         return 1
-
-

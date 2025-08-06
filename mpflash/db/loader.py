@@ -24,7 +24,7 @@ def load_data_from_zip(zip_file: Path) -> int:
     if not zip_file.exists() or not zip_file.is_file():
         log.error(f"Zip file {zip_file} not found.")
         return 0
-    count = 0 
+    count = 0
     # Load data directly from the zip file
     with zipfile.ZipFile(zip_file, "r") as zipf:
         # Read the CSV file from the zip

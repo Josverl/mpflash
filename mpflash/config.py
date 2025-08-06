@@ -47,6 +47,7 @@ class MPFlashConfig:
         """The folder where firmware files are stored"""
         if not self._firmware_folder:
             from mpflash.logger import log
+
             # Check if MPFLASH_FIRMWARE environment variable is set
             env_firmware_path = os.getenv("MPFLASH_FIRMWARE")
             if env_firmware_path:
@@ -54,7 +55,9 @@ class MPFlashConfig:
                 if firmware_path.exists() and firmware_path.is_dir():
                     self._firmware_folder = firmware_path
                 else:
-                    log.warning(f"Environment variable MPFLASH_FIRMWARE points to invalid directory: {env_firmware_path}. Using default location.")
+                    log.warning(
+                        f"Environment variable MPFLASH_FIRMWARE points to invalid directory: {env_firmware_path}. Using default location."
+                    )
             # allow testing in CI
             if Path(os.getenv("GITHUB_ACTIONS", "")).as_posix().lower() == "true":
                 workspace = os.getenv("GITHUB_WORKSPACE")
@@ -84,6 +87,7 @@ class MPFlashConfig:
     def db_path(self) -> Path:
         """The path to the database file"""
         return self.firmware_folder / "mpflash.db"
+
     @property
     def db_version(self) -> str:
         return "1.24.1"

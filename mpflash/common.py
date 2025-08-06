@@ -85,6 +85,7 @@ def filtered_comports(
     """
     return [p.device for p in filtered_portinfos(ignore, include, bluetooth)]
 
+
 def filtered_portinfos(
     ignore: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
@@ -182,4 +183,3 @@ def find_serial_by_path(target_port: str):
             return symlink  # Return the matching symlink path
 
     return None  # Return None if no match is found
-

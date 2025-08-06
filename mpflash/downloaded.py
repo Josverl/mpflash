@@ -59,7 +59,7 @@ def find_downloaded_firmware(
     version: str = "",
     port: str = "",
     variants: bool = False,
-    custom:bool = False,
+    custom: bool = False,
 ) -> List[Firmware]:
     version = clean_version(version)
     log.debug(f"Looking for firmware for {board_id} {version} ")
@@ -101,4 +101,3 @@ def find_downloaded_firmware(
                 return fw_list
     log.warning(f"No firmware files found for board {board_id} version {version}")
     return []
-

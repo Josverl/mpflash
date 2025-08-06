@@ -20,7 +20,7 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
     if not port or not board_id:
         raise ValueError(f"Could not extract port and board_id from path: {fw_path}")
     if "wsl.localhost" in str(repo_path):
-        log.info("Accessing WSL path; please note that it may take a few seconds to get git info across filesystems") 
+        log.info("Accessing WSL path; please note that it may take a few seconds to get git info across filesystems")
     version = git.get_local_tag(repo_path) or "unknown"
     describe = git.get_git_describe(repo_path)
     if describe:

@@ -92,6 +92,7 @@ def run(
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Failed to start {cmd[0]}") from e
     _timed_out = False
+
     def timed_out():
         _timed_out = True
         if log_warnings:

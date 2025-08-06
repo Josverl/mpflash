@@ -35,6 +35,7 @@ def test_board_firmware_urls(mocker: MockerFixture):
         assert "esp32".upper() in url.upper()
         assert url.endswith("bin")
 
+
 @pytest.mark.parametrize(
     "port, board_id",
     [

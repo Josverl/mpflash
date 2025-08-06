@@ -52,7 +52,6 @@ from .download import download
     help="An Optional description for the firmware.",
     metavar="TXT",
 )
-
 # @click.option(
 #     "--board",
 #     "-b",

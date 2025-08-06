@@ -2,7 +2,6 @@
 Translate board description to board designator
 """
 
-
 from typing import List, Optional
 
 from mpflash.db.core import Session
@@ -66,4 +65,3 @@ def _find_board_id_by_description(
     if not boards:
         raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
     return boards
-

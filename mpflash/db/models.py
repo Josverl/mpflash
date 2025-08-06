@@ -2,8 +2,7 @@ from pathlib import Path
 
 import sqlalchemy as sa
 from sqlalchemy import Index, String
-from sqlalchemy.orm import (DeclarativeBase, Mapped, composite, mapped_column,
-                            relationship)
+from sqlalchemy.orm import DeclarativeBase, Mapped, composite, mapped_column, relationship
 
 
 class Base(DeclarativeBase):

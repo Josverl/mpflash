@@ -38,4 +38,4 @@ class FWInfo:
             data["ext"] = Path(data["filename"]).suffix
         if "family" not in data:
             data["family"] = "micropython"
-        return FWInfo(**filtered_data)        
+        return FWInfo(**filtered_data)

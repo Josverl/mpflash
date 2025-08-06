@@ -67,7 +67,7 @@ def test_flash_list(mocker: MockerFixture, test_fw_path: Path, bootloader, port)
     m_flash_esp = mocker.patch("mpflash.flash.flash_esp")
     m_mpr_run = mocker.patch("mpflash.bootloader.micropython.MPRemoteBoard.run_command")  # type: ignore
     m_bootloader = mocker.patch("mpflash.flash.enter_bootloader")
-    # use 
+    # use
     mocker.patch("mpflash.flash.config._firmware_folder", test_fw_path)
     board = MPRemoteBoard("COM1")
     board.port = "esp32"
@@ -85,7 +85,7 @@ def test_flash_list(mocker: MockerFixture, test_fw_path: Path, bootloader, port)
     ]
     # test flash_list
     board.port = port
-    result = flash_list(todo,  erase=False, bootloader=bootloader)
+    result = flash_list(todo, erase=False, bootloader=bootloader)
     assert result
     assert len(result) == 1
     if port in ["esp32", "esp8266"]:

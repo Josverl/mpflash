@@ -14,6 +14,7 @@ from .logger import log, make_quiet, set_loglevel
 set_loglevel("INFO")
 config.verbose = False
 
+
 def cb_verbose(ctx, param, value):
     """Callback to set the log level to DEBUG if verbose is set"""
     if value and not config.quiet:

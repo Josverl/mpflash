@@ -68,6 +68,7 @@ def set_loglevel(loglevel: str) -> None:
         log.remove()
     except ValueError:
         pass
+
     # Add error handling for format issues
     def safe_format_wrapper(message):
         try:
@@ -75,6 +76,7 @@ def set_loglevel(loglevel: str) -> None:
         except (KeyError, ValueError) as e:
             # Fallback to simple text output if formatting fails
             console.print(f"[LOG FORMAT ERROR] {message} (Error: {e})")
+
     log.add(safe_format_wrapper, level=loglevel.upper(), colorize=False, format=_log_formatter)  # type: ignore
 
 

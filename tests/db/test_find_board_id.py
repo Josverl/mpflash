@@ -11,8 +11,6 @@ pytestmark = [pytest.mark.mpflash]
 HERE = Path(__file__).parent
 
 
-
-
 @pytest.mark.parametrize(
     "test_id,version, descr, short_descr,  expected_result",
     [
