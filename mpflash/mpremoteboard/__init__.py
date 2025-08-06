@@ -3,6 +3,7 @@ Module to run mpremote commands, and retry on failure or timeout
 """
 
 import contextlib
+import re
 import sys
 import time
 from pathlib import Path
@@ -85,7 +86,14 @@ class MPRemoteBoard:
 
     @property
     def board(self) -> str:
-        return self._board_id.split("-")[0]
+        _board = self._board_id.split("-")[0]
+        # Workaround for Pimoroni boards 
+        if not "-" in self._board_id:
+            # match with the regex : (.*)(_\d+MB)$
+            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
+            if match:
+                _board = match.group(1)
+        return _board
 
     @board.setter
     def board(self, value: str) -> None:
@@ -93,7 +101,14 @@ class MPRemoteBoard:
 
     @property
     def variant(self) -> str:
-        return self._board_id.split("-")[1] if "-" in self._board_id else ""
+        _variant = self._board_id.split("-")[1] if "-" in self._board_id else ""
+        if not _variant:
+            # Workaround for Pimoroni boards 
+            # match with the regex : (.*)(_\d+MB)$
+            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
+            if match:
+                _variant = match.group(2)
+        return _variant 
 
     @variant.setter
     def variant(self, value: str) -> None:

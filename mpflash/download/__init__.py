@@ -4,6 +4,7 @@ Uses the micropython.org website to get the available versions and locations to 
 """
 
 import itertools
+import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -16,7 +17,7 @@ from rich.progress import track
 from mpflash.common import PORT_FWTYPES
 from mpflash.config import config
 from mpflash.db.core import Session
-from mpflash.db.models import Firmware
+from mpflash.db.models import Firmware, Board
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id.alternate import add_renamed_boards
@@ -34,6 +35,56 @@ jsonlines.ujson = None  # type: ignore
 def key_fw_boardid_preview_ext(fw: Firmware):
     "Grouping key for the retrieved board urls"
     return fw.board_id, fw.preview, fw.ext
+
+
+
+
+# Cache for variant suffixes - will be populated on first use
+_PATTERN = ""
+
+def _get_variant_pattern():
+    """
+    Query the database for all known variant suffixes.
+    This is done only once and the result is cached.
+    
+    Returns:
+        List of known variant suffixes.
+    """
+    global _PATTERN
+    
+    if _PATTERN:
+        # If the pattern is already set, return it
+        return _PATTERN
+
+    with Session() as session:
+        # Query distinct variants
+        variants = session.query(Board.variant).distinct().all()
+
+
+    _VARIANT_SUFFIXES = [f"_{v[0]}" for v in variants if v[0] and v[0].strip()]
+    # workaround for the fact that the variant names do not always match the suffixes
+    # e.g. 'PIMORONI_PICOLIPO' has the variant 'FLASH_16MB' but the suffix is '_16MB'
+    _VARIANT_SUFFIXES.extend( ["_2MB", "_4MB", "_8MB", "_16MB"] )  # add common SPIRAM size suffixes
+
+    # return _VARIANT_SUFFIXES
+    _PATTERN  = f"({'|'.join(re.escape(v) for v in _VARIANT_SUFFIXES)})$"
+    return _PATTERN
+
+    
+
+def strip_variant(board: str) -> str:
+    """
+    Strips the variant suffix from the board name based on variants in the database.
+    For example, 'RPI_PICO_W_SPIRAM' becomes 'RPI_PICO_W'.
+
+    Args:
+        board: The board name to process.
+
+    Returns:
+        The board name without the variant suffix.
+    """
+    pattern = _get_variant_pattern()
+    return re.sub(pattern, "", board)
 
 
 def download_firmwares(
@@ -60,8 +111,14 @@ def download_firmwares(
 
     downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
+    
+    # remove the known variant suffixes from the boards
+    # TODO: IS THIS REALLY NEEDED ?
+    # boards = [strip_variant(b) for b in boards]
+    
     # handle downloading firmware for renamed boards
     boards = add_renamed_boards(boards)
+
 
     available_firmwares = get_firmware_list(ports, boards, versions, clean)
 
