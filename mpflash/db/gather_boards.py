@@ -1,11 +1,11 @@
 from os import path
 from pathlib import Path
+from typing import List
+
+import mpflash.basicgit as git
+from mpflash.logger import log
 from mpflash.mpremoteboard import HERE
 from mpflash.vendor.board_database import Database
-from mpflash.logger import log
-
-from typing import List
-import mpflash.basicgit as git
 from mpflash.versions import micropython_versions
 
 HERE = Path(__file__).parent.resolve()
@@ -79,6 +79,7 @@ def create_zip_file(longlist, zip_file: Path):
     """Create a ZIP file containing the CSV data."""
     # lazy import
     import zipfile
+
     import pandas as pd
 
     csv_filename = "micropython_boards.csv"
@@ -96,6 +97,7 @@ def create_zip_file(longlist, zip_file: Path):
 
 def package_repo(mpy_path: Path):
     mpy_path = mpy_path or Path("../repos/micropython")
+    log.info(f"Packaging Micropython boards from {mpy_path}")
     mp_versions = micropython_versions(minver="1.18")
     longlist = boardlist_from_repo(
         versions=mp_versions,
