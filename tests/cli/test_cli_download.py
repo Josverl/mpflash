@@ -46,8 +46,8 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
         return params
 
     m_connected_ports_boards = mocker.patch(
-        "mpflash.cli_download.connected_ports_boards",
-        return_value=(["esp32"], ["ESP32_GENERIC"], [MPRemoteBoard("COM99")]),
+        "mpflash.cli_download.connected_ports_boards_variants",
+        return_value=(["esp32"], ["ESP32_GENERIC"], [], [MPRemoteBoard("COM99")]),
         autospec=True,
     )
     m_download = mocker.patch("mpflash.cli_download.download", return_value=None, autospec=True)

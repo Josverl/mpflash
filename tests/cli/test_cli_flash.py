@@ -88,12 +88,12 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
 
 
 @pytest.mark.parametrize(
-    "id, serialports, ports, boards",
+    "id, serialports, ports, boards, variants",
     [
-        ("one", ["COM99"], ["esp32"], ["ESP32_GENERIC"]),
-        ("multiple", ["COM99", "COM100"], ["esp32", "samd"], ["ESP32_GENERIC", "SEEED_WIO_TERMINAL"]),
-        ("None", [], [], []),
-        ("linux", ["/dev/ttyusb0"], ["rp2"], ["ARDUINO_NANO_RP2040_CONNECT"]),
+        ("one", ["COM99"], ["esp32"], ["ESP32_GENERIC"], []),
+        ("multiple", ["COM99", "COM100"], ["esp32", "samd"], ["ESP32_GENERIC", "SEEED_WIO_TERMINAL"], []),
+        ("None", [], [], [], []),
+        ("linux", ["/dev/ttyusb0"], ["rp2"], ["ARDUINO_NANO_RP2040_CONNECT"], []),
     ],
 )
 def test_mpflash_connected_boards(
@@ -101,6 +101,7 @@ def test_mpflash_connected_boards(
     serialports: List[str],
     ports: List[str],
     boards: List[str],
+    variants: List[str],
     mocker: MockerFixture,
 ):
     # no boards specified - detect connected boards
@@ -109,8 +110,8 @@ def test_mpflash_connected_boards(
     fakes = [fakeboard(port) for port in serialports]  # type: ignore
 
     m_connected_ports_boards = mocker.patch(
-        "mpflash.cli_flash.connected_ports_boards",
-        return_value=(ports, boards, [MPRemoteBoard(p) for p in serialports]),
+        "mpflash.cli_flash.connected_ports_boards_variants",
+        return_value=(ports, boards, variants, [MPRemoteBoard(p) for p in serialports]),
         autospec=True,
     )
     m_flash_list = mocker.patch("mpflash.cli_flash.flash_list", return_value=None, autospec=True)  # type: ignore
@@ -162,8 +163,8 @@ def test_mpflash_no_detected_boards(
     # fakes = [fakeboard(port) for port in serialports]
 
     m_connected_ports_boards = mocker.patch(
-        "mpflash.cli_flash.connected_ports_boards",
-        return_value=(ports, boards, [MPRemoteBoard(p) for p in serialports]),
+        "mpflash.cli_flash.connected_ports_boards_variants",
+        return_value=(ports, boards, [], [MPRemoteBoard(p) for p in serialports]),
         autospec=True,
     )
     m_flash_list = mocker.patch("mpflash.cli_flash.flash_list", return_value=None, autospec=True)  # type: ignore
