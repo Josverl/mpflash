@@ -8,7 +8,6 @@ import requests
 from loguru import logger as log
 # re-use logic from mpremote
 from mpremote.mip import _rewrite_url as rewrite_url  # type: ignore
-from pytest import Session
 
 from mpflash.config import config
 from mpflash.db.core import Session
@@ -119,7 +118,7 @@ def copy_firmware(source: Path, fw_filename: Path, force: bool = False):
     if fw_filename.exists() and not force:
         log.error(f" {fw_filename} already exists. Use --force to overwrite")
         return False
-    fw_filename.parent.mkdir(exist_ok=True)
+    fw_filename.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(source, Path):
         if not source.exists():
             log.error(f"File {source} does not exist")
