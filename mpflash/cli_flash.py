@@ -6,7 +6,7 @@ from loguru import logger as log
 import mpflash.download.jid as jid
 import mpflash.mpboard_id as mpboard_id
 from mpflash.ask_input import ask_missing_params
-from mpflash.cli_download import connected_ports_boards
+from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
@@ -165,9 +165,13 @@ def cli_flash_board(**kwargs) -> int:
     all_boards: List[MPRemoteBoard] = []
     if not params.boards:
         # nothing specified - detect connected boards
-        params.ports, params.boards, all_boards = connected_ports_boards(
-            include=params.ports, ignore=params.ignore, bluetooth=params.bluetooth
+        params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
+            include=params.ports,
+            ignore=params.ignore,
+            bluetooth=params.bluetooth,
         )
+        if variants and len(variants) >= 1:
+            params.variant = variants[0]
         if params.boards == []:
             # No MicroPython boards detected, but it could be unflashed or in bootloader mode
             # Ask for serial port and board_id to flash
@@ -211,7 +215,7 @@ def cli_flash_board(**kwargs) -> int:
     elif params.serial == ["*"] and params.boards:
         if not all_boards:
             log.trace("No boards detected yet, scanning for connected boards")
-            _, _, all_boards = connected_ports_boards(include=params.ports, ignore=params.ignore)
+            _, _, _, all_boards = connected_ports_boards_variants(include=params.ports, ignore=params.ignore)
         # if variant id provided on the cmdline, treat is as an override
         if params.variant:
             for b in all_boards:

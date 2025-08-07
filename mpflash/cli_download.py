@@ -2,10 +2,11 @@
 
 from pathlib import Path
 
+from pytest import param
 import rich_click as click
 from loguru import logger as log
 
-from mpflash.connected import connected_ports_boards
+from mpflash.connected import connected_ports_boards_variants
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id import find_known_board
@@ -97,7 +98,7 @@ def cli_download(**kwargs) -> int:
                         log.error(f"{e}")
     else:
         # no boards specified - detect connected ports and boards
-        params.ports, params.boards, _ = connected_ports_boards(include=params.serial, ignore=params.ignore)
+        params.ports, params.boards, _ , _ = connected_ports_boards_variants(include=params.serial, ignore=params.ignore)
 
     params = ask_missing_params(params)
     if not params:  # Cancelled by user

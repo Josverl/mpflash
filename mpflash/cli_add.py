@@ -6,7 +6,7 @@ from typing import Union
 import rich_click as click
 from loguru import logger as log
 
-from mpflash.connected import connected_ports_boards
+from mpflash.connected import connected_ports_boards_variants
 from mpflash.custom import Firmware, add_firmware, custom_fw_from_path
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
