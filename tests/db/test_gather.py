@@ -3,12 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from mpflash.db.gather_boards import (
-    boardlist_from_repo,
-    create_zip_file,
-    iter_boards,
-    package_repo,
-)
+from mpflash.db.gather_boards import boardlist_from_repo, create_zip_file, iter_boards, package_repo
 
 
 @pytest.fixture
