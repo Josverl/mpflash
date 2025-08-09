@@ -10,7 +10,6 @@ from typing import List, Optional, Union
 
 import cachetools.func
 from loguru import logger as log
-from numpy import tri
 
 from mpflash.config import config
 
