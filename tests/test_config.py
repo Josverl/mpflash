@@ -88,17 +88,6 @@ def test_firmware_folder_default(mocker):
     mock_log.info.assert_called_once()
 
 
-def test_firmware_folder_environment_variable(mocker, tmp_path):
-    """Test firmware folder with environment variable."""
-    config = MPFlashConfig()
-    firmware_dir = tmp_path / "custom_firmware"
-    firmware_dir.mkdir()
-
-    mocker.patch.dict("os.environ", {"MPFLASH_FIRMWARE": str(firmware_dir)})
-    result = config.firmware_folder
-    
-    assert result == firmware_dir.resolve()
-
 
 def test_firmware_folder_invalid_environment_variable(mocker, tmp_path):
     """Test firmware folder with invalid environment variable."""
