@@ -8,9 +8,9 @@ from mpflash.common import filtered_portinfos, find_serial_by_path
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
-def connected_ports_boards(
+def connected_ports_boards_variants(
     *, include: List[str], ignore: List[str], bluetooth: bool = False
-) -> Tuple[List[str], List[str], List[MPRemoteBoard]]:
+) -> Tuple[List[str], List[str], List[str], List[MPRemoteBoard]]:
     """
     Returns a tuple containing lists of unique ports and boards from the connected MCUs.
     Boards that are physically connected, but give no tangible response are ignored.
@@ -21,14 +21,15 @@ def connected_ports_boards(
             - A list of unique board names of the connected MCUs.
             - A list of MPRemoteBoard instances of the connected MCUs.
     """
-    conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth)]
+    # conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth)]
     conn_mcus = [b for b in list_mcus(include=include, ignore=ignore, bluetooth=bluetooth) if b.connected]
     # ignore boards that have the [mpflash] ignore flag set
     conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
 
     ports = list({b.port for b in conn_mcus})
     boards = list({b.board for b in conn_mcus})
-    return (ports, boards, conn_mcus)
+    variants = list({b.variant for b in conn_mcus if b.variant})
+    return (ports, boards, variants, conn_mcus)
 
 
 # #########################################################################################################
@@ -47,7 +48,7 @@ def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False)
         ConnectionError: If there is an error connecting to a board.
     """
     # conn_mcus = [MPRemoteBoard(sp) for sp in MPRemoteBoard.connected_boards(bluetooth) if sp not in config.ignore_ports]
-
+    vid_pid = True
     comports = filtered_portinfos(
         ignore=ignore,
         include=include,

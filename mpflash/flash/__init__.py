@@ -39,6 +39,15 @@ def flash_list(
             log.error(f"Failed to flash {mcu.board} on {mcu.serialport}: {e}")
             continue
         if updated:
+            if fw_info.custom:
+                # Add / Update board_info.toml with the custom_id and Description
+                mcu.get_board_info_toml()
+                if fw_info.description:
+                    mcu.toml["description"] = fw_info.description
+                mcu.toml["mpflash"]["board_id"] = fw_info.board_id
+                mcu.toml["mpflash"]["custom_id"] = fw_info.custom_id
+                mcu.set_board_info_toml()
+
             flashed.append(updated)
         else:
             log.error(f"Failed to flash {mcu.board} on {mcu.serialport}")
@@ -51,7 +60,7 @@ def flash_mcu(
         fw_file: Path,
         erase: bool = False,
         bootloader: BootloaderMethod = BootloaderMethod.AUTO,
-        **kwargs        
+        **kwargs
     ):
         """Flash a single MCU with the specified firmware."""
         updated = None

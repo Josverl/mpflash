@@ -6,7 +6,7 @@ from loguru import logger as log
 import mpflash.download.jid as jid
 import mpflash.mpboard_id as mpboard_id
 from mpflash.ask_input import ask_missing_params
-from mpflash.cli_download import connected_ports_boards
+from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
@@ -93,7 +93,6 @@ from mpflash.versions import clean_version
 @click.option(
     "--cpu",
     "--chip",
-    "-c",
     "cpu",
     help="The CPU type to flash. If not specified will try to read the CPU from the connected MCU.",
     metavar="CPU",
@@ -129,6 +128,14 @@ from mpflash.versions import clean_version
     show_default=True,
     help="""Flash mode for ESP boards. (default: keep)""",
 )
+@click.option(
+    "--custom",
+    "-c",
+    default=False,
+    is_flag=True,
+    show_default=True,
+    help="""Flash a custom firmware""",
+)
 def cli_flash_board(**kwargs) -> int:
     # version to versions, board to boards
     kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
@@ -158,9 +165,13 @@ def cli_flash_board(**kwargs) -> int:
     all_boards: List[MPRemoteBoard] = []
     if not params.boards:
         # nothing specified - detect connected boards
-        params.ports, params.boards, all_boards = connected_ports_boards(
-            include=params.ports, ignore=params.ignore, bluetooth=params.bluetooth
+        params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
+            include=params.ports,
+            ignore=params.ignore,
+            bluetooth=params.bluetooth,
         )
+        if variants and len(variants) >= 1:
+            params.variant = variants[0]
         if params.boards == []:
             # No MicroPython boards detected, but it could be unflashed or in bootloader mode
             # Ask for serial port and board_id to flash
@@ -188,7 +199,7 @@ def cli_flash_board(**kwargs) -> int:
         # A one or more serial port including the board / variant
         comports = filtered_comports(
             ignore=params.ignore,
-            include=params.ports,
+            include=params.serial,
             bluetooth=params.bluetooth,
         )
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
@@ -198,12 +209,13 @@ def cli_flash_board(**kwargs) -> int:
             comports,
             board_id=board_id,
             version=params.versions[0],
+            custom=params.custom,
         )
     # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:
         if not all_boards:
             log.trace("No boards detected yet, scanning for connected boards")
-            _, _, all_boards = connected_ports_boards(include=params.ports, ignore=params.ignore)
+            _, _, _, all_boards = connected_ports_boards_variants(include=params.ports, ignore=params.ignore)
         # if variant id provided on the cmdline, treat is as an override
         if params.variant:
             for b in all_boards:
@@ -233,7 +245,8 @@ def cli_flash_board(**kwargs) -> int:
             serial=params.serial[0],
             version=params.versions[0],
         )
-    jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
+    if not params.custom:
+        jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
     if flashed := flash_list(
         worklist,
         params.erase,
@@ -246,5 +259,3 @@ def cli_flash_board(**kwargs) -> int:
     else:
         log.error("No boards were flashed")
         return 1
-
-

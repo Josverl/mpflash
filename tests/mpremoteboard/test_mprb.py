@@ -13,6 +13,8 @@ from mpflash.mpremoteboard.runner import run
 HERE = Path(__file__).parent.resolve()
 
 pytestmark = [pytest.mark.mpflash]
+
+
 def test_mpremoteboard_new():
     # Make sure that the prompt is not called when interactive is False
     mprb = MPRemoteBoard()
@@ -168,7 +170,7 @@ def test_runner_run(id, cmd: List[str], ret_code: int, exception: Optional[Excep
     # and check the return code and output
 
     if exception:
-        with pytest.raises(exception): # type: ignore
+        with pytest.raises(exception):  # type: ignore
             run(cmd, timeout=1, success_tags=["OK    :"], log_warnings=True)
         return
     ret, output = run(cmd, timeout=1, success_tags=["OK    :"], log_warnings=True)

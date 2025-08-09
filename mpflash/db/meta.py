@@ -1,4 +1,3 @@
-
 from typing import Optional
 
 from loguru import logger as log
@@ -18,10 +17,11 @@ def get_metadata() -> dict:
         with Session() as session:
             metadata = session.query(Metadata).all()
             return {m.name: m.value for m in metadata}
-    except (DatabaseError, OperationalError)  as e:
+    except (DatabaseError, OperationalError) as e:
         log.error(f"Error retrieving metadata: {e}")
         return {}
-    
+
+
 def set_metadata(metadata: dict):
     """
     Set metadata in the database.
@@ -55,6 +55,7 @@ def get_metadata_value(name: str) -> Optional[str]:
     with Session() as session:
         metadata = session.query(Metadata).filter(Metadata.name == name).first()
     return metadata.value if metadata else None
+
 
 def set_metadata_value(name: str, value: str):
     """

@@ -1,11 +1,11 @@
 from os import path
 from pathlib import Path
+from typing import List
+
+import mpflash.basicgit as git
+from mpflash.logger import log
 from mpflash.mpremoteboard import HERE
 from mpflash.vendor.board_database import Database
-from mpflash.logger import log
-
-from typing import List
-import mpflash.basicgit as git
 from mpflash.versions import micropython_versions
 
 HERE = Path(__file__).parent.resolve()
@@ -51,6 +51,9 @@ def boardlist_from_repo(
     if not mpy_dir.is_dir():
         log.error(f"Directory {mpy_dir} not found")
         return longlist
+    # make sure that we have all the latest and greatest from the repo
+    git.fetch(mpy_dir)
+    git.pull(mpy_dir, branch="master", force=True)
     for version in versions:
         build_nr = ""
         if "preview" in version:
@@ -79,6 +82,7 @@ def create_zip_file(longlist, zip_file: Path):
     """Create a ZIP file containing the CSV data."""
     # lazy import
     import zipfile
+
     import pandas as pd
 
     csv_filename = "micropython_boards.csv"
@@ -96,7 +100,9 @@ def create_zip_file(longlist, zip_file: Path):
 
 def package_repo(mpy_path: Path):
     mpy_path = mpy_path or Path("../repos/micropython")
+    log.info(f"Packaging Micropython boards from {mpy_path}")
     mp_versions = micropython_versions(minver="1.18")
+    # checkput
     longlist = boardlist_from_repo(
         versions=mp_versions,
         mpy_dir=mpy_path,

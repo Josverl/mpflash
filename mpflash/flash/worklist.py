@@ -34,6 +34,7 @@ def auto_update_worklist(
     Returns:
         WorkList: List of boards and firmware information to update
     """
+    log.debug(f"auto_update_worklist: {len(conn_boards)} boards, target version: {target_version}")
     wl: WorkList = []
     for mcu in conn_boards:
         if mcu.family not in ("micropython", "unknown"):
@@ -65,12 +66,14 @@ def manual_worklist(
     *,
     board_id: str,
     version: str,
+    custom: bool = False,
 ) -> WorkList:
     """Create a worklist for manually specified boards."""
+    log.debug(f"manual_worklist: {len(serial)} serial ports, board_id: {board_id}, version: {version}")
     wl: WorkList = []
     for comport in serial:
         log.trace(f"Manual updating {comport} to {board_id} {version}")
-        wl.append(manual_board(comport, board_id=board_id, version=version))
+        wl.append(manual_board(comport, board_id=board_id, version=version, custom=custom))
     return wl
 
 
@@ -79,6 +82,7 @@ def manual_board(
     *,
     board_id: str,
     version: str,
+    custom: bool = False,
 ) -> FlashItem:
     """Create a Flash work item for a single board specified manually.
 
@@ -90,7 +94,7 @@ def manual_board(
     Returns:
         FlashItem: Board and firmware information to update
     """
-    log.trace(f"Manual updating {serial} to {board_id} {version}")
+    log.debug(f"manual_board: {serial} {board_id} {version}")
     mcu = MPRemoteBoard(serial)
     # Lookup the matching port and cpu in board_info based in the board name
     try:
@@ -103,7 +107,7 @@ def manual_board(
         log.exception(e)
         return (mcu, None)
     mcu.board = board_id
-    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port)
+    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port, custom=custom)
     if not firmwares:
         log.trace(f"No firmware found for {mcu.port} {board_id} version {version}")
         return (mcu, None)
@@ -125,6 +129,7 @@ def single_auto_worklist(
     Returns:
         WorkList: List of boards and firmware information to update
     """
+    log.debug(f"single_auto_worklist: {serial} version: {version}")
     log.trace(f"Auto updating {serial} to {version}")
     conn_boards = [MPRemoteBoard(serial)]
     todo = auto_update_worklist(conn_boards, version)  # type: ignore # List / list
@@ -149,7 +154,7 @@ def full_auto_worklist(
     Returns:
         WorkList: List of boards and firmware information to update
     """
-    log.trace(f"Auto updating all boards to {version}")
+    log.debug(f"full_auto_worklist: {len(all_boards)} boards, include: {include}, ignore: {ignore}, version: {version}")
     if selected_boards := filter_boards(all_boards, include=include, ignore=ignore):
         return auto_update_worklist(selected_boards, version)
     else:

@@ -11,7 +11,7 @@ def test_get_metadata(session_fx, mocker):
     """
     # Mock the session
     mocker.patch("mpflash.db.meta.Session", session_fx)
-   
+
     # Prepare test data
     test_data = {
         "test_key_1": "test_value_1",
@@ -33,7 +33,7 @@ def test_get_metadata_value(session_fx, mocker):
     Test the get_metadata_value function.
     """
     # Mock the session
-    mocker.patch("mpflash.db.meta.Session", session_fx)    
+    mocker.patch("mpflash.db.meta.Session", session_fx)
     # Prepare test data
     test_data = {
         "test_key_1": "test_value_1",

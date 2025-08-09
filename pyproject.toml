@@ -5,7 +5,7 @@
 
 [tool.poetry]
 name = "mpflash"
-version = "1.25.1"
+version = "1.25.2"
 description = "Flash and download tool for MicroPython firmwares"
 authors = ["Jos Verlinde <jos_verlinde@hotmail.com>"]
 license = "MIT"
@@ -46,17 +46,20 @@ rich-click = "^1.8.1"
 tenacity = "9.0.0"
 cache-to-disk = "^2.0.0"
 sqlalchemy = "^2.0.41"
+tomli-w = "^1.2.0"
 
 
 [tool.poetry.group.dev]
 optional = true
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+tornado = "^6.5"      # fix 
 pandas = "^2.2.3"
 
 [tool.poetry.group.test]
 optional = true
 [tool.poetry.group.test.dependencies]
+pandas = "^2.2.3"
 pytest = ">=7.1.2,<9.0.0"
 pytest-cov = "^6.0.0"
 pytest-github-actions-annotate-failures = ">=0.1.7,<0.4.0"

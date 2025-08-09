@@ -5,6 +5,7 @@ from mpflash.mpboard_id import find_known_board, known_ports, known_stored_board
 
 pytestmark = [pytest.mark.mpflash]
 
+
 def test_get_known_ports(session_fx, mocker):
     mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
 

@@ -3,6 +3,7 @@ Module to run mpremote commands, and retry on failure or timeout
 """
 
 import contextlib
+import re
 import sys
 import time
 from pathlib import Path
@@ -21,6 +22,8 @@ if sys.version_info >= (3, 11):
     import tomllib  # type: ignore
 else:
     import tomli as tomllib  # type: ignore
+
+import tomli_w
 
 ###############################################################################################
 HERE = Path(__file__).parent
@@ -61,6 +64,13 @@ class MPRemoteBoard:
         self.build = ""
         self.location = location  # USB location
         self.toml = {}
+        portinfo = list(serial.tools.list_ports.grep(serialport))  # type: ignore
+        if not portinfo or len(portinfo) != 1:
+            self.vid = 0x00
+            self.pid = 0x00
+        else:
+            self.vid = portinfo[0].vid
+            self.pid = portinfo[0].pid
         if update:
             self.get_mcu_info()
 
@@ -76,7 +86,14 @@ class MPRemoteBoard:
 
     @property
     def board(self) -> str:
-        return self._board_id.split("-")[0]
+        _board = self._board_id.split("-")[0]
+        # Workaround for Pimoroni boards 
+        if not "-" in self._board_id:
+            # match with the regex : (.*)(_\d+MB)$
+            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
+            if match:
+                _board = match.group(1)
+        return _board
 
     @board.setter
     def board(self, value: str) -> None:
@@ -84,7 +101,14 @@ class MPRemoteBoard:
 
     @property
     def variant(self) -> str:
-        return self._board_id.split("-")[1] if "-" in self._board_id else ""
+        _variant = self._board_id.split("-")[1] if "-" in self._board_id else ""
+        if not _variant:
+            # Workaround for Pimoroni boards 
+            # match with the regex : (.*)(_\d+MB)$
+            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
+            if match:
+                _variant = match.group(2)
+        return _variant 
 
     @variant.setter
     def variant(self, value: str) -> None:
@@ -224,6 +248,39 @@ class MPRemoteBoard:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
             log.trace(f"Did not find a board_info.toml: {result}")
+
+    def set_board_info_toml(self, timeout: int = 1):
+        """
+        Writes the current board information to the board_info.toml file on the connected board.
+
+        Parameters:
+        - timeout (int): The timeout value in seconds.
+        """
+        if not self.connected:
+            raise MPFlashError("Board is not connected")
+        if not self.toml:
+            log.warning("No board_info.toml to write")
+            return
+        # write the toml file to a temp file, then copy to the board
+
+        toml_path = HERE / "tmp_board_info.toml"
+        try:
+            with open(toml_path, "wb") as f:
+                tomli_w.dump(self.toml, f)
+
+            log.debug(f"Writing board_info.toml to {self.serialport}")
+            rc, result = self.run_command(
+                ["cp", str(toml_path), ":board_info.toml"],
+                no_info=True,
+                timeout=timeout,
+                log_errors=False,
+            )
+        except Exception as e:
+            raise MPFlashError(f"Failed to write board_info.toml for {self.serialport}: {e}") from e
+        finally:
+            # remove the temp file
+            if toml_path.exists():
+                toml_path.unlink()
 
     def disconnect(self) -> bool:
         """

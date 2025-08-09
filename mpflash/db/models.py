@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Union
 
 import sqlalchemy as sa
 from sqlalchemy import Index, String
@@ -78,6 +79,7 @@ class Firmware(Base):
     source: Mapped[str] = mapped_column()
     build: Mapped[int] = mapped_column(default=0, comment="Build number")
     custom: Mapped[bool] = mapped_column(default=False, comment="True if this is a custom firmware")
+    custom_id: Mapped[Union[str, None]] = mapped_column(String(40), nullable=True, default=None)
 
     @property
     def preview(self) -> bool:

@@ -24,7 +24,7 @@ def load_data_from_zip(zip_file: Path) -> int:
     if not zip_file.exists() or not zip_file.is_file():
         log.error(f"Zip file {zip_file} not found.")
         return 0
-    count = 0 
+    count = 0
     # Load data directly from the zip file
     with zipfile.ZipFile(zip_file, "r") as zipf:
         # Read the CSV file from the zip
@@ -109,14 +109,15 @@ def load_jsonl_to_db(jsonl_path: Path):
 
 
 def update_boards():
+    boards_version = "v1.25.2"
     try:
         meta = get_metadata()
         log.debug(f"Metadata: {meta}")
-        if meta.get("boards_version", "") < "v1.25.0":
+        if meta.get("boards_version", "") < boards_version:
             log.info("Update boards from CSV to SQLite database.")
             # Load data from the zip file into the database
             load_data_from_zip(HERE / "micropython_boards.zip")
-            set_metadata_value("boards_version", "v1.25.0")
+            set_metadata_value("boards_version", boards_version)
             meta = get_metadata()
     except Exception as e:
         raise MPFlashError(f"Error updating boards table: {e}") from e

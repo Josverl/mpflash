@@ -4,7 +4,6 @@ import os
 import platform
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
 from typing import List, Optional, Union
 
 from serial.tools import list_ports
@@ -65,6 +64,7 @@ class FlashParams(Params):
     bootloader: BootloaderMethod = BootloaderMethod.NONE
     cpu: str = ""
     flash_mode: str = "keep"  # keep, qio, qout, dio, dout
+    custom: bool = False
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):
@@ -85,6 +85,7 @@ def filtered_comports(
     """
     return [p.device for p in filtered_portinfos(ignore, include, bluetooth)]
 
+
 def filtered_portinfos(
     ignore: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
@@ -94,6 +95,7 @@ def filtered_portinfos(
     Get a list of filtered comports using the include and ignore lists.
     both can be globs (e.g. COM*) or exact port names (e.g. COM1)
     """
+    log.trace(f"filtered_portinfos: {ignore=}, {include=}, {bluetooth=}")
     if not ignore:
         ignore = []
     elif not isinstance(ignore, list):  # type: ignore

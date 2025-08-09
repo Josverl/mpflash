@@ -59,17 +59,22 @@ def find_downloaded_firmware(
     version: str = "",
     port: str = "",
     variants: bool = False,
+    custom: bool = False,
 ) -> List[Firmware]:
     version = clean_version(version)
     log.debug(f"Looking for firmware for {board_id} {version} ")
     # Special handling for preview versions
     with Session() as session:
-        if version == "preview" or "preview" in version:
+        if "preview" in version:
             # Find all preview firmwares for this board/port, return the latest (highest build)
-            query = session.query(Firmware).filter(Firmware.board_id == board_id)
+            if custom:
+                query = session.query(Firmware).filter(Firmware.custom_id == board_id)
+            else:
+                query = session.query(Firmware).filter(Firmware.board_id == board_id)
             if port:
                 query = query.filter(Firmware.port == port)
             query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
+            log.trace(f"Querying for preview firmware: {query}")
             fw_list = query.all()
             if fw_list:
                 return [fw_list[0]]  # Return the latest preview only
@@ -82,7 +87,7 @@ def find_downloaded_firmware(
     #
     log.debug(f"2nd search with renamed board_id :{board_id}")
     with Session() as session:
-        if version == "preview" or "preview" in version:
+        if "preview" in version:
             query = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids))
             if port:
                 query = query.filter(Firmware.port == port)
@@ -96,4 +101,3 @@ def find_downloaded_firmware(
                 return fw_list
     log.warning(f"No firmware files found for board {board_id} version {version}")
     return []
-

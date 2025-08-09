@@ -64,9 +64,15 @@ def known_stored_boards(port: str, versions: List[str] = []) -> List[Tuple[str, 
 
 
 def find_known_board(board_id: str, version="") -> Board:
-    """Find the board for the given BOARD_ID or 'board description' and return the board info as a Board object"""
+    """
+    Find the board for the given BOARD_ID or 'board description'
+    if the board_id is not found, it will try to find it by description.
+
+    if the board_id contains an @, it will split it and use the first part as the board_id
+    Returns the board info as a Board object
+    """
     with Session() as session:
-        qry = session.query(Board).filter(Board.board_id == board_id)
+        qry = session.query(Board).filter(Board.board_id == board_id.split("@")[0])
         if version:
             qry = qry.filter(Board.version == version)
         board = qry.first()
