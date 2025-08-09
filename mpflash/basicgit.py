@@ -10,6 +10,7 @@ from typing import List, Optional, Union
 
 import cachetools.func
 from loguru import logger as log
+from numpy import tri
 
 from mpflash.config import config
 
@@ -261,7 +262,7 @@ def fetch(repo: Union[Path, str]) -> bool:
     return result.returncode == 0 if result else False
 
 
-def pull(repo: Union[Path, str], branch: str = "main") -> bool:
+def pull(repo: Union[Path, str], branch: str = "main", force: bool = True) -> bool:
     """
     pull a repo origin into main
     repo should be in the form of : path/.git
@@ -272,7 +273,9 @@ def pull(repo: Union[Path, str], branch: str = "main") -> bool:
         raise NotADirectoryError
     repo = Path(repo)
     # first checkout HEAD
-    cmd = ["git", "checkout", branch, "--quiet", "--force"]
+    cmd = ["git", "checkout", branch, "--quiet"]
+    if force:
+        cmd.append("--force")
     result = _run_local_git(cmd, repo=repo, expect_stderr=True)
     if not result:
         log.error("error during git checkout main", result)
