@@ -84,6 +84,5 @@ def test_find_board_id(test_id, descr, short_descr, expected_result, version, mo
         # Assert
         assert result == expected_result
     else:
-        with pytest.raises(MPFlashError):
-            # internal method raises exception
-            _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
+        n = _find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
+        assert n == []
