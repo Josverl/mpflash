@@ -54,12 +54,19 @@ def test_get_boards(mocker: MockerFixture, port, board_id):
 
 
 @pytest.mark.parametrize(
-    "port, board_id, version",
+    "port, board_id",
     [
-        ("rp2", "RPI_PICO", "v1.25.0"),
-        ("stm32", "PYBV11", "stable"),
-        ("esp32", "ESP32_GENERIC", "v1.25.0"),
-        ("esp32", "ESP32_GENERIC", "preview"),
+        ("rp2", "RPI_PICO"),
+        ("stm32", "PYBV11"),
+        ("esp32", "ESP32_GENERIC"),
+    ],
+)
+@pytest.mark.parametrize(
+    "version",
+    [
+        "v1.25.0",
+        # "stable", # v1.26.0 just released - downloads not yet available
+        "preview",
     ],
 )
 def test_download_firmwares(
