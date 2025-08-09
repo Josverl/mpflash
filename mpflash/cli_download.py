@@ -98,7 +98,7 @@ def cli_download(**kwargs) -> int:
                         log.error(f"{e}")
     else:
         # no boards specified - detect connected ports and boards
-        params.ports, params.boards, _ , _ = connected_ports_boards_variants(include=params.serial, ignore=params.ignore)
+        params.ports, params.boards, _, _ = connected_ports_boards_variants(include=params.serial, ignore=params.ignore)
 
     params = ask_missing_params(params)
     if not params:  # Cancelled by user

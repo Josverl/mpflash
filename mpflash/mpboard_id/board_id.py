@@ -61,5 +61,4 @@ def _find_board_id_by_description(
         )
         boards = qry.all()
 
-
     return boards
