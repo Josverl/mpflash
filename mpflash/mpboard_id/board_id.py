@@ -16,25 +16,24 @@ def find_board_id_by_description(
     short_descr: str,
     *,
     version: str,
-) -> Optional[str]:
+) -> str:
     """Find the MicroPython BOARD_ID based on the description in the firmware"""
     version = clean_version(version) if version else ""
-    try:
+    boards = _find_board_id_by_description(
+        descr=descr,
+        short_descr=short_descr,
+        version=version,
+    )
+    if not boards:
+        log.debug(f"Version {version} not found in board info, using any version")
         boards = _find_board_id_by_description(
             descr=descr,
             short_descr=short_descr,
-            version=version,
+            version="%",  # any version
         )
-        if not boards:
-            log.debug(f"Version {version} not found in board info, using any version")
-            boards = _find_board_id_by_description(
-                descr=descr,
-                short_descr=short_descr,
-                version="%",  # any version
-            )
-        return boards[0].board_id if boards else None
-    except MPFlashError:
-        return "UNKNOWN_BOARD"
+    if not boards:
+        raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
+    return boards[0].board_id
 
 
 def _find_board_id_by_description(
@@ -62,6 +61,5 @@ def _find_board_id_by_description(
         )
         boards = qry.all()
 
-    if not boards:
-        raise MPFlashError(f"No board info found for description '{descr}' or '{short_descr}'")
+
     return boards
