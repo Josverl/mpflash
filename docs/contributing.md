@@ -18,7 +18,7 @@ Thank you for your interest in contributing to MPFlash! This guide will help you
 ### Prerequisites
 
 - Python 3.9.2 or later
-- Poetry for dependency management
+- uv for dependency management (recommended) or pip
 - Git for version control
 - A MicroPython board for testing (optional but recommended)
 
@@ -42,10 +42,10 @@ Thank you for your interest in contributing to MPFlash! This guide will help you
 
 ```bash
 # Install development dependencies
-poetry install
+uv sync --all-extras
 
-# Activate virtual environment
-poetry shell
+# Or using pip (if uv not available)
+pip install -e ".[dev,test,perf]"
 ```
 
 ### Environment Configuration
@@ -66,10 +66,10 @@ PYTHONPATH=src                # For development
 
 ```bash
 # Run MPFlash to verify installation
-poetry run mpflash --help
+uv run mpflash --help
 
 # Run tests to ensure everything works
-poetry run pytest
+uv run pytest
 ```
 
 ## Code Style Guidelines
@@ -171,16 +171,13 @@ Use these tools to maintain code quality:
 
 ```bash
 # Format code
-poetry run black mpflash/
+uv run ruff format mpflash/
 
-# Sort imports
-poetry run isort mpflash/
+# Lint and fix code  
+uv run ruff check --fix mpflash/
 
-# Remove unused imports
-poetry run autoflake mpflash/ -r --in-place --remove-all-unused-imports
-
-# Type checking
-poetry run mypy mpflash/
+# Type checking (if mypy is installed)
+uv run mypy mpflash/
 ```
 
 ## Testing
@@ -306,22 +303,22 @@ def test_list_command():
 
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run specific test file
-poetry run pytest tests/test_download.py
+uv run pytest tests/test_download.py
 
 # Run tests with coverage
-poetry run pytest --cov=mpflash
+uv run pytest --cov=mpflash
 
 # Run tests with verbose output
-poetry run pytest -v
+uv run pytest -v
 
 # Run tests excluding slow tests
-poetry run pytest -m "not basicgit"
+uv run pytest -m "not basicgit"
 
 # Run tests for specific functionality
-poetry run pytest -k "flash"
+uv run pytest -k "flash"
 ```
 
 ### Test Coverage
@@ -330,8 +327,8 @@ Maintain high test coverage:
 
 ```bash
 # Generate coverage report
-poetry run coverage run -m pytest
-poetry run coverage html
+uv run coverage run -m pytest
+uv run coverage html
 
 # View coverage report
 open htmlcov/index.html
@@ -528,14 +525,11 @@ To add support for a new hardware platform:
 MPFlash uses semantic versioning:
 
 ```bash
-# Patch version (bug fixes)
-poetry version patch
-
-# Minor version (new features)
-poetry version minor
-
-# Major version (breaking changes)
-poetry version major
+# Update version in pyproject.toml manually
+# Or use a tool like bump2version:
+# bump2version patch   # for bug fixes
+# bump2version minor   # for new features  
+# bump2version major   # for breaking changes
 ```
 
 ### Changelog

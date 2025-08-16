@@ -2,22 +2,22 @@
 
 To install test dependencies, use:
 ```
-poetry install --with test
+uv sync --extra test
 ```
 
 To run all tests, use:
 ```
-pytest
+uv run pytest
 ```
 
 To run tests with coverage report:
 ```
-pytest --cov
+uv run pytest --cov
 ```
 
 To generate an HTML coverage report:
 ```
-pytest --cov=mpflash --cov-report=html
+uv run pytest --cov=mpflash --cov-report=html
 ```
 Open the generated `htmlcov/index.html` in your browser to view the coverage report.
 
