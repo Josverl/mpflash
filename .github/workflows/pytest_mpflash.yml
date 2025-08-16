@@ -48,11 +48,12 @@ jobs:
                 fetch-tags: true
 
             #----------------------------------------------
-            # poetry is not in the default image
+            # uv is not in the default image
             #----------------------------------------------
-            - name: Install poetry and codecov
-              run: |
-                  pipx install poetry
+            - name: Install the latest version of uv
+              uses: astral-sh/setup-uv@v6
+              with:
+                version: "latest"
 
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v5
@@ -64,13 +65,13 @@ jobs:
             # install project
             #----------------------------------------------
             - name: Install mpflash & test dependencies
-              run: poetry install --with test
+              run: uv sync --extra test
 
             - name: Test mpflash
               run: |
                   # run once to bootstrap database (test hack)
-                  poetry run mpflash download --board RPI_PICO
-                  poetry run pytest --cov --cov-branch --cov-report=xml
+                  uv run mpflash download --board RPI_PICO
+                  uv run pytest --cov --cov-branch --cov-report=xml
 
             #----------------------------------------------
             # upload coverage stats
