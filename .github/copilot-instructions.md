@@ -32,10 +32,9 @@ MPFlash is a command-line tool and Python library for managing MicroPython firmw
 
 # dependencies
 
-- Use uv pip for package management
-- the project is handled by poetry and all dependencies should be added to the pyproject.toml file
-- minimize the number of dependencies
--
+- Use uv for package management
+- The project uses PEP standard pyproject.toml format and all dependencies should be added to the dependencies or optional-dependencies sections
+- Minimize the number of dependencies
 
 # Writing tests
 - when asked to create an MVP - keep the number of tests to a minimum

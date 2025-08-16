@@ -87,14 +87,14 @@ CREATE TABLE firmwares (
 
 ### Prerequisites
 - Python 3.9.2+
-- Poetry for dependency management
+- uv for dependency management (or pip)
 - Git for version control
 
 ### Installation
 ```bash
 git clone https://github.com/Josverl/mpflash.git
 cd mpflash
-poetry install
+uv sync --all-extras
 ```
 
 ### Environment Variables
@@ -111,13 +111,13 @@ PYTHONPATH=src                # Test source path
 ### Running Tests
 ```bash
 # Run all tests
-poetry run pytest
+uv run pytest
 
 # Run with coverage
-poetry run pytest --cov=mpflash
+uv run pytest --cov=mpflash
 
 # Run specific test categories
-poetry run pytest -m "not basicgit"
+uv run pytest -m "not basicgit"
 ```
 
 ## Code Standards
@@ -355,12 +355,17 @@ Use the configured tasks for development:
 
 ### Version Management
 ```bash
-# Update version in pyproject.toml
-poetry version patch|minor|major
+# Update version in pyproject.toml using either
+uv version <new_version>  
+uv version --bump patch 
+# Build package
+uv build
 
-# Build and publish
-poetry build
-poetry publish
+# Publish to PyPI
+# set token in environment variable
+export UV_PUBLISH_TOKEN="pypi-123456789abcdef"
+# uv publish --index testpypi # optionally
+uv publish #
 ```
 
 ### Documentation Updates
