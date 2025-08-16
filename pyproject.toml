@@ -1,86 +1,96 @@
 
 ############################################################
-#                      POETRY                              #
+#                    PROJECT METADATA                      #
 ############################################################
 
-[tool.poetry]
+[project]
 name = "mpflash"
 version = "1.26.0"
 description = "Flash and download tool for MicroPython firmwares"
-authors = ["Jos Verlinde <jos_verlinde@hotmail.com>"]
-license = "MIT"
+authors = [
+    {name = "Jos Verlinde", email = "jos_verlinde@hotmail.com"}
+]
+license = {text = "MIT"}
 readme = "README.md"
 keywords = ["MicroPython", "firmware", "flash", "download", "UF2", "esptool"]
-homepage = "https://github.com/Josverl/mpflash/blob/main/README.md"
-repository = "https://github.com/Josverl/mpflash"
 classifiers = [
-    "Programming Language :: Python :: Implementation :: MicroPython",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: MicroPython",
     "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Hardware",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.9.2"
+dependencies = [
+    "beautifulsoup4>=4.12.3",
+    "bincopy>=20.0.0",
+    "blkinfo>=0.2.0",
+    "cachetools>=5.3.0",
+    "esptool>=4.7.0",
+    "inquirer>=3.2.4",
+    "jsonlines>=4.0.0",
+    "jsons>=1.6.3",
+    "libusb>=1.0.27; sys_platform == 'win32'",
+    "pywin32>=310; sys_platform == 'win32'",
+    "loguru>=0.7.2",
+    "mpremote>=1.22.0",
+    "packaging>=24.2",
+    "platformdirs>=4.2.0",
+    "psutil>=7.0.0,<8.0.0",
+    "pygithub>=2.1.1",
+    "pyusb>=1.2.1",
+    "requests>=2.31.0",
+    "rich-click>=1.8.1",
+    "tenacity==9.0.0",
+    "cache-to-disk>=2.0.0",
+    "sqlalchemy>=2.0.41",
+    "tomli-w>=1.2.0",
+    "tomli>=2.2.1",
 ]
 
-[tool.poetry.scripts]
+[project.optional-dependencies]
+dev = [
+    "ipykernel>=6.29.5",
+    "tornado>=6.5",
+    "pandas>=2.2.3",
+]
+test = [
+    "pandas>=2.2.3",
+    "pytest>=7.1.2,<9.0.0",
+    "pytest-cov>=6.0.0",
+    "pytest-github-actions-annotate-failures>=0.1.7,<0.4.0",
+    "pytest-json-report>=1.5.0",
+    "pytest-metadata>=2.0.2,<4.0.0",
+    "pytest-mock>=3.10.0",
+    "coverage>=6.4.3,<8.0.0",
+    "distro>=1.8.0",
+    "fasteners>=0.19",
+    "mock>=4.0.3,<6.0.0",
+]
+perf = [
+    "scalene>=1.5.51",
+]
+
+[project.scripts]
 mpflash = "mpflash.cli_main:mpflash"
 
-[tool.poetry.dependencies]
-python = ">=3.9.2,<3.11.0 || >3.11.0,<4.0"
-beautifulsoup4 = "^4.12.3"
-bincopy = "^20.0.0"
-blkinfo = "^0.2.0"
-cachetools = "^5.3.0"
-esptool = "^4.7.0"
-inquirer = "^3.2.4"
-jsonlines = "^4.0.0"
-jsons = "^1.6.3"
-libusb = { version = "^1.0.27", platform = "win32" }
-pywin32 = { version = "^310", platform = "win32" }
-loguru = "^0.7.2"
-mpremote = "^1.22.0"
-packaging = "^24.2"
-platformdirs = "^4.2.0"
-psutil = ">=7.0.0,<8.0.0"
-pygithub = "^2.1.1"
-pyusb = "^1.2.1"
-requests = "^2.31.0"
-rich-click = "^1.8.1"
-tenacity = "9.0.0"
-cache-to-disk = "^2.0.0"
-sqlalchemy = "^2.0.41"
-tomli-w = "^1.2.0"
-
-
-[tool.poetry.group.dev]
-optional = true
-[tool.poetry.group.dev.dependencies]
-ipykernel = "^6.29.5"
-tornado = "^6.5"      # fix 
-pandas = "^2.2.3"
-
-[tool.poetry.group.test]
-optional = true
-[tool.poetry.group.test.dependencies]
-pandas = "^2.2.3"
-pytest = ">=7.1.2,<9.0.0"
-pytest-cov = "^6.0.0"
-pytest-github-actions-annotate-failures = ">=0.1.7,<0.4.0"
-pytest-json-report = "^1.5.0"
-pytest-metadata = ">=2.0.2,<4.0.0"
-pytest-mock = "^3.10.0"
-#
-coverage = ">=6.4.3,<8.0.0"
-distro = "^1.8.0"
-fasteners = "^0.19"
-mock = ">=4.0.3,<6.0.0"
-
-
-[tool.poetry.group.perf]
-optional = true
-[tool.poetry.group.perf.dependencies]
-scalene = "^1.5.51"
+[project.urls]
+Homepage = "https://github.com/Josverl/mpflash"
+Documentation = "https://github.com/Josverl/mpflash/blob/main/README.md"
+Repository = "https://github.com/Josverl/mpflash"
+"Bug Tracker" = "https://github.com/Josverl/mpflash/issues"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 ############################################################
 #                  PYTEST                                  #
