@@ -92,6 +92,10 @@ Repository = "https://github.com/Josverl/mpflash"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+reproducible = true
+
+
 ############################################################
 #                  PYTEST                                  #
 ############################################################

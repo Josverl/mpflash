@@ -355,12 +355,17 @@ Use the configured tasks for development:
 
 ### Version Management
 ```bash
-# Update version in pyproject.toml manually or with tools like bump2version
+# Update version in pyproject.toml using either
+uv version <new_version>  
+uv version --bump patch 
 # Build package
 uv build
 
 # Publish to PyPI
-uv publish
+# set token in environment variable
+export UV_PUBLISH_TOKEN="pypi-123456789abcdef"
+# uv publish --index testpypi # optionally
+uv publish #
 ```
 
 ### Documentation Updates
