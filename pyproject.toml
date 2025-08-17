@@ -81,6 +81,9 @@ perf = [
 pyocd = [
     "pyocd>=0.36.0",
 ]
+build = [
+    "mpbuild>=0.5.0",  # Requires Python 3.10+ due to union type syntax
+]
 
 [project.scripts]
 mpflash = "mpflash.cli_main:mpflash"
