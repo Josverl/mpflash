@@ -203,8 +203,10 @@ def cli_flash_board(**kwargs) -> int:
     all_boards: List[MPRemoteBoard] = []
     if not params.boards:
         # nothing specified - detect connected boards
+        # Use params.serial if specified, otherwise use params.ports
+        include_ports = params.serial if params.serial != ["*"] else params.ports
         params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
-            include=params.ports,
+            include=include_ports,
             ignore=params.ignore,
             bluetooth=params.bluetooth,
         )
@@ -302,7 +304,7 @@ def cli_flash_board(**kwargs) -> int:
         # A one or more serial port including the board / variant
         comports = filtered_comports(
             ignore=params.ignore,
-            include=params.ports,
+            include=params.serial,
             bluetooth=params.bluetooth,
         )
         worklist = manual_worklist(
