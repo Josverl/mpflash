@@ -78,6 +78,9 @@ test = [
 perf = [
     "scalene>=1.5.51",
 ]
+pyocd = [
+    "pyocd>=0.36.0",
+]
 
 [project.scripts]
 mpflash = "mpflash.cli_main:mpflash"
@@ -256,3 +259,8 @@ line-ending = "auto"
 [tool.ruff.lint]
 exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
 ignore = ["F821"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
