@@ -9,7 +9,7 @@ from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
-from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
+from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
 from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
@@ -113,12 +113,39 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--method",
+    "--flash-method",
+    "flash_method",
+    type=click.Choice([e.value for e in FlashMethod]),
+    default="auto",
+    show_default=True,
+    help="""Flash programming method. 'auto' uses serial bootloader methods (existing behavior). Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+)
+@click.option(
+    "--probe",
+    "--probe-id",  # Keep as alias for backwards compatibility
+    "probe_id", 
+    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    metavar="PROBE_ID",
+)
+@click.option(
+    "--auto-install-packs/--no-auto-install-packs",
+    default=True,
+    help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
     is_flag=True,
     show_default=True,
     help="""Force download of firmware even if it already exists.""",
+)
+@click.option(
+    "--build",
+    default=False,
+    is_flag=True,
+    help="""Build MicroPython firmware locally using mpbuild before flashing. Generates all formats (.dfu, .hex, .bin, .elf). Requires Docker.""",
 )
 @click.option(
     "--flash_mode",
@@ -144,6 +171,17 @@ def cli_flash_board(**kwargs) -> int:
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
+        
+    # Convert flash_method to method and convert to enum
+    flash_method_str = kwargs.pop("flash_method", "auto")
+    flash_method = FlashMethod(flash_method_str)
+    
+    # Extract pyOCD options
+    probe_id = kwargs.pop("probe_id", None)
+    auto_install_packs = kwargs.pop("auto_install_packs", True)
+    
+    # Extract build option
+    build_firmware = kwargs.pop("build", False)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -165,8 +203,10 @@ def cli_flash_board(**kwargs) -> int:
     all_boards: List[MPRemoteBoard] = []
     if not params.boards:
         # nothing specified - detect connected boards
+        # Use params.serial if specified, otherwise use params.ports
+        include_ports = params.serial if params.serial != ["*"] else params.ports
         params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
-            include=params.ports,
+            include=include_ports,
             ignore=params.ignore,
             bluetooth=params.bluetooth,
         )
@@ -193,6 +233,37 @@ def cli_flash_board(**kwargs) -> int:
         raise MPFlashError("Only one version can be flashed at a time")
 
     params.versions = [clean_version(v) for v in params.versions]
+    
+    # Handle --build flag: build firmware locally before flashing
+    if build_firmware:
+        from mpflash.build import build_firmware as build_fw, is_build_available, get_build_unavailable_reason, import_firmware_to_database
+        
+        if not is_build_available():
+            reason = get_build_unavailable_reason()
+            log.error(f"Build functionality not available: {reason}")
+            return 1
+        
+        # Build firmware for each requested board
+        for board_id in params.boards:
+            full_board_id = f"{board_id}-{params.variant}" if params.variant else board_id
+            version = params.versions[0] if params.versions else "latest"
+            
+            try:
+                log.info(f"Building firmware for {full_board_id} version {version}")
+                firmware_files = build_fw(full_board_id, version, force=params.force)
+                log.info(f"Build complete: {len(firmware_files)} files generated")
+                
+                # Import built firmware files into mpflash database
+                if firmware_files:
+                    imported_count = import_firmware_to_database(firmware_files, full_board_id, version)
+                    log.info(f"Imported {imported_count} firmware files into database")
+                else:
+                    log.warning(f"No firmware files generated for {full_board_id}")
+                    
+            except Exception as e:
+                log.error(f"Build failed for {full_board_id}: {e}")
+                return 1
+    
     worklist: WorkList = []
 
     if len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
@@ -210,6 +281,7 @@ def cli_flash_board(**kwargs) -> int:
             board_id=board_id,
             version=params.versions[0],
             custom=params.custom,
+            method=flash_method,
         )
     # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:
@@ -226,24 +298,27 @@ def cli_flash_board(**kwargs) -> int:
             version=params.versions[0],
             include=params.serial,
             ignore=params.ignore,
+            method=flash_method,
         )
     elif params.versions[0] and params.boards[0] and params.serial:
         # A one or more serial port including the board / variant
         comports = filtered_comports(
             ignore=params.ignore,
-            include=params.ports,
+            include=params.serial,
             bluetooth=params.bluetooth,
         )
         worklist = manual_worklist(
             comports,
             board_id=params.boards[0],
             version=params.versions[0],
+            method=flash_method,
         )
     else:
         # just this serial port on auto
         worklist = single_auto_worklist(
             serial=params.serial[0],
             version=params.versions[0],
+            method=flash_method,
         )
     if not params.custom:
         jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
@@ -251,6 +326,9 @@ def cli_flash_board(**kwargs) -> int:
         worklist,
         params.erase,
         params.bootloader,
+        method=flash_method,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
         flash_mode=params.flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
