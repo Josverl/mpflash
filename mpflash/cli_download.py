@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-from pytest import param
 import rich_click as click
 from loguru import logger as log
 
