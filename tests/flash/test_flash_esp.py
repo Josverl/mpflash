@@ -44,7 +44,7 @@ def test_flash_esp_different_chips(mock_esptool, mock_mcu, cpu, chip, start_addr
     mock_mcu.cpu = cpu
     result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"))
     assert result == mock_mcu
-    expected_cmd = f"esptool --chip {chip} --port {mock_mcu.serialport} -b {baud_rate} write_flash --flash_mode keep --flash_size detect --compress {start_addr} {Path('/path/to/firmware.bin')}".split()
+    expected_cmd = f"esptool --chip {chip} --port {mock_mcu.serialport} -b {baud_rate} write-flash --flash-mode keep --flash_size detect --compress {start_addr} {Path('/path/to/firmware.bin')}".split()
     mock_esptool.assert_called_with(expected_cmd[1:])
 
 
@@ -52,14 +52,14 @@ def test_flash_esp_different_chips(mock_esptool, mock_mcu, cpu, chip, start_addr
 def test_flash_esp_erase(mock_esptool, mock_mcu):
     result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=True)
     assert result == mock_mcu
-    assert mock_esptool.call_count == 2  # erase_flash and write_flash
+    assert mock_esptool.call_count == 2  # erase-flash and write-flash
 
 
 @patch("esptool.main")
 def test_flash_esp_no_erase(mock_esptool, mock_mcu):
     result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False)
     assert result == mock_mcu
-    assert mock_esptool.call_count == 1  # only write_flash
+    assert mock_esptool.call_count == 1  # only write-flash
 
 
 @patch("esptool.main")

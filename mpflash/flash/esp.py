@@ -63,7 +63,7 @@ def flash_esp(
             baud_rate = str(460_800)
 
         cmds.append(
-            f"esptool --chip {chip} --port {mcu.serialport} -b {baud_rate} write_flash --flash_mode {flash_mode} --flash_size {flash_size} --compress {start_addr}".split()
+            f"esptool --chip {chip} --port {mcu.serialport} -b {baud_rate} write-flash --flash-mode {flash_mode} --flash_size {flash_size} --compress {start_addr}".split()
             + [str(fw_file)]
         )
     elif mcu.cpu.upper() == "ESP8266":
@@ -71,12 +71,12 @@ def flash_esp(
         start_addr = "0x0"
         chip = "esp8266"
         cmds.append(
-            f"esptool --chip {chip} --port {mcu.serialport} -b {baud_rate} write_flash --flash_mode {flash_mode} --flash_size=detect {start_addr}".split()
+            f"esptool --chip {chip} --port {mcu.serialport} -b {baud_rate} write-flash --flash-mode {flash_mode} --flash_size=detect {start_addr}".split()
             + [str(fw_file)]
         )
     # now that we have the chip, we can do the erare properly
     if erase:
-        cmds.insert(0, f"esptool --chip {chip} --port {mcu.serialport} erase_flash".split())
+        cmds.insert(0, f"esptool --chip {chip} --port {mcu.serialport} erase-flash".split())
     try:
         for cmd in cmds:
             log.info(f"Running {' '.join(cmd)} ")
