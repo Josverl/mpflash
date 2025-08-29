@@ -121,7 +121,7 @@ from mpflash.versions import clean_version
     help="""Force download of firmware even if it already exists.""",
 )
 @click.option(
-    "--flash_mode",
+    "--flash-mode",
     "--fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
     default="keep",
