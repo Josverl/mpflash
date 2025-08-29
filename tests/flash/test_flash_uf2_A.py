@@ -11,6 +11,8 @@ def mock_mcu():
     mcu.port = "rp2"
     mcu.board = "test_board"
     mcu.serialport = "COM3"
+    mcu.run_command = mock.Mock()  # Add run_command method
+    mcu.wait_for_restart = mock.Mock()  # Add wait_for_restart method
     return mcu
 
 
@@ -28,7 +30,10 @@ def mock_erase_file():
 def mock_destination():
     destination = mock.Mock(spec=Path)
     destination.exists.return_value = True
-    # (destination / "INFO_UF2.TXT").exists.return_value = True
+    # Mock the path operation (destination / "INFO_UF2.TXT").exists()
+    info_file = mock.Mock()
+    info_file.exists.return_value = True
+    destination.__truediv__.return_value = info_file
     return destination
 
 
@@ -62,6 +67,41 @@ def test_flash_uf2_board_not_in_bootloader(mock_mcu, mock_fw_file):
 #          mock.patch("pathlib.Path.resolve", return_value=mock_erase_file):
 #         result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
 #         assert result == mock_mcu
+
+
+def test_flash_uf2_erase_fallback_samd(mock_mcu, mock_fw_file, mock_destination):
+    """Test that SAMD port uses mpremote rm -r :/ for erase as fallback"""
+    mock_mcu.port = "samd"
+    mock_mcu.run_command.return_value = (0, [""])  # Successful erase
+    
+    with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination), \
+         mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"), \
+         mock.patch("mpflash.flash.uf2.dismount_uf2_linux"), \
+         mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"):
+        
+        result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
+        
+        # Verify that run_command was called with rm -r :/
+        mock_mcu.run_command.assert_called_with(["rm", "-r", ":/"], timeout=30)
+        assert result == mock_mcu
+
+
+def test_flash_uf2_erase_fallback_failed(mock_mcu, mock_fw_file, mock_destination):
+    """Test that failed mpremote erase is logged but doesn't stop flashing"""
+    mock_mcu.port = "samd"
+    mock_mcu.run_command.return_value = (1, ["Error message"])  # Failed erase
+    
+    with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination), \
+         mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"), \
+         mock.patch("mpflash.flash.uf2.dismount_uf2_linux"), \
+         mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"):
+        
+        result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
+        
+        # Verify that run_command was called with rm -r :/
+        mock_mcu.run_command.assert_called_with(["rm", "-r", ":/"], timeout=30)
+        # Should still complete flashing even if erase failed
+        assert result == mock_mcu
 
 
 def test_flash_uf2_erase_not_supported(mock_mcu, mock_fw_file):

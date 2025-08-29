@@ -53,7 +53,16 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
             # allow for MCU restart after erase
             time.sleep(0.5)
         else:
-            log.warning(f"Erase not (yet) supported on .UF2, for port {mcu.port}, skipping erase.")
+            # For non-rp2 UF2 ports (like SAMD), try using mpremote rm -r :/ as fallback
+            log.info(f"Using mpremote rm -r :/ to erase {mcu.port} filesystem")
+            try:
+                rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30)
+                if rc == 0:
+                    log.info(f"Successfully erased filesystem on {mcu.port}")
+                else:
+                    log.warning(f"Failed to erase filesystem on {mcu.port}: {result}")
+            except Exception as e:
+                log.warning(f"Failed to erase filesystem on {mcu.port}: {e}")
 
     destination = waitfor_uf2(board_id=mcu.port.upper())
 
