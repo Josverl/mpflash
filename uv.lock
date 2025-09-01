@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9.2"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1257,7 +1257,7 @@ wheels = [
 
 [[package]]
 name = "mpflash"
-version = "1.26.0"
+version = "1.26.1"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -1311,6 +1311,11 @@ test = [
     { name = "pytest-mock" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
@@ -1354,6 +1359,9 @@ requires-dist = [
     { name = "tornado", marker = "extra == 'dev'", specifier = ">=6.5" },
 ]
 provides-extras = ["dev", "test", "perf"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.1" }]
 
 [[package]]
 name = "mpremote"

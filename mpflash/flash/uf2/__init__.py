@@ -38,6 +38,10 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
     if ".uf2" not in PORT_FWTYPES[mcu.port]:
         log.error(f"UF2 not supported on {mcu.board} on {mcu.serialport}")
         return None
+    
+    # For non-rp2 ports, remember if we need to erase filesystem after flashing
+    erase_filesystem_after_flash = erase and mcu.port != "rp2"
+    
     if erase:
         if mcu.port == "rp2":
             rp2_erase =Path(__file__).parent.joinpath("../../vendor/pico-universal-flash-nuke/universal_flash_nuke.uf2").resolve()
@@ -53,16 +57,7 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
             # allow for MCU restart after erase
             time.sleep(0.5)
         else:
-            # For non-rp2 UF2 ports (like SAMD), try using mpremote rm -r :/ as fallback
-            log.info(f"Using mpremote rm -r :/ to erase {mcu.port} filesystem")
-            try:
-                rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30)
-                if rc == 0:
-                    log.info(f"Successfully erased filesystem on {mcu.port}")
-                else:
-                    log.warning(f"Failed to erase filesystem on {mcu.port}: {result}")
-            except Exception as e:
-                log.warning(f"Failed to erase filesystem on {mcu.port}: {e}")
+            log.info(f"Will erase {mcu.port} filesystem after flashing using mpremote rm -r :/")
 
     destination = waitfor_uf2(board_id=mcu.port.upper())
 
@@ -84,6 +79,19 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
         dismount_uf2_linux()
 
     mcu.wait_for_restart()
+    
+    # For non-rp2 UF2 ports (like SAMD), erase filesystem after flash and restart
+    if erase_filesystem_after_flash:
+        log.info(f"Erasing {mcu.port} filesystem using mpremote rm -r :/")
+        try:
+            rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30)
+            if rc == 0:
+                log.info(f"Successfully erased filesystem on {mcu.port}")
+            else:
+                log.warning(f"Failed to erase filesystem on {mcu.port}: {result}")
+        except Exception as e:
+            log.warning(f"Failed to erase filesystem on {mcu.port}: {e}")
+    
     return mcu
 
 
