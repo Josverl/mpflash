@@ -6,6 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from threading import Timer
 from typing import List, Optional, Tuple
+from unittest.mock import DEFAULT
 
 from loguru import logger as log
 
@@ -31,6 +32,13 @@ DEFAULT_RESET_TAGS = [
     "rst:0x10 (RTCWDT_RTC_RESET)",
 ]
 
+DEFAULT_ERROR_TAGS = ["Traceback ", "Error: ", "Exception: ", "ERROR :", "CRIT  :"]
+DEFAULT_WARNING_TAGS = ["WARN  :", "TRACE :"]
+DEFAULT_SUCCESS_TAGS = ["Done", "File saved", "File removed", "File renamed"]
+DEFAULT_IGNORE_TAGS = [
+    '  File "<stdin>",',
+    "mpremote: rm -r: cannot remove :/ Operation not permitted",
+]
 
 def run(
     cmd: List[str],
@@ -70,13 +78,13 @@ def run(
     if not reset_tags:
         reset_tags = DEFAULT_RESET_TAGS
     if not error_tags:
-        error_tags = ["Traceback ", "Error: ", "Exception: ", "ERROR :", "CRIT  :"]
+        error_tags = DEFAULT_ERROR_TAGS
     if not warning_tags:
-        warning_tags = ["WARN  :", "TRACE :"]
+        warning_tags = DEFAULT_WARNING_TAGS
     if not success_tags:
-        success_tags = []
+        success_tags = DEFAULT_SUCCESS_TAGS
     if not ignore_tags:
-        ignore_tags = ['  File "<stdin>",']
+        ignore_tags = DEFAULT_IGNORE_TAGS
 
     replace_tags = ["\x1b[1A"]
 
@@ -132,6 +140,8 @@ def run(
                         log.info(line)
         if proc.stderr and log_errors:
             for line in proc.stderr:
+                if any(tag in line for tag in ignore_tags):
+                    continue
                 log.warning(line)
     except UnicodeDecodeError as e:
         log.error(f"Failed to decode output: {e}")

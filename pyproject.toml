@@ -256,3 +256,8 @@ line-ending = "auto"
 [tool.ruff.lint]
 exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
 ignore = ["F821"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]

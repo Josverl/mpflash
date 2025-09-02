@@ -1,4 +1,5 @@
 version = 1
+revision = 3
 requires-python = ">=3.9.2"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -1285,6 +1286,11 @@ test = [
     { name = "pytest-mock" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
@@ -1327,6 +1333,9 @@ requires-dist = [
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "tornado", marker = "extra == 'dev'", specifier = ">=6.5" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.4.1" }]
 
 [[package]]
 name = "mpremote"
