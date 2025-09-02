@@ -4,18 +4,17 @@ Flash SAMD and RP2 via UF2
 
 import shutil
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Optional
 
 import tenacity
 from loguru import logger as log
-
 from tenacity import stop_after_attempt, wait_fixed
 
+from mpflash.common import PORT_FWTYPES
 from mpflash.mpremoteboard import MPRemoteBoard
 
-from mpflash.common import PORT_FWTYPES
 from .boardid import get_board_id
 from .linux import dismount_uf2_linux, wait_for_UF2_linux
 from .macos import wait_for_UF2_macos
@@ -56,8 +55,6 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
                 dismount_uf2_linux()
             # allow for MCU restart after erase
             time.sleep(0.5)
-        else:
-            log.info(f"Will erase {mcu.port} filesystem after flashing using mpremote rm -r :/")
 
     destination = waitfor_uf2(board_id=mcu.port.upper())
 
@@ -82,16 +79,13 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
     
     # For non-rp2 UF2 ports (like SAMD), erase filesystem after flash and restart
     if erase_filesystem_after_flash:
+        # allow for MCU restart after erase
+        time.sleep(0.5)        
         log.info(f"Erasing {mcu.port} filesystem using mpremote rm -r :/")
         try:
-            rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30)
-            if rc == 0:
-                log.info(f"Successfully erased filesystem on {mcu.port}")
-            else:
-                log.warning(f"Failed to erase filesystem on {mcu.port}: {result}")
+            rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30, resume=True)
         except Exception as e:
             log.warning(f"Failed to erase filesystem on {mcu.port}: {e}")
-    
     return mcu
 
 
