@@ -59,7 +59,14 @@ def ask_missing_params(
     if not params.boards or "?" in params.boards:
         questions.extend(ask_port_board(multi_select=multi_select, action=action))
     if questions:
-        answers = inquirer.prompt(questions, answers=answers)  # type: ignore
+        # Store the pre-existing answers before prompting
+        pre_existing_answers = dict(answers)
+        prompted_answers = inquirer.prompt(questions, answers=answers)  # type: ignore
+        if not prompted_answers:
+            # input cancelled by user
+            return []  # type: ignore
+        # Merge pre-existing answers with prompted answers
+        answers = {**pre_existing_answers, **prompted_answers}
     if not answers:
         # input cancelled by user
         return []  # type: ignore

@@ -4,7 +4,6 @@ import json
 import re
 import zipfile
 from pathlib import Path
-from turtle import up
 
 from loguru import logger as log
 
