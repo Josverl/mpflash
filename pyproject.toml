@@ -124,7 +124,7 @@ testpaths = ["tests"]
 norecursedirs = [".*", ".*/*"]
 junit_family = "xunit1"
 
-addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
+addopts = "--capture=no -m 'not slow'"
 # --capture=no
 
 markers = [
