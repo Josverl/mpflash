@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock
 from pytest_mock import MockerFixture
 
 from mpflash.ask_input import ask_missing_params
