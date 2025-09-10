@@ -358,6 +358,10 @@ Use the configured tasks for development:
 # Update version in pyproject.toml using either
 uv version <new_version>  
 uv version --bump patch 
+
+# Recommended: update the included boards & description information
+uv run mpflash/db/gather_boards.py --mpy-path ../micropython
+
 # Build package
 uv build
 

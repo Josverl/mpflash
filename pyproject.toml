@@ -60,10 +60,8 @@ dependencies = [
 dev = [
     "ipykernel>=6.29.5",
     "tornado>=6.5",
-    "pandas>=2.2.3",
 ]
 test = [
-    "pandas>=2.2.3",
     "pytest>=7.1.2,<9.0.0",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.1.7,<0.4.0",
@@ -95,6 +93,23 @@ build-backend = "hatchling.build"
 [tool.hatch.build]
 reproducible = true
 
+
+############################################################
+#                  PYRIGHT                                 # 
+############################################################
+
+
+[tool.pyright]
+include = ["mpflash", "tests"]
+exclude = [
+    "**/.venv",
+]
+ignore = [
+]
+
+pythonVersion = "3.9"
+pythonPlatform = "All"
+typeCheckingMode = "basic" 
 
 ############################################################
 #                  PYTEST                                  #

@@ -4,7 +4,6 @@ import json
 import re
 import zipfile
 from pathlib import Path
-from turtle import up
 
 from loguru import logger as log
 
@@ -108,8 +107,22 @@ def load_jsonl_to_db(jsonl_path: Path):
     return num_records
 
 
+def get_boards_version() -> str:
+    version_file = HERE / "boards_version.txt"
+    if version_file.is_file():
+        with version_file.open("r", encoding="utf-8") as vf:
+            version = vf.read().strip()
+            log.debug(f"Boards version from file: {version}")
+            return version
+    log.warning(f"Boards version file not found: {version_file}")
+    return "unknown"
+
+
 def update_boards():
-    boards_version = "v1.25.2"
+    # todo: check if update is needed
+    # load board_versions.txt
+
+    boards_version = get_boards_version()
     try:
         meta = get_metadata()
         log.debug(f"Metadata: {meta}")

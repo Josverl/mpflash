@@ -64,13 +64,17 @@ class MPRemoteBoard:
         self.build = ""
         self.location = location  # USB location
         self.toml = {}
-        portinfo = list(serial.tools.list_ports.grep(serialport))  # type: ignore
+        portinfo = list(serial.tools.list_ports.grep(serialport)) 
         if not portinfo or len(portinfo) != 1:
             self.vid = 0x00
             self.pid = 0x00
         else:
-            self.vid = portinfo[0].vid
-            self.pid = portinfo[0].pid
+            try:
+                self.vid = portinfo[0].vid  # type: ignore
+                self.pid = portinfo[0].pid  # type: ignore
+            except Exception:
+                self.vid = 0x00
+                self.pid = 0x00
         if update:
             self.get_mcu_info()
 

@@ -5,7 +5,7 @@ Note: The prompts can use "{version}" and "{action}" to insert the version and a
 The values are provided from the answers dictionary.
 """
 
-from typing import List, Sequence, Tuple, Union
+from typing import Dict, List, Sequence, Tuple, Union
 
 from loguru import logger as log
 
@@ -43,7 +43,7 @@ def ask_missing_params(
     action = "download" if isinstance(params, DownloadParams) else "flash"
 
     questions = []
-    answers: dict[str, Union[str, List]] = {"action": action}
+    answers: Dict[str, Union[str, List]] = {"action": action}
     if not multi_select:
         if not params.serial or "?" in params.serial:
             questions.append(ask_serialport(multi_select=False, bluetooth=False))
@@ -59,7 +59,14 @@ def ask_missing_params(
     if not params.boards or "?" in params.boards:
         questions.extend(ask_port_board(multi_select=multi_select, action=action))
     if questions:
-        answers = inquirer.prompt(questions, answers=answers)  # type: ignore
+        # Store the pre-existing answers before prompting
+        pre_existing_answers = dict(answers)
+        prompted_answers = inquirer.prompt(questions, answers=answers)  # type: ignore
+        if not prompted_answers:
+            # input cancelled by user
+            return []  # type: ignore
+        # Merge pre-existing answers with prompted answers
+        answers = {**pre_existing_answers, **prompted_answers}
     if not answers:
         # input cancelled by user
         return []  # type: ignore

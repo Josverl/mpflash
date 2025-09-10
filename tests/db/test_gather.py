@@ -277,10 +277,10 @@ class TestPackageRepo:
         mocker.patch("mpflash.db.gather_boards.HERE", tmp_path)
 
         mock_versions = mocker.patch("mpflash.db.gather_boards.micropython_versions")
-        mock_versions.return_value = []
+        mock_versions.return_value = ["1.26.0"]
 
         mock_boardlist = mocker.patch("mpflash.db.gather_boards.boardlist_from_repo")
-        mock_boardlist.return_value = []
+        mock_boardlist.return_value = [tuple("v1.26 board1 board1 esp32  esp32 path1 desc1 micropython".split())]
 
         mock_create_zip = mocker.patch("mpflash.db.gather_boards.create_zip_file")
 

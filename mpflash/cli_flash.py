@@ -229,13 +229,15 @@ def cli_flash_board(**kwargs) -> int:
         )
     elif params.versions[0] and params.boards[0] and params.serial:
         # A one or more serial port including the board / variant
+        # Use the user-selected serial port(s) (not the MicroPython 'port' like rp2/esp32) to find matching COM ports
         comports = filtered_comports(
             ignore=params.ignore,
-            include=params.ports,
+            include=params.serial,
             bluetooth=params.bluetooth,
         )
         worklist = manual_worklist(
             comports,
+            # if variant specified, board_id already resolved earlier; keep original board_id here
             board_id=params.boards[0],
             version=params.versions[0],
         )

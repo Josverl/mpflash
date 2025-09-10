@@ -1,12 +1,17 @@
 from os import path
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
+
+import click
+from typing_extensions import TypeAlias
 
 import mpflash.basicgit as git
 from mpflash.logger import log
 from mpflash.mpremoteboard import HERE
 from mpflash.vendor.board_database import Database
 from mpflash.versions import micropython_versions
+
+BoardList: TypeAlias = List[Tuple[str, ...]]
 
 HERE = Path(__file__).parent.resolve()
 
@@ -47,7 +52,7 @@ def boardlist_from_repo(
     versions: List[str],
     mpy_dir: Path,
 ):
-    longlist = []
+    longlist: BoardList = []
     if not mpy_dir.is_dir():
         log.error(f"Directory {mpy_dir} not found")
         return longlist
@@ -71,38 +76,63 @@ def boardlist_from_repo(
         log.info(f"{git.get_git_describe(mpy_dir)} - {build_nr}")
         # un-cached database
         db = Database(mpy_dir)
-        shortlist = list(iter_boards(db, version=version))
+        shortlist: BoardList = list(iter_boards(db, version=version))
         log.info(f"boards found {len(db.boards.keys())}")
         log.info(f"boards-variants found {len(shortlist) - len(db.boards.keys())}")
         longlist.extend(shortlist)
     return longlist
 
 
-def create_zip_file(longlist, zip_file: Path):
-    """Create a ZIP file containing the CSV data."""
-    # lazy import
-    import zipfile
+def create_zip_file(longlist: BoardList, zip_file: Path):
+    """Create a ZIP file containing the CSV data without external deps.
 
-    import pandas as pd
+    Uses the standard library csv module to minimize dependencies while
+    preserving identical column ordering to the prior pandas implementation.
+    """
+    import csv
+    import io
+    import zipfile  # lazy import
 
     csv_filename = "micropython_boards.csv"
+    columns = [
+        "version",
+        "board_id",
+        "board_name",
+        "mcu",
+        "variant",
+        "port",
+        "path",
+        "description",
+        "family",
+    ]
 
-    columns = ["version", "board_id", "board_name", "mcu", "variant", "port", "path", "description", "family"]
-    df = pd.DataFrame(longlist, columns=columns)
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(columns)
+    # rows already in correct order matching columns
+    for row in longlist:
+        writer.writerow(row)
+    csv_data = buf.getvalue()
 
-    # Create the ZIP file and add the CSV data directly without creating an intermediate file
     with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as zipf:
-        # Create a temporary in-memory CSV string
-        csv_data = df.to_csv(index=False)
-        # Write the CSV data directly to the zip file
         zipf.writestr(csv_filename, csv_data)
+
+
+def write_version_file(version: str, output_path: Path):
+    version_file = output_path / "boards_version.txt"
+    with version_file.open("w", encoding="utf-8") as vf:
+        vf.write(version + "\n")
+    log.info(f"Wrote version file {version_file}")
 
 
 def package_repo(mpy_path: Path):
     mpy_path = mpy_path or Path("../repos/micropython")
     log.info(f"Packaging Micropython boards from {mpy_path}")
     mp_versions = micropython_versions(minver="1.18")
-    # checkput
+    if not mp_versions:
+        log.error("No Micropython versions found")
+        return
+    # checkout
     longlist = boardlist_from_repo(
         versions=mp_versions,
         mpy_dir=mpy_path,
@@ -110,9 +140,29 @@ def package_repo(mpy_path: Path):
     log.info(f"Total boards-variants: {len(longlist)}")
     zip_file = HERE / "micropython_boards.zip"
     create_zip_file(longlist, zip_file=zip_file)
+    log.info(f"Created {zip_file} with {len(longlist)} entries")
+    boards_version = mp_versions[-1]
+    write_version_file(boards_version, HERE)
 
     assert zip_file.is_file(), f"Failed to create {zip_file}"
 
 
+@click.command()
+@click.option(
+    "--mpy-path",
+    "mpy_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path to local micropython repo (default: ../repos/micropython).",
+)
+def cli(mpy_path: Optional[Path]):
+    """Package board metadata into a compressed archive.
+
+    Enumerates boards and variants from a Micropython repo, builds CSV, and
+    writes it into a zip archive for fast loading and distribution.
+    """
+    package_repo(mpy_path if mpy_path else Path("../repos/micropython"))
+
+
 if __name__ == "__main__":
-    package_repo(Path("D:\\mypython\\mpflash\\repos\\micropython"))
+    cli()

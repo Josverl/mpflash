@@ -40,6 +40,7 @@ DEFAULT_IGNORE_TAGS = [
     "mpremote: rm -r: cannot remove :/ Operation not permitted",
 ]
 
+
 def run(
     cmd: List[str],
     timeout: int = 60,
