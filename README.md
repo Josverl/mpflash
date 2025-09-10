@@ -31,6 +31,27 @@ This release includes several new features and improvements:
   - Restructured mpboard_id to use a SQLite db to be able to ID more boards and variants
   - vendored and adapted `board_database.py` from mpflash, kudos @mattytrentini
 
+## ⚠️ Breaking API Changes (v1.25.1+)
+
+**Important for Library Users**: The worklist module API has been completely refactored with breaking changes. Legacy worklist functions have been **removed** and are **no longer supported**.
+
+- **Removed Functions**: `auto_update_worklist()`, `manual_worklist()`, `manual_board()`, `single_auto_worklist()`, `full_auto_worklist()`, `filter_boards()`
+- **New API**: Modern interface with `create_worklist()`, `FlashTask` dataclass, and `WorklistConfig` objects
+- **CLI Unchanged**: Command-line interface remains fully compatible
+
+**Migration Example**:
+```python
+# OLD (no longer works)
+from mpflash.flash.worklist import manual_worklist
+worklist = manual_worklist(["COM1"], board_id="ESP32_GENERIC", version="1.25.0")
+
+# NEW
+from mpflash.flash.worklist import create_worklist  
+tasks = create_worklist("1.25.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
+```
+
+See [API Documentation](docs/api-reference.md) for complete migration guide.
+
  
 ## Features
  1. List the connected boards including their firmware details, in a tabular or json format
@@ -128,7 +149,26 @@ On Windows this will not be an issue, but on Linux you can use  udev rules to gi
 
 MPFlash can be used as a library in your own project. mpflash is used in [micropython-stubber]() to download and flash the firmware to the connected boards.
 
-The interface is not well documented other than the code itself, but you can use the following example to get started:  - docs/mpflash_api_example.ipynb
+**⚠️ API Changes**: The worklist module API has been completely refactored in v1.25.1+. Legacy functions have been removed. See [API Documentation](docs/api-reference.md) for the new interface.
+
+```python
+# Modern API example
+from mpflash.flash.worklist import create_worklist
+from mpflash.connected import get_connected_boards
+
+# Get connected boards and create worklist
+boards = get_connected_boards()
+tasks = create_worklist("1.25.0", connected_boards=boards)
+
+# Process tasks
+for task in tasks:
+    if task.is_valid:
+        print(f"{task.board.serialport} -> {task.firmware_version}")
+```
+
+The interface is documented in:
+- [API Reference](docs/api-reference.md) - Complete programming interface
+- [API Examples](docs/mpflash_api_example.ipynb) - Jupyter notebook with examples
 
 ## Detailed usage
 You can list the connected boards using the following command:
