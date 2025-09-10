@@ -1,8 +1,8 @@
 from typing import List
+from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner
-from mock import Mock
 from pytest_mock import MockerFixture
 
 # # module under test :
@@ -57,7 +57,6 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
 
     m_mpr_connected = mocker.patch("mpflash.flash.worklist.MPRemoteBoard", return_value=fake)  # type: ignore
     m_mpr_connected = mocker.patch("mpflash.flash.worklist.MPRemoteBoard.connected_boards", return_value=fake.serialport)  # type: ignore
-    mocker.patch("mpflash.flash.worklist.filter_boards", return_value=[MPRemoteBoard("COM99")], autospec=True)
 
     m_connected_ports_boards = mocker.patch(
         "mpflash.cli_flash.connected_ports_boards",
@@ -120,9 +119,9 @@ def test_mpflash_connected_boards(
         Mock(side_effect=fake_ask_missing_params),
     )
 
-    m_full_auto_worklist = mocker.patch("mpflash.cli_flash.full_auto_worklist", return_value=[])
-    m_manual_worklist = mocker.patch("mpflash.cli_flash.manual_worklist", return_value=[])
-    m_single_auto_worklist = mocker.patch("mpflash.cli_flash.single_auto_worklist", return_value=[])
+    m_full_auto_worklist = mocker.patch("mpflash.cli_flash.create_worklist", return_value=[])
+    m_manual_worklist = mocker.patch("mpflash.cli_flash.tasks_to_legacy_worklist", return_value=[])
+    m_single_auto_worklist = mocker.patch("mpflash.cli_flash.create_worklist", return_value=[])
 
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
@@ -173,9 +172,9 @@ def test_mpflash_no_detected_boards(
         Mock(side_effect=fake_ask_missing_params),
     )
 
-    m_full_auto_worklist = mocker.patch("mpflash.cli_flash.full_auto_worklist", return_value=[])  # type: ignore
-    m_manual_worklist = mocker.patch("mpflash.cli_flash.manual_worklist", return_value=[])  # type: ignore
-    m_single_auto_worklist = mocker.patch("mpflash.cli_flash.single_auto_worklist", return_value=[])  # type: ignore
+    m_full_auto_worklist = mocker.patch("mpflash.cli_flash.create_worklist", return_value=[])  # type: ignore
+    m_manual_worklist = mocker.patch("mpflash.cli_flash.tasks_to_legacy_worklist", return_value=[])  # type: ignore
+    m_single_auto_worklist = mocker.patch("mpflash.cli_flash.create_worklist", return_value=[])  # type: ignore
 
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)

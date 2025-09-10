@@ -12,7 +12,7 @@ from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_list
-from mpflash.flash.worklist import WorkList, full_auto_worklist, manual_worklist, single_auto_worklist
+from mpflash.flash.worklist import FlashTaskList, WorkList, create_worklist, tasks_to_legacy_worklist
 from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
@@ -205,12 +205,13 @@ def cli_flash_board(**kwargs) -> int:
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
         log.info(f"Flashing {board_id} {params.versions[0]} to {len(comports)} serial ports")
         log.info(f"Target ports: {', '.join(comports)}")
-        worklist = manual_worklist(
-            comports,
+        tasks = create_worklist(
+            params.versions[0],
+            serial_ports=comports,
             board_id=board_id,
-            version=params.versions[0],
-            custom=params.custom,
+            custom_firmware=params.custom,
         )
+        worklist = tasks_to_legacy_worklist(tasks)
     # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:
         if not all_boards:
@@ -221,12 +222,13 @@ def cli_flash_board(**kwargs) -> int:
             for b in all_boards:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
 
-        worklist = full_auto_worklist(
-            all_boards=all_boards,
-            version=params.versions[0],
-            include=params.serial,
-            ignore=params.ignore,
+        tasks = create_worklist(
+            params.versions[0],
+            connected_boards=all_boards,
+            include_ports=params.serial,
+            ignore_ports=params.ignore,
         )
+        worklist = tasks_to_legacy_worklist(tasks)
     elif params.versions[0] and params.boards[0] and params.serial:
         # A one or more serial port including the board / variant
         # Use the user-selected serial port(s) (not the MicroPython 'port' like rp2/esp32) to find matching COM ports
@@ -235,18 +237,22 @@ def cli_flash_board(**kwargs) -> int:
             include=params.serial,
             bluetooth=params.bluetooth,
         )
-        worklist = manual_worklist(
-            comports,
+        tasks = create_worklist(
+            params.versions[0],
+            serial_ports=comports,
             # if variant specified, board_id already resolved earlier; keep original board_id here
             board_id=params.boards[0],
-            version=params.versions[0],
         )
+        worklist = tasks_to_legacy_worklist(tasks)
     else:
         # just this serial port on auto
-        worklist = single_auto_worklist(
-            serial=params.serial[0],
-            version=params.versions[0],
+        # Create a single board for auto-detection
+        connected_boards = [MPRemoteBoard(params.serial[0])]
+        tasks = create_worklist(
+            params.versions[0],
+            connected_boards=connected_boards,
         )
+        worklist = tasks_to_legacy_worklist(tasks)
     if not params.custom:
         jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
     if flashed := flash_list(
