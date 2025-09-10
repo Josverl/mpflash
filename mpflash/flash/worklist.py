@@ -1,5 +1,53 @@
-"""Worklist for updating boards"""
+"""Worklist for updating boards.
 
+This module provides functionality for creating worklists - collections of board-firmware
+pairs that need to be flashed. It supports both a modern, simplified API and maintains
+backward compatibility with the legacy API.
+
+## New API (Recommended)
+
+The new API provides a cleaner, more maintainable interface:
+
+```python
+from mpflash.flash.worklist import create_worklist, WorklistConfig
+
+# Simple auto-detection
+config = WorklistConfig.for_auto_detection("1.22.0")
+tasks = create_auto_worklist(connected_boards, config)
+
+# Or use the high-level function
+tasks = create_worklist("1.22.0", connected_boards=boards)
+
+# Manual board specification  
+tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
+
+# Filtered boards
+tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+```
+
+## Legacy API (Maintained for compatibility)
+
+The legacy functions are still available and work as before:
+
+```python
+from mpflash.flash.worklist import auto_update_worklist, manual_worklist
+
+# Legacy usage
+worklist = auto_update_worklist(connected_boards, "1.22.0")
+worklist = manual_worklist(["COM1"], board_id="ESP32_GENERIC", version="1.22.0")
+```
+
+## Key Improvements in New API
+
+1. **Descriptive Types**: `FlashTask` dataclass instead of generic tuples
+2. **Configuration Objects**: `WorklistConfig` for cleaner parameter handling  
+3. **Consistent Naming**: Clear, consistent function names
+4. **Better Error Handling**: More specific error messages and validation
+5. **Separation of Concerns**: Utility functions for common operations
+6. **High-level Interface**: Single `create_worklist()` function for most use cases
+"""
+
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from loguru import logger as log
@@ -15,11 +63,350 @@ from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # #########################################################################################################
+
+
+@dataclass
+class FlashTask:
+    """Represents a single board-firmware flashing task."""
+    
+    board: MPRemoteBoard
+    firmware: Optional[Firmware]
+    
+    @property
+    def is_valid(self) -> bool:
+        """Check if the task has both board and firmware."""
+        return self.firmware is not None
+    
+    @property
+    def board_id(self) -> str:
+        """Get the board ID for this task."""
+        return self.board.board_id
+    
+    @property
+    def firmware_version(self) -> str:
+        """Get the firmware version for this task."""
+        return self.firmware.version if self.firmware else "unknown"
+
+
+@dataclass
+class WorklistConfig:
+    """Configuration for creating worklists."""
+    
+    version: str
+    include_ports: List[str] = None
+    ignore_ports: List[str] = None
+    board_id: Optional[str] = None
+    custom_firmware: bool = False
+    
+    def __post_init__(self):
+        if self.include_ports is None:
+            self.include_ports = []
+        if self.ignore_ports is None:
+            self.ignore_ports = []
+    
+    @classmethod
+    def for_auto_detection(cls, version: str) -> "WorklistConfig":
+        """Create config for automatic board detection."""
+        return cls(version=version)
+    
+    @classmethod 
+    def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False) -> "WorklistConfig":
+        """Create config for manually specified boards."""
+        return cls(version=version, board_id=board_id, custom_firmware=custom_firmware)
+    
+    @classmethod
+    def for_filtered_boards(
+        cls, 
+        version: str, 
+        include_ports: List[str] = None, 
+        ignore_ports: List[str] = None
+    ) -> "WorklistConfig":
+        """Create config for filtered board selection."""
+        return cls(
+            version=version, 
+            include_ports=include_ports or [], 
+            ignore_ports=ignore_ports or []
+        )
+
+
+# Legacy type aliases for backward compatibility
 FlashItem: TypeAlias = Tuple[MPRemoteBoard, Optional[Firmware]]
 WorkList: TypeAlias = List[FlashItem]
+FlashTaskList: TypeAlias = List[FlashTask]
+
 # #########################################################################################################
 
 
+def _create_flash_task(board: MPRemoteBoard, firmware: Optional[Firmware]) -> FlashTask:
+    """Create a FlashTask from board and firmware."""
+    return FlashTask(board=board, firmware=firmware)
+
+
+def _find_firmware_for_board(
+    board: MPRemoteBoard, 
+    version: str, 
+    custom: bool = False
+) -> Optional[Firmware]:
+    """Find appropriate firmware for a board."""
+    board_id = f"{board.board}-{board.variant}" if board.variant else board.board
+    firmwares = find_downloaded_firmware(
+        board_id=board_id,
+        version=version,
+        port=board.port,
+        custom=custom
+    )
+    
+    if not firmwares:
+        log.warning(f"No {version} firmware found for {board.board} on {board.serialport}.")
+        return None
+    
+    if len(firmwares) > 1:
+        log.warning(f"Multiple {version} firmwares found for {board.board} on {board.serialport}.")
+    
+    # Use the most recent matching firmware
+    firmware = firmwares[-1]
+    log.info(f"Found {version} firmware {firmware.firmware_file} for {board.board} on {board.serialport}.")
+    return firmware
+
+
+def _create_manual_board(
+    serial_port: str,
+    board_id: str,
+    version: str,
+    custom: bool = False
+) -> FlashTask:
+    """Create a FlashTask for manually specified board parameters."""
+    log.debug(f"Creating manual board task: {serial_port} {board_id} {version}")
+    
+    board = MPRemoteBoard(serial_port)
+    
+    # Look up board information
+    try:
+        info = find_known_board(board_id)
+        board.port = info.port
+        board.cpu = info.mcu  # Need CPU type for esptool
+    except (LookupError, MPFlashError) as e:
+        log.error(f"Board {board_id} not found in board database")
+        log.exception(e)
+        return _create_flash_task(board, None)
+    
+    board.board = board_id
+    firmware = _find_firmware_for_board(board, version, custom)
+    return _create_flash_task(board, firmware)
+
+
+def _filter_connected_boards(
+    all_boards: List[MPRemoteBoard],
+    include: List[str],
+    ignore: List[str],
+) -> List[MPRemoteBoard]:
+    """Filter connected boards based on include/ignore patterns."""
+    try:
+        allowed_ports = [
+            p.device
+            for p in filtered_portinfos(
+                ignore=ignore,
+                include=include,
+                bluetooth=False,
+            )
+        ]
+        return [board for board in all_boards if board.serialport in allowed_ports]
+    except ConnectionError as e:
+        log.error(f"Error connecting to boards: {e}")
+        return []
+
+
+# #########################################################################################################
+
+
+# High-level API functions
+# #########################################################################################################
+
+
+def create_worklist(
+    version: str,
+    *,
+    connected_boards: List[MPRemoteBoard] = None,
+    serial_ports: List[str] = None,
+    board_id: str = None,
+    include_ports: List[str] = None,
+    ignore_ports: List[str] = None,
+    custom_firmware: bool = False,
+) -> FlashTaskList:
+    """High-level function to create a worklist based on different scenarios.
+    
+    This function automatically determines the appropriate worklist creation method
+    based on the provided parameters.
+
+    Args:
+        version: Target firmware version
+        connected_boards: Pre-detected connected boards (for auto mode)
+        serial_ports: Specific serial ports to use (for manual mode)
+        board_id: Board ID to use with serial_ports (required for manual mode)
+        include_ports: Port patterns to include (for filtered mode)
+        ignore_ports: Port patterns to ignore (for filtered mode)
+        custom_firmware: Whether to use custom firmware
+
+    Returns:
+        List of FlashTask objects
+
+    Raises:
+        ValueError: If parameters are inconsistent or missing required values
+    
+    Examples:
+        # Auto-detect firmware for connected boards
+        tasks = create_worklist("1.22.0", connected_boards=boards)
+        
+        # Manual specification
+        tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
+        
+        # Filtered boards
+        tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+    """
+    # Manual mode: specific serial ports with board_id
+    if serial_ports and board_id:
+        config = WorklistConfig.for_manual_boards(version, board_id, custom_firmware)
+        return create_manual_worklist(serial_ports, config)
+    
+    # Auto mode with filtering
+    if connected_boards and (include_ports or ignore_ports):
+        config = WorklistConfig.for_filtered_boards(version, include_ports, ignore_ports)
+        return create_filtered_worklist(connected_boards, config)
+    
+    # Simple auto mode
+    if connected_boards:
+        config = WorklistConfig.for_auto_detection(version)
+        return create_auto_worklist(connected_boards, config)
+    
+    # Error cases
+    if serial_ports and not board_id:
+        raise ValueError("board_id is required when specifying serial_ports for manual mode")
+    
+    if not connected_boards and not serial_ports:
+        raise ValueError("Either connected_boards or serial_ports must be provided")
+    
+    raise ValueError("Invalid combination of parameters")
+
+
+# New, simplified API functions
+# #########################################################################################################
+
+
+def create_auto_worklist(
+    connected_boards: List[MPRemoteBoard],
+    config: WorklistConfig,
+) -> FlashTaskList:
+    """Create a worklist by automatically detecting firmware for connected boards.
+
+    Args:
+        connected_boards: List of connected MicroPython boards
+        config: Configuration for the worklist creation
+
+    Returns:
+        List of FlashTask objects
+    """
+    log.debug(f"Creating auto worklist for {len(connected_boards)} boards, target version: {config.version}")
+    
+    tasks: FlashTaskList = []
+    for board in connected_boards:
+        if board.family not in ("micropython", "unknown"):
+            log.warning(f"Skipping flashing {board.family} {board.port} {board.board} on {board.serialport} as it is not a MicroPython firmware")
+            continue
+        
+        firmware = _find_firmware_for_board(board, config.version, config.custom_firmware)
+        tasks.append(_create_flash_task(board, firmware))
+    
+    return tasks
+
+
+def create_manual_worklist(
+    serial_ports: List[str],
+    config: WorklistConfig,
+) -> FlashTaskList:
+    """Create a worklist for manually specified boards and firmware.
+
+    Args:
+        serial_ports: List of serial port identifiers
+        config: Configuration including board_id and version
+
+    Returns:
+        List of FlashTask objects
+    """
+    if not config.board_id:
+        raise ValueError("board_id must be specified for manual worklist creation")
+    
+    log.debug(f"Creating manual worklist for {len(serial_ports)} ports, board_id: {config.board_id}, version: {config.version}")
+    
+    tasks: FlashTaskList = []
+    for port in serial_ports:
+        log.trace(f"Manual updating {port} to {config.board_id} {config.version}")
+        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware)
+        tasks.append(task)
+    
+    return tasks
+
+
+def create_filtered_worklist(
+    all_boards: List[MPRemoteBoard],
+    config: WorklistConfig,
+) -> FlashTaskList:
+    """Create a worklist for filtered connected boards.
+
+    Args:
+        all_boards: All available connected boards
+        config: Configuration including include/ignore patterns and version
+
+    Returns:
+        List of FlashTask objects
+    """
+    log.debug(f"Creating filtered worklist from {len(all_boards)} boards, include: {config.include_ports}, ignore: {config.ignore_ports}, version: {config.version}")
+    
+    filtered_boards = _filter_connected_boards(all_boards, config.include_ports, config.ignore_ports)
+    if not filtered_boards:
+        log.warning("No boards match the filtering criteria")
+        return []
+    
+    return create_auto_worklist(filtered_boards, config)
+
+
+def create_single_board_worklist(
+    serial_port: str,
+    config: WorklistConfig,
+) -> FlashTaskList:
+    """Create a worklist for a single serial port with automatic detection.
+
+    Args:
+        serial_port: Serial port identifier
+        config: Configuration with version information
+
+    Returns:
+        List of FlashTask objects (typically containing one item)
+    """
+    log.debug(f"Creating single board worklist: {serial_port} version: {config.version}")
+    log.trace(f"Auto updating {serial_port} to {config.version}")
+    
+    connected_boards = [MPRemoteBoard(serial_port)]
+    tasks = create_auto_worklist(connected_boards, config)
+    show_mcus(connected_boards)
+    return tasks
+
+
+# Conversion utilities
+# #########################################################################################################
+
+
+def tasks_to_legacy_worklist(tasks: FlashTaskList) -> WorkList:
+    """Convert FlashTaskList to legacy WorkList format for backward compatibility."""
+    return [(task.board, task.firmware) for task in tasks]
+
+
+def legacy_worklist_to_tasks(worklist: WorkList) -> FlashTaskList:
+    """Convert legacy WorkList to FlashTaskList format."""
+    return [_create_flash_task(board, firmware) for board, firmware in worklist]
+
+
+# Legacy API functions (preserved for backward compatibility)
+# #########################################################################################################
 def auto_update_worklist(
     conn_boards: List[MPRemoteBoard],
     target_version: str,
@@ -27,38 +414,18 @@ def auto_update_worklist(
     """Builds a list of boards to update based on the connected boards and the firmwares available locally in the firmware folder.
 
     Args:
-        conn_boards (List[MPRemoteBoard]): List of connected boards
-        target_version (str): Target firmware version
-        selector (Optional[Dict[str, str]], optional): Selector for filtering firmware. Defaults to None.
+        conn_boards: List of connected boards
+        target_version: Target firmware version
 
     Returns:
         WorkList: List of boards and firmware information to update
+        
+    Note:
+        This is a legacy function. Use create_auto_worklist() for new code.
     """
-    log.debug(f"auto_update_worklist: {len(conn_boards)} boards, target version: {target_version}")
-    wl: WorkList = []
-    for mcu in conn_boards:
-        if mcu.family not in ("micropython", "unknown"):
-            log.warning(f"Skipping flashing {mcu.family} {mcu.port} {mcu.board} on {mcu.serialport} as it is not a MicroPython firmware")
-            continue
-        board_firmwares = find_downloaded_firmware(
-            board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
-            version=target_version,
-            port=mcu.port,
-        )
-
-        if not board_firmwares:
-            log.warning(f"No {target_version} firmware found for {mcu.board} on {mcu.serialport}.")
-            wl.append((mcu, None))
-            continue
-
-        if len(board_firmwares) > 1:
-            log.warning(f"Multiple {target_version} firmwares found for {mcu.board} on {mcu.serialport}.")
-
-        # just use the last firmware
-        fw_info = board_firmwares[-1]
-        log.info(f"Found {target_version} firmware {fw_info.firmware_file} for {mcu.board} on {mcu.serialport}.")
-        wl.append((mcu, fw_info))
-    return wl
+    config = WorklistConfig(version=target_version)
+    tasks = create_auto_worklist(conn_boards, config)
+    return tasks_to_legacy_worklist(tasks)
 
 
 def manual_worklist(
@@ -68,13 +435,18 @@ def manual_worklist(
     version: str,
     custom: bool = False,
 ) -> WorkList:
-    """Create a worklist for manually specified boards."""
-    log.debug(f"manual_worklist: {len(serial)} serial ports, board_id: {board_id}, version: {version}")
-    wl: WorkList = []
-    for comport in serial:
-        log.trace(f"Manual updating {comport} to {board_id} {version}")
-        wl.append(manual_board(comport, board_id=board_id, version=version, custom=custom))
-    return wl
+    """Create a worklist for manually specified boards.
+    
+    Note:
+        This is a legacy function. Use create_manual_worklist() for new code.
+    """
+    config = WorklistConfig(
+        version=version,
+        board_id=board_id,
+        custom_firmware=custom
+    )
+    tasks = create_manual_worklist(serial, config)
+    return tasks_to_legacy_worklist(tasks)
 
 
 def manual_board(
@@ -87,32 +459,24 @@ def manual_board(
     """Create a Flash work item for a single board specified manually.
 
     Args:
-        serial (str): Serial port of the board
-        board (str): Board_ID
-        version (str): Firmware version
+        serial: Serial port of the board
+        board_id: Board_ID
+        version: Firmware version
+        custom: Whether to use custom firmware
 
     Returns:
         FlashItem: Board and firmware information to update
+        
+    Note:
+        This is a legacy function. Use create_manual_worklist() for new code.
     """
-    log.debug(f"manual_board: {serial} {board_id} {version}")
-    mcu = MPRemoteBoard(serial)
-    # Lookup the matching port and cpu in board_info based in the board name
-    try:
-        info = find_known_board(board_id)
-        mcu.port = info.port
-        # need the CPU type for the esptool
-        mcu.cpu = info.mcu
-    except (LookupError, MPFlashError) as e:
-        log.error(f"Board {board_id} not found in board database")
-        log.exception(e)
-        return (mcu, None)
-    mcu.board = board_id
-    firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=mcu.port, custom=custom)
-    if not firmwares:
-        log.trace(f"No firmware found for {mcu.port} {board_id} version {version}")
-        return (mcu, None)
-    # use the most recent matching firmware
-    return (mcu, firmwares[-1])  # type: ignore
+    config = WorklistConfig(
+        version=version,
+        board_id=board_id,
+        custom_firmware=custom
+    )
+    task = _create_manual_board(serial, board_id, version, custom)
+    return (task.board, task.firmware)
 
 
 def single_auto_worklist(
@@ -123,18 +487,18 @@ def single_auto_worklist(
     """Create a worklist for a single serial-port.
 
     Args:
-        serial_port (str): Serial port of the board
-        version (str): Firmware version
+        serial: Serial port of the board
+        version: Firmware version
 
     Returns:
         WorkList: List of boards and firmware information to update
+        
+    Note:
+        This is a legacy function. Use create_single_board_worklist() for new code.
     """
-    log.debug(f"single_auto_worklist: {serial} version: {version}")
-    log.trace(f"Auto updating {serial} to {version}")
-    conn_boards = [MPRemoteBoard(serial)]
-    todo = auto_update_worklist(conn_boards, version)  # type: ignore # List / list
-    show_mcus(conn_boards)
-    return todo
+    config = WorklistConfig(version=version)
+    tasks = create_single_board_worklist(serial, config)
+    return tasks_to_legacy_worklist(tasks)
 
 
 def full_auto_worklist(
@@ -149,16 +513,24 @@ def full_auto_worklist(
     This allows the firmware version of one or more boards to be changed without needing to specify the port or board_id manually.
 
     Args:
-        version (str): Firmware version
+        all_boards: All available boards
+        include: Ports to include
+        ignore: Ports to ignore
+        version: Firmware version
 
     Returns:
         WorkList: List of boards and firmware information to update
+        
+    Note:
+        This is a legacy function. Use create_filtered_worklist() for new code.
     """
-    log.debug(f"full_auto_worklist: {len(all_boards)} boards, include: {include}, ignore: {ignore}, version: {version}")
-    if selected_boards := filter_boards(all_boards, include=include, ignore=ignore):
-        return auto_update_worklist(selected_boards, version)
-    else:
-        return []
+    config = WorklistConfig(
+        version=version,
+        include_ports=include,
+        ignore_ports=ignore
+    )
+    tasks = create_filtered_worklist(all_boards, config)
+    return tasks_to_legacy_worklist(tasks)
 
 
 def filter_boards(
@@ -167,18 +539,9 @@ def filter_boards(
     include: List[str],
     ignore: List[str],
 ):
-    try:
-        comports = [
-            p.device
-            for p in filtered_portinfos(
-                ignore=ignore,
-                include=include,
-                bluetooth=False,
-            )
-        ]
-        selected_boards = [b for b in all_boards if b.serialport in comports]
-        # [MPRemoteBoard(port.device, update=True) for port in comports]
-    except ConnectionError as e:
-        log.error(f"Error connecting to boards: {e}")
-        return []
-    return selected_boards  # type: ignore
+    """Filter boards based on include/ignore patterns.
+    
+    Note:
+        This is a legacy function. Use _filter_connected_boards() for new code.
+    """
+    return _filter_connected_boards(all_boards, include, ignore)
