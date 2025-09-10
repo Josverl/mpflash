@@ -144,11 +144,11 @@ MPFlash can be used as a library in your own project. mpflash is used in [microp
 ```python
 # Modern API example
 from mpflash.flash.worklist import create_worklist
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 
 # Get connected boards and create worklist
-boards = get_connected_boards()
-tasks = create_worklist("1.25.0", connected_boards=boards)
+boards = get_connected_comports()
+tasks = create_worklist("1.25.0", connected_comports=boards)
 
 # Process tasks
 for task in tasks:

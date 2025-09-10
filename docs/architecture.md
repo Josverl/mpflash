@@ -101,7 +101,7 @@ Contains the main business logic for board management, firmware operations, and 
 
 #### Board Detection (`connected.py`)
 ```python
-def get_connected_boards(
+def get_connected_comports(
     serial_ports: Optional[List[str]] = None,
     ignore_ports: Optional[List[str]] = None,
     include_bluetooth: bool = False

@@ -12,16 +12,16 @@ from typing import Dict, List, Optional
 # make sure that jsonlines does not mistake the MicroPython ujson for the CPython ujson
 import jsonlines
 from loguru import logger as log
-from rich.progress import track
-
 from mpflash.common import PORT_FWTYPES
 from mpflash.config import config
-from mpflash.db.core import Session
-from mpflash.db.models import Firmware, Board
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
 from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
+from rich.progress import track
+
+from mpflash.db.core import Session
+from mpflash.db.models import Board, Firmware
 
 from .from_web import fetch_firmware_files, get_boards
 from .fwinfo import FWInfo
@@ -111,11 +111,7 @@ def download_firmwares(
 
     downloaded = 0
     versions = [] if versions is None else [clean_version(v) for v in versions]
-    
-    # remove the known variant suffixes from the boards
-    # TODO: IS THIS REALLY NEEDED ?
-    # boards = [strip_variant(b) for b in boards]
-    
+
     # handle downloading firmware for renamed boards
     boards = add_renamed_boards(boards)
 

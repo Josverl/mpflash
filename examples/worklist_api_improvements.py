@@ -27,7 +27,7 @@ def example_api():
     # Example 1: High-level API for auto-detection
     print("\n1. Auto-detection with high-level API:")
     try:
-        tasks = create_worklist("1.22.0", connected_boards=boards)
+        tasks = create_worklist("1.22.0", connected_comports=boards)
         print(f"Created {len(tasks)} tasks")
         for task in tasks:
             print(f"  - {task.board.serialport}: {task.board_id} -> {task.firmware_version}")
@@ -66,7 +66,7 @@ def advanced_usage():
     print("""
     # Auto-detection configuration
     config = WorklistConfig.for_auto_detection("1.22.0")
-    tasks = create_auto_worklist(connected_boards, config)
+    tasks = create_auto_worklist(connected_comports, config)
     
     # Manual boards configuration
     config = WorklistConfig.for_manual_boards("1.22.0", "ESP32_GENERIC")
@@ -94,13 +94,13 @@ def advanced_usage():
     print("\n3. High-level API for common cases:")
     print("""
     # Auto-detect firmware for connected boards
-    tasks = create_worklist("1.22.0", connected_boards=boards)
+    tasks = create_worklist("1.22.0", connected_comports=boards)
     
     # Manual specification
     tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
     
     # Filtered boards
-    tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+    tasks = create_worklist("1.22.0", connected_comports=all_boards, include_ports=["COM*"])
     """)
 
 

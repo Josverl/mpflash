@@ -56,7 +56,7 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
     fake = fakeboard(serialport)
 
     m_mpr_connected = mocker.patch("mpflash.flash.worklist.MPRemoteBoard", return_value=fake)  # type: ignore
-    m_mpr_connected = mocker.patch("mpflash.flash.worklist.MPRemoteBoard.connected_boards", return_value=fake.serialport)  # type: ignore
+    m_mpr_connected = mocker.patch("mpflash.flash.worklist.MPRemoteBoard.connected_comports", return_value=fake.serialport)  # type: ignore
 
     m_connected_ports_boards = mocker.patch(
         "mpflash.cli_flash.connected_ports_boards",
@@ -95,7 +95,7 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
         ("linux", ["/dev/ttyusb0"], ["rp2"], ["ARDUINO_NANO_RP2040_CONNECT"], []),
     ],
 )
-def test_mpflash_connected_boards(
+def test_mpflash_connected_comports(
     id,
     serialports: List[str],
     ports: List[str],

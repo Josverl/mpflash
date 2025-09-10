@@ -40,7 +40,7 @@ def test_mpremoteboard_list(expected, comports, mocker: MockerFixture):
         "mpflash.mpremoteboard.serial.tools.list_ports.comports",
         return_value=comports,
     )
-    assert mprb.connected_boards() == expected
+    assert mprb.connected_comports() == expected
 
 
 @pytest.mark.parametrize(

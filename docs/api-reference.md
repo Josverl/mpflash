@@ -35,11 +35,11 @@ tasks = create_worklist("1.25.0", serial_ports=["COM1", "COM2"], board_id="ESP32
 ```python
 # OLD API (no longer works)  
 from mpflash.flash.worklist import auto_update_worklist
-worklist = auto_update_worklist(connected_boards, "1.25.0")
+worklist = auto_update_worklist(connected_comports, "1.25.0")
 
 # NEW API
 from mpflash.flash.worklist import create_worklist
-tasks = create_worklist("1.25.0", connected_boards=connected_boards)
+tasks = create_worklist("1.25.0", connected_comports=connected_comports)
 ```
 
 ### Key Benefits of New API
@@ -81,12 +81,12 @@ config.interactive = False
 
 ### Board Management
 
-#### `mpflash.connected.get_connected_boards()`
+#### `mpflash.connected.get_connected_comports()`
 
 Get list of connected MicroPython boards.
 
 ```python
-def get_connected_boards(
+def get_connected_comports(
     serial_ports: Optional[List[str]] = None,
     ignore_ports: Optional[List[str]] = None,
     include_bluetooth: bool = False
@@ -103,10 +103,10 @@ def get_connected_boards(
 
 **Example:**
 ```python
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 
 # Get all connected boards
-boards = get_connected_boards()
+boards = get_connected_comports()
 
 for board in boards:
     print(f"Board: {board.board_name} on {board.port}")
@@ -272,7 +272,7 @@ High-level API for creating worklists. Automatically selects the appropriate app
 def create_worklist(
     version: str,
     *,
-    connected_boards: Optional[List[MPRemoteBoard]] = None,
+    connected_comports: Optional[List[MPRemoteBoard]] = None,
     serial_ports: Optional[List[str]] = None,
     board_id: Optional[str] = None,
     include_ports: Optional[List[str]] = None,
@@ -283,7 +283,7 @@ def create_worklist(
 
 **Parameters:**
 - `version`: MicroPython version to target
-- `connected_boards`: Pre-detected boards (for auto-detection)
+- `connected_comports`: Pre-detected boards (for auto-detection)
 - `serial_ports`: Specific serial ports (for manual specification)
 - `board_id`: Board type for manual specification
 - `include_ports`: Port patterns to include (for filtering)
@@ -298,7 +298,7 @@ def create_worklist(
 **Auto-detection:**
 ```python
 def create_auto_worklist(
-    connected_boards: List[MPRemoteBoard], 
+    connected_comports: List[MPRemoteBoard], 
     config: WorklistConfig
 ) -> List[FlashTask]
 ```
@@ -314,7 +314,7 @@ def create_manual_worklist(
 **Filtered boards:**
 ```python
 def create_filtered_worklist(
-    connected_boards: List[MPRemoteBoard], 
+    connected_comports: List[MPRemoteBoard], 
     config: WorklistConfig
 ) -> List[FlashTask]
 ```
@@ -330,11 +330,11 @@ def create_single_board_worklist(
 **Example Usage:**
 ```python
 from mpflash.flash.worklist import create_worklist, WorklistConfig
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 
 # High-level API - Auto-detection
-boards = get_connected_boards()
-tasks = create_worklist("1.25.0", connected_boards=boards)
+boards = get_connected_comports()
+tasks = create_worklist("1.25.0", connected_comports=boards)
 
 # High-level API - Manual specification
 tasks = create_worklist("1.25.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
@@ -491,7 +491,7 @@ def set_loglevel(level: str) -> None
 
 ```python
 from pathlib import Path
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 from mpflash.download.from_web import download_firmware
 from mpflash.flash import flash_board
 from mpflash.logger import log, set_loglevel
@@ -500,7 +500,7 @@ from mpflash.logger import log, set_loglevel
 set_loglevel("DEBUG")
 
 # Get connected boards
-boards = get_connected_boards()
+boards = get_connected_comports()
 log.info(f"Found {len(boards)} connected boards")
 
 for board in boards:
@@ -596,7 +596,7 @@ add_custom_firmware(
 ### Board Filtering and Selection
 
 ```python
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 
 def filter_boards_by_criteria(
     min_version: str = "v1.20.0",
@@ -611,7 +611,7 @@ def filter_boards_by_criteria(
     if exclude_patterns is None:
         exclude_patterns = ["bluetooth"]
     
-    boards = get_connected_boards()
+    boards = get_connected_comports()
     filtered_boards = []
     
     for board in boards:
@@ -660,14 +660,14 @@ except MPFlashError as e:
 
 ```python
 from mpflash.errors import MPFlashError
-from mpflash.connected import get_connected_boards
+from mpflash.connected import get_connected_comports
 from mpflash.logger import log
 
 def safe_board_operation():
     """Example of safe board operations with error handling."""
     
     try:
-        boards = get_connected_boards()
+        boards = get_connected_comports()
         
         if not boards:
             log.warning("No boards connected")

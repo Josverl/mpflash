@@ -47,8 +47,6 @@ def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False)
     Raises:
         ConnectionError: If there is an error connecting to a board.
     """
-    # conn_mcus = [MPRemoteBoard(sp) for sp in MPRemoteBoard.connected_boards(bluetooth) if sp not in config.ignore_ports]
-    vid_pid = True
     comports = filtered_portinfos(
         ignore=ignore,
         include=include,

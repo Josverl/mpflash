@@ -67,7 +67,7 @@ def test_mcu_table_width(term_width: int, mcus, has_build: bool):
 # def test_list_mcus(mocker: MockerFixture):
 
 #     mocker.patch(
-#         "mpflash.list.MPRemoteBoard.connected_boards",
+#         "mpflash.list.MPRemoteBoard.connected_comports",
 #         return_value=[MagicMock(device="COM1")],
 #     )
 

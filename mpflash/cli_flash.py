@@ -221,7 +221,7 @@ def cli_flash_board(**kwargs) -> int:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
         tasks = create_worklist(
             params.versions[0],
-            connected_boards=all_boards,
+            connected_comports=all_boards,
             include_ports=params.serial,
             ignore_ports=params.ignore,
         )
@@ -239,10 +239,10 @@ def cli_flash_board(**kwargs) -> int:
         )
     else:
         # Single serial port auto-detection
-        connected_boards = [MPRemoteBoard(params.serial[0])]
+        connected_comports = [MPRemoteBoard(params.serial[0])]
         tasks = create_worklist(
             params.versions[0],
-            connected_boards=connected_boards,
+            connected_comports=connected_comports,
         )
     if not params.custom:
         jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
