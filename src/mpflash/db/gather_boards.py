@@ -257,42 +257,19 @@ class TestCreateZipFileEdgeCases:
 
     def test_create_zip_file_permission_error(self, tmp_path):
         """Test create_zip_file behavior when file cannot be written."""
-        import os
-        import sys
-
         from mpflash.db.gather_boards import create_zip_file
 
-        # Create a directory and a file
-        test_dir = tmp_path / "test_dir"
-        test_dir.mkdir()
-        zip_file = test_dir / "test.zip"
+        # Create a read-only directory
+        readonly_dir = tmp_path / "readonly"
+        readonly_dir.mkdir()
+        readonly_dir.chmod(0o444)  # Read-only
 
+        zip_file = readonly_dir / "test.zip"
         longlist = [("v1.26", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython")]
 
-        # On Windows, we need a different approach
-        if sys.platform == "win32":
-            # Create the file first and make it read-only
-            zip_file.touch()
-            # Set file as read-only
-            import stat
+        # Should raise a permission error
+        with pytest.raises(PermissionError):
+            create_zip_file(longlist, zip_file)
 
-            os.chmod(zip_file, stat.S_IREAD)
-
-            try:
-                # Should raise a permission error when trying to overwrite read-only file
-                with pytest.raises(PermissionError):
-                    create_zip_file(longlist, zip_file)
-            finally:
-                # Clean up - restore write permissions
-                os.chmod(zip_file, stat.S_IWRITE | stat.S_IREAD)
-        else:
-            # On Unix-like systems, use directory permissions
-            test_dir.chmod(0o444)  # Read-only directory
-
-            try:
-                # Should raise a permission error
-                with pytest.raises(PermissionError):
-                    create_zip_file(longlist, zip_file)
-            finally:
-                # Clean up - restore write permissions
-                test_dir.chmod(0o755)
+        # Clean up - restore write permissions
+        readonly_dir.chmod(0o755)

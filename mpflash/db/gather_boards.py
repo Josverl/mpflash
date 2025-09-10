@@ -117,6 +117,7 @@ def create_zip_file(longlist: BoardList, zip_file: Path):
     with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.writestr(csv_filename, csv_data)
 
+
 def write_version_file(version: str, output_path: Path):
     version_file = output_path / "boards_version.txt"
     with version_file.open("w", encoding="utf-8") as vf:

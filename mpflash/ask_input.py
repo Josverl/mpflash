@@ -5,7 +5,7 @@ Note: The prompts can use "{version}" and "{action}" to insert the version and a
 The values are provided from the answers dictionary.
 """
 
-from typing import List, Sequence, Tuple, Union
+from typing import Dict, List, Sequence, Tuple, Union
 
 from loguru import logger as log
 
@@ -43,7 +43,7 @@ def ask_missing_params(
     action = "download" if isinstance(params, DownloadParams) else "flash"
 
     questions = []
-    answers: dict[str, Union[str, List]] = {"action": action}
+    answers: Dict[str, Union[str, List]] = {"action": action}
     if not multi_select:
         if not params.serial or "?" in params.serial:
             questions.append(ask_serialport(multi_select=False, bluetooth=False))
