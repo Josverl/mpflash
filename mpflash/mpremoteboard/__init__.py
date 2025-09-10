@@ -10,13 +10,12 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import serial.tools.list_ports
-from rich.progress import track
-from tenacity import retry, stop_after_attempt, wait_fixed
-
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpboard_id.board_id import find_board_id_by_description
 from mpflash.mpremoteboard.runner import run
+from rich.progress import track
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 if sys.version_info >= (3, 11):
     import tomllib  # type: ignore
@@ -129,7 +128,7 @@ class MPRemoteBoard:
         return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}{f'-{self.variant}' if self.variant else ''}, {self.version})"
 
     @staticmethod
-    def connected_boards(
+    def connected_comports(
         bluetooth: bool = False, description: bool = False
     ) -> List[str]:
         # TODO: rename to connected_comports

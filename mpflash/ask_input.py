@@ -233,7 +233,7 @@ def ask_serialport(*, multi_select: bool = False, bluetooth: bool = False):
     # import only when needed to reduce load time
     import inquirer
 
-    comports = MPRemoteBoard.connected_boards(bluetooth=bluetooth, description=True) + ["auto"]
+    comports = MPRemoteBoard.connected_comports(bluetooth=bluetooth, description=True) + ["auto"]
     return inquirer.List(
         "serial",
         message="Which serial port do you want to {action} ?",

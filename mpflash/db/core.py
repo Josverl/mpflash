@@ -9,7 +9,6 @@ from sqlalchemy.orm import sessionmaker
 from mpflash.config import config
 from mpflash.errors import MPFlashError
 
-# TODO:  lazy import to avoid slowdowns ?
 from .models import Base
 
 TRACE = False

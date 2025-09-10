@@ -10,16 +10,16 @@ from mpflash.flash.worklist import create_worklist, WorklistConfig
 
 # Simple auto-detection
 config = WorklistConfig.for_auto_detection("1.22.0")
-tasks = create_auto_worklist(connected_boards, config)
+tasks = create_auto_worklist(connected_comports, config)
 
 # Or use the high-level function
-tasks = create_worklist("1.22.0", connected_boards=boards)
+tasks = create_worklist("1.22.0", connected_comports=boards)
 
 # Manual board specification
 tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
 
 # Filtered boards
-tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+tasks = create_worklist("1.22.0", connected_comports=all_boards, include_ports=["COM*"])
 ```
 
 """
@@ -99,9 +99,6 @@ class WorklistConfig:
         return cls(version=version, include_ports=include_ports or [], ignore_ports=ignore_ports or [])
 
 
-# FIXME: Legacy type aliases - kept for compatibility with deprecated functions
-FlashItem: TypeAlias = Tuple[MPRemoteBoard, Optional[Firmware]]
-WorkList: TypeAlias = List[FlashItem]
 FlashTaskList: TypeAlias = List[FlashTask]
 
 # #########################################################################################################
@@ -151,7 +148,7 @@ def _create_manual_board(serial_port: str, board_id: str, version: str, custom: 
     return _create_flash_task(board, firmware)
 
 
-def _filter_connected_boards(
+def _filter_connected_comports(
     all_boards: List[MPRemoteBoard],
     include: List[str],
     ignore: List[str],
@@ -182,7 +179,7 @@ def _filter_connected_boards(
 def create_worklist(
     version: str,
     *,
-    connected_boards: Optional[List[MPRemoteBoard]] = None,
+    connected_comports: Optional[List[MPRemoteBoard]] = None,
     serial_ports: Optional[List[str]] = None,
     board_id: Optional[str] = None,
     include_ports: Optional[List[str]] = None,
@@ -196,7 +193,7 @@ def create_worklist(
 
     Args:
         version: Target firmware version
-        connected_boards: Pre-detected connected boards (for auto mode)
+        connected_comports: Pre-detected connected boards (for auto mode)
         serial_ports: Specific serial ports to use (for manual mode)
         board_id: Board ID to use with serial_ports (required for manual mode)
         include_ports: Port patterns to include (for filtered mode)
@@ -211,13 +208,13 @@ def create_worklist(
 
     Examples:
         # Auto-detect firmware for connected boards
-        tasks = create_worklist("1.22.0", connected_boards=boards)
+        tasks = create_worklist("1.22.0", connected_comports=boards)
 
         # Manual specification
         tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
 
         # Filtered boards
-        tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+        tasks = create_worklist("1.22.0", connected_comports=all_boards, include_ports=["COM*"])
     """
     # Manual mode: specific serial ports with board_id
     if serial_ports and board_id:
@@ -225,21 +222,21 @@ def create_worklist(
         return create_manual_worklist(serial_ports, config)
 
     # Auto mode with filtering
-    if connected_boards and (include_ports or ignore_ports):
+    if connected_comports and (include_ports or ignore_ports):
         config = WorklistConfig.for_filtered_boards(version, include_ports, ignore_ports)
-        return create_filtered_worklist(connected_boards, config)
+        return create_filtered_worklist(connected_comports, config)
 
     # Simple auto mode
-    if connected_boards:
+    if connected_comports:
         config = WorklistConfig.for_auto_detection(version)
-        return create_auto_worklist(connected_boards, config)
+        return create_auto_worklist(connected_comports, config)
 
     # Error cases
     if serial_ports and not board_id:
         raise ValueError("board_id is required when specifying serial_ports for manual mode")
 
-    if not connected_boards and not serial_ports:
-        raise ValueError("Either connected_boards or serial_ports must be provided")
+    if not connected_comports and not serial_ports:
+        raise ValueError("Either connected_comports or serial_ports must be provided")
 
     raise ValueError("Invalid combination of parameters")
 
@@ -249,22 +246,22 @@ def create_worklist(
 
 
 def create_auto_worklist(
-    connected_boards: List[MPRemoteBoard],
+    connected_comports: List[MPRemoteBoard],
     config: WorklistConfig,
 ) -> FlashTaskList:
     """Create a worklist by automatically detecting firmware for connected boards.
 
     Args:
-        connected_boards: List of connected MicroPython boards
+        connected_comports: List of connected MicroPython boards
         config: Configuration for the worklist creation
 
     Returns:
         List of FlashTask objects
     """
-    log.debug(f"Creating auto worklist for {len(connected_boards)} boards, target version: {config.version}")
+    log.debug(f"Creating auto worklist for {len(connected_comports)} boards, target version: {config.version}")
 
     tasks: FlashTaskList = []
-    for board in connected_boards:
+    for board in connected_comports:
         if board.family not in ("micropython", "unknown"):
             log.warning(
                 f"Skipping flashing {board.family} {board.port} {board.board} on {board.serialport} as it is not a MicroPython firmware"
@@ -321,7 +318,7 @@ def create_filtered_worklist(
         f"Creating filtered worklist from {len(all_boards)} boards, include: {config.include_ports}, ignore: {config.ignore_ports}, version: {config.version}"
     )
 
-    filtered_boards = _filter_connected_boards(all_boards, config.include_ports or [], config.ignore_ports or [])
+    filtered_boards = _filter_connected_comports(all_boards, config.include_ports or [], config.ignore_ports or [])
     if not filtered_boards:
         log.warning("No boards match the filtering criteria")
         return []
@@ -345,9 +342,9 @@ def create_single_board_worklist(
     log.debug(f"Creating single board worklist: {serial_port} version: {config.version}")
     log.trace(f"Auto updating {serial_port} to {config.version}")
 
-    connected_boards = [MPRemoteBoard(serial_port)]
-    tasks = create_auto_worklist(connected_boards, config)
-    show_mcus(connected_boards)
+    connected_comports = [MPRemoteBoard(serial_port)]
+    tasks = create_auto_worklist(connected_comports, config)
+    show_mcus(connected_comports)
     return tasks
 
 

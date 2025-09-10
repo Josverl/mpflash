@@ -145,7 +145,7 @@ class TestHighLevelAPI:
 
     def test_create_worklist_no_parameters(self):
         """Test create_worklist with no boards or ports."""
-        with pytest.raises(ValueError, match="Either connected_boards or serial_ports must be provided"):
+        with pytest.raises(ValueError, match="Either connected_comports or serial_ports must be provided"):
             create_worklist("1.22.0")
 
 
@@ -286,13 +286,13 @@ class TestCreateManualBoard:
 
 
 class TestFilterConnectedBoards:
-    """Test _filter_connected_boards function coverage."""
+    """Test _filter_connected_comports function coverage."""
 
     @patch("mpflash.flash.worklist.filtered_portinfos")
     @patch("mpflash.flash.worklist.log")
     def test_connection_error(self, mock_log, mock_filtered_portinfos):
         """Test when connection error occurs."""
-        from mpflash.flash.worklist import _filter_connected_boards
+        from mpflash.flash.worklist import _filter_connected_comports
 
         mock_filtered_portinfos.side_effect = ConnectionError("Port connection failed")
 
@@ -300,7 +300,7 @@ class TestFilterConnectedBoards:
         board2 = MPRemoteBoard("COM2")
         all_boards = [board1, board2]
 
-        result = _filter_connected_boards(all_boards, ["COM*"], [])
+        result = _filter_connected_comports(all_boards, ["COM*"], [])
 
         assert result == []
         mock_log.error.assert_called_once()
@@ -308,7 +308,7 @@ class TestFilterConnectedBoards:
     @patch("mpflash.flash.worklist.filtered_portinfos")
     def test_successful_filtering(self, mock_filtered_portinfos):
         """Test successful port filtering."""
-        from mpflash.flash.worklist import _filter_connected_boards
+        from mpflash.flash.worklist import _filter_connected_comports
 
         port_info = Mock()
         port_info.device = "COM1"
@@ -320,7 +320,7 @@ class TestFilterConnectedBoards:
         board2.serialport = "COM2"
         all_boards = [board1, board2]
 
-        result = _filter_connected_boards(all_boards, ["COM*"], [])
+        result = _filter_connected_comports(all_boards, ["COM*"], [])
 
         assert result == [board1]
         mock_filtered_portinfos.assert_called_once_with(
@@ -335,7 +335,7 @@ class TestCreateWorklistBranches:
 
     def test_no_boards_or_ports_error(self):
         """Test error when neither boards nor ports provided."""
-        with pytest.raises(ValueError, match="Either connected_boards or serial_ports must be provided"):
+        with pytest.raises(ValueError, match="Either connected_comports or serial_ports must be provided"):
             create_worklist("1.22.0")
 
     def test_serial_ports_without_board_id_error(self):
@@ -359,7 +359,7 @@ class TestCreateWorklistBranches:
         mock_create_filtered.return_value = []
 
         boards = [MPRemoteBoard("COM1")]
-        result = create_worklist("1.22.0", connected_boards=boards, include_ports=["COM*"])
+        result = create_worklist("1.22.0", connected_comports=boards, include_ports=["COM*"])
 
         mock_create_filtered.assert_called_once()
         assert result == []
@@ -370,7 +370,7 @@ class TestCreateWorklistBranches:
         mock_create_auto.return_value = []
 
         boards = [MPRemoteBoard("COM1")]
-        result = create_worklist("1.22.0", connected_boards=boards)
+        result = create_worklist("1.22.0", connected_comports=boards)
 
         mock_create_auto.assert_called_once()
         assert result == []
@@ -455,7 +455,7 @@ class TestCreateAutoWorklist:
 class TestRemainingAPIFunctions:
     """Test remaining API functions for coverage."""
 
-    @patch("mpflash.flash.worklist._filter_connected_boards")
+    @patch("mpflash.flash.worklist._filter_connected_comports")
     @patch("mpflash.flash.worklist.create_auto_worklist")
     def test_create_filtered_worklist(self, mock_create_auto, mock_filter_boards):
         """Test create_filtered_worklist function."""
