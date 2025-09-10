@@ -127,7 +127,10 @@ def package_repo(mpy_path: Path):
     mpy_path = mpy_path or Path("../repos/micropython")
     log.info(f"Packaging Micropython boards from {mpy_path}")
     mp_versions = micropython_versions(minver="1.18")
-    # checkput
+    if not mp_versions:
+        log.error("No Micropython versions found")
+        return
+    # checkout
     longlist = boardlist_from_repo(
         versions=mp_versions,
         mpy_dir=mpy_path,
