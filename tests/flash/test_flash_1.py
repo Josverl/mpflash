@@ -7,7 +7,7 @@ from mpflash.bootloader.activate import enter_bootloader
 from mpflash.common import BootloaderMethod
 from mpflash.db.models import Firmware
 from mpflash.flash import flash_tasks
-from mpflash.flash.worklist import FlashTaskList, FlashTask
+from mpflash.flash.worklist import FlashTask, FlashTaskList
 from mpflash.mpboard_id import board_id
 from mpflash.mpremoteboard import MPRemoteBoard
 
