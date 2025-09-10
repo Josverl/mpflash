@@ -4,6 +4,51 @@
 
 This document provides a comprehensive API reference for using MPFlash as a library in your own projects.
 
+## Breaking Changes Notice
+
+**⚠️ Important: API Breaking Changes in v1.25.1+**
+
+The worklist module API has been completely refactored to provide better type safety, cleaner interfaces, and improved maintainability. **Legacy worklist functions have been removed and are no longer supported.**
+
+### Removed Legacy Functions
+The following functions have been removed and are **no longer available**:
+- `auto_update_worklist()`
+- `manual_worklist()`
+- `manual_board()`
+- `single_auto_worklist()`
+- `full_auto_worklist()`
+- `filter_boards()`
+
+### Migration to New API
+If you were using the legacy worklist API, migrate to the new API as follows:
+
+```python
+# OLD API (no longer works)
+from mpflash.flash.worklist import manual_worklist
+worklist = manual_worklist(["COM1", "COM2"], board_id="ESP32_GENERIC", version="1.25.0")
+
+# NEW API
+from mpflash.flash.worklist import create_worklist
+tasks = create_worklist("1.25.0", serial_ports=["COM1", "COM2"], board_id="ESP32_GENERIC")
+```
+
+```python
+# OLD API (no longer works)  
+from mpflash.flash.worklist import auto_update_worklist
+worklist = auto_update_worklist(connected_boards, "1.25.0")
+
+# NEW API
+from mpflash.flash.worklist import create_worklist
+tasks = create_worklist("1.25.0", connected_boards=connected_boards)
+```
+
+### Key Benefits of New API
+1. **Type Safety**: `FlashTask` dataclass instead of generic tuples
+2. **Clear Configuration**: `WorklistConfig` objects with factory methods
+3. **Intuitive Naming**: Consistent, predictable function names
+4. **Better Error Handling**: More specific error messages and validation
+5. **Single Entry Point**: `create_worklist()` for most common use cases
+
 ## Core Classes and Functions
 
 ### Configuration
@@ -169,6 +214,141 @@ firmware_files = download_firmware([
 
 for file_path in firmware_files:
     print(f"Downloaded: {file_path}")
+```
+
+### Worklist Management
+
+The worklist module provides a modern, type-safe API for creating collections of board-firmware pairs that need to be flashed.
+
+#### `mpflash.flash.worklist.FlashTask`
+
+Dataclass representing a single board-firmware flashing task.
+
+```python
+@dataclass
+class FlashTask:
+    board: MPRemoteBoard
+    firmware: Optional[Firmware]
+```
+
+**Properties:**
+```python
+is_valid: bool              # True if both board and firmware are available
+board_id: str               # Board identifier
+firmware_version: str       # Firmware version or "unknown"
+```
+
+#### `mpflash.flash.worklist.WorklistConfig`
+
+Configuration object for worklist creation.
+
+```python
+@dataclass
+class WorklistConfig:
+    version: str
+    include_ports: List[str] = None
+    ignore_ports: List[str] = None
+    board_id: Optional[str] = None
+    custom_firmware: bool = False
+```
+
+**Factory Methods:**
+```python
+@classmethod
+def for_auto_detection(cls, version: str) -> "WorklistConfig"
+
+@classmethod
+def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False) -> "WorklistConfig"
+
+@classmethod
+def for_filtered_boards(cls, version: str, include_ports: List[str] = None, ignore_ports: List[str] = None) -> "WorklistConfig"
+```
+
+#### `mpflash.flash.worklist.create_worklist()`
+
+High-level API for creating worklists. Automatically selects the appropriate approach based on parameters.
+
+```python
+def create_worklist(
+    version: str,
+    *,
+    connected_boards: Optional[List[MPRemoteBoard]] = None,
+    serial_ports: Optional[List[str]] = None,
+    board_id: Optional[str] = None,
+    include_ports: Optional[List[str]] = None,
+    ignore_ports: Optional[List[str]] = None,
+    custom_firmware: bool = False
+) -> List[FlashTask]
+```
+
+**Parameters:**
+- `version`: MicroPython version to target
+- `connected_boards`: Pre-detected boards (for auto-detection)
+- `serial_ports`: Specific serial ports (for manual specification)
+- `board_id`: Board type for manual specification
+- `include_ports`: Port patterns to include (for filtering)
+- `ignore_ports`: Port patterns to ignore (for filtering)
+- `custom_firmware`: Whether to use custom firmware
+
+**Returns:**
+- List of FlashTask objects
+
+#### Specific Worklist Functions
+
+**Auto-detection:**
+```python
+def create_auto_worklist(
+    connected_boards: List[MPRemoteBoard], 
+    config: WorklistConfig
+) -> List[FlashTask]
+```
+
+**Manual specification:**
+```python
+def create_manual_worklist(
+    serial_ports: List[str], 
+    config: WorklistConfig
+) -> List[FlashTask]
+```
+
+**Filtered boards:**
+```python
+def create_filtered_worklist(
+    connected_boards: List[MPRemoteBoard], 
+    config: WorklistConfig
+) -> List[FlashTask]
+```
+
+**Single board:**
+```python
+def create_single_board_worklist(
+    serial_port: str, 
+    config: WorklistConfig
+) -> List[FlashTask]
+```
+
+**Example Usage:**
+```python
+from mpflash.flash.worklist import create_worklist, WorklistConfig
+from mpflash.connected import get_connected_boards
+
+# High-level API - Auto-detection
+boards = get_connected_boards()
+tasks = create_worklist("1.25.0", connected_boards=boards)
+
+# High-level API - Manual specification
+tasks = create_worklist("1.25.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
+
+# Configuration-based approach
+config = WorklistConfig.for_manual_boards("1.25.0", "ESP32_GENERIC")
+tasks = create_manual_worklist(["COM1", "COM2"], config)
+
+# Working with FlashTask objects
+for task in tasks:
+    if task.is_valid:
+        print(f"{task.board.serialport} -> {task.firmware_version}")
+    else:
+        print(f"{task.board.serialport} -> No firmware available")
 ```
 
 ### Board Flashing

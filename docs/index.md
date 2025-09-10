@@ -25,9 +25,19 @@ This is the comprehensive documentation for MPFlash, a command-line tool and Pyt
 - **[Advanced Usage](advanced-usage.md)** - Advanced features and use cases *(to be created)*
 - **[CI/CD Integration](ci-cd-integration.md)** - Using MPFlash in CI/CD pipelines *(to be created)*
 
-## 🚀 Quick Start
+## 📢 Important API Changes
 
-### Installation
+**⚠️ Breaking Changes in v1.25.1+**
+
+The worklist module API has been completely refactored with breaking changes. **Legacy worklist functions have been removed and are no longer supported.** If you're using MPFlash as a library, please update your code to use the new API.
+
+- **Removed**: `auto_update_worklist()`, `manual_worklist()`, `manual_board()`, `single_auto_worklist()`, `full_auto_worklist()`, `filter_boards()`
+- **New**: Modern API with `create_worklist()`, `FlashTask` dataclass, and `WorklistConfig` objects
+- **Migration**: See [API Reference](api-reference.md#breaking-changes-notice) for migration examples
+
+The CLI interface remains unchanged and fully compatible.
+
+## 🚀 Quick Start
 ```bash
 # Install with uv (recommended)
 uv tool install mpflash
