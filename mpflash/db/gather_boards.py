@@ -1,8 +1,9 @@
 from os import path
 from pathlib import Path
-from typing import List, Optional, Tuple, TypeAlias, TypeVar
+from typing import List, Optional, Tuple
 
 import click
+from typing_extensions import TypeAlias
 
 import mpflash.basicgit as git
 from mpflash.logger import log
