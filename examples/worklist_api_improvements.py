@@ -1,7 +1,6 @@
-"""Example demonstrating the worklist API improvements.
+"""Example demonstrating the worklist API.
 
-This example shows how the new API simplifies common tasks while maintaining
-backward compatibility with the legacy API.
+This example shows how to use the modern, clean API for creating worklists.
 """
 
 from mpflash.flash.worklist import (
@@ -11,25 +10,20 @@ from mpflash.flash.worklist import (
     create_auto_worklist,
     create_manual_worklist,
     FlashTask,
-    
-    # Legacy API (still works)
-    auto_update_worklist,
-    manual_worklist,
-    WorkList,
 )
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
-def example_new_api():
-    """Demonstrate the new, simplified API."""
-    print("=== New API Examples ===")
-    
+def example_api():
+    """Demonstrate the modern API."""
+    print("=== Modern API Examples ===")
+
     # Create some mock boards for demonstration
     boards = [
         MPRemoteBoard("COM1"),
         MPRemoteBoard("COM2"),
     ]
-    
+
     # Example 1: High-level API for auto-detection
     print("\n1. Auto-detection with high-level API:")
     try:
@@ -39,19 +33,15 @@ def example_new_api():
             print(f"  - {task.board.serialport}: {task.board_id} -> {task.firmware_version}")
     except Exception as e:
         print(f"  Would create tasks (mocked): {e}")
-    
+
     # Example 2: Manual specification
     print("\n2. Manual board specification:")
     try:
-        tasks = create_worklist(
-            "1.22.0", 
-            serial_ports=["COM1"], 
-            board_id="ESP32_GENERIC"
-        )
+        tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
         print(f"Created {len(tasks)} manual tasks")
     except Exception as e:
         print(f"  Would create manual tasks (mocked): {e}")
-    
+
     # Example 3: Configuration-based approach
     print("\n3. Using configuration objects:")
     config = WorklistConfig.for_manual_boards("1.22.0", "ESP32_GENERIC")
@@ -60,7 +50,7 @@ def example_new_api():
         print(f"Created {len(tasks)} configured tasks")
     except Exception as e:
         print(f"  Would create configured tasks (mocked): {e}")
-    
+
     # Example 4: Working with FlashTask objects
     print("\n4. FlashTask objects provide better structure:")
     print("   - task.is_valid: Check if firmware is available")
@@ -68,70 +58,30 @@ def example_new_api():
     print("   - task.firmware_version: Clear firmware version info")
 
 
-def example_legacy_api():
-    """Demonstrate the legacy API (still supported)."""
-    print("\n=== Legacy API Examples (still works) ===")
-    
-    # Create some mock boards
-    boards = [
-        MPRemoteBoard("COM1"),
-        MPRemoteBoard("COM2"),
-    ]
-    
-    # Legacy auto-detection
-    print("\n1. Legacy auto-detection:")
-    try:
-        worklist = auto_update_worklist(boards, "1.22.0")
-        print(f"Created legacy worklist with {len(worklist)} items")
-        for board, firmware in worklist:
-            version = firmware.version if firmware else "unknown"
-            print(f"  - {board.serialport}: {board.board_id} -> {version}")
-    except Exception as e:
-        print(f"  Would create legacy worklist (mocked): {e}")
-    
-    # Legacy manual specification
-    print("\n2. Legacy manual specification:")
-    try:
-        worklist = manual_worklist(
-            ["COM1"], 
-            board_id="ESP32_GENERIC", 
-            version="1.22.0"
-        )
-        print(f"Created legacy manual worklist with {len(worklist)} items")
-    except Exception as e:
-        print(f"  Would create legacy manual worklist (mocked): {e}")
+def advanced_usage():
+    """Show advanced usage patterns."""
+    print("\n=== Advanced Usage Patterns ===")
 
-
-def comparison():
-    """Show side-by-side comparison of old vs new approaches."""
-    print("\n=== API Comparison ===")
-    
-    print("\nOLD WAY (still works):")
+    print("\n1. Different configuration approaches:")
     print("""
-    # Multiple parameters, unclear order
-    worklist = manual_worklist(
-        ["COM1", "COM2"],
-        board_id="ESP32_GENERIC",
-        version="1.22.0",
-        custom=False
-    )
+    # Auto-detection configuration
+    config = WorklistConfig.for_auto_detection("1.22.0")
+    tasks = create_auto_worklist(connected_boards, config)
     
-    # Working with tuples
-    for board, firmware in worklist:
-        if firmware:
-            print(f"{board.serialport} -> {firmware.version}")
-        else:
-            print(f"{board.serialport} -> No firmware")
+    # Manual boards configuration
+    config = WorklistConfig.for_manual_boards("1.22.0", "ESP32_GENERIC")
+    tasks = create_manual_worklist(["COM1", "COM2"], config)
+    
+    # Filtered boards configuration
+    config = WorklistConfig.for_filtered_boards("1.22.0", include_ports=["COM*"])
+    tasks = create_filtered_worklist(all_boards, config)
     """)
-    
-    print("\nNEW WAY (recommended):")
+
+    print("\n2. Working with FlashTask objects:")
     print("""
     # Clear configuration object
     config = WorklistConfig.for_manual_boards("1.22.0", "ESP32_GENERIC")
     tasks = create_manual_worklist(["COM1", "COM2"], config)
-    
-    # Or even simpler high-level API
-    tasks = create_worklist("1.22.0", serial_ports=["COM1", "COM2"], board_id="ESP32_GENERIC")
     
     # Working with descriptive objects
     for task in tasks:
@@ -141,21 +91,32 @@ def comparison():
             print(f"{task.board.serialport} -> No firmware")
     """)
 
+    print("\n3. High-level API for common cases:")
+    print("""
+    # Auto-detect firmware for connected boards
+    tasks = create_worklist("1.22.0", connected_boards=boards)
+    
+    # Manual specification
+    tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
+    
+    # Filtered boards
+    tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
+    """)
+
 
 if __name__ == "__main__":
-    print("MPFlash Worklist API Improvements Example")
+    print("MPFlash Worklist API Example")
     print("=" * 50)
-    
-    example_new_api()
-    example_legacy_api()
-    comparison()
-    
+
+    example_api()
+    advanced_usage()
+
     print("\n" + "=" * 50)
-    print("Key Improvements:")
+    print("Key Features:")
     print("1. ✅ Descriptive types (FlashTask vs tuple)")
     print("2. ✅ Configuration objects (WorklistConfig)")
-    print("3. ✅ Consistent function naming") 
+    print("3. ✅ Consistent function naming")
     print("4. ✅ High-level API for common cases")
     print("5. ✅ Better error handling and validation")
-    print("6. ✅ Full backward compatibility")
-    print("7. ✅ Improved documentation and examples")
+    print("6. ✅ Clean, maintainable code patterns")
+    print("7. ✅ Comprehensive documentation and examples")
