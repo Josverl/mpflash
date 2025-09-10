@@ -54,17 +54,14 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "tomli-w>=1.2.0",
     "tomli>=2.2.1",
-    "pytest-cov>=6.2.1",
 ]
 
 [project.optional-dependencies]
 dev = [
     "ipykernel>=6.29.5",
     "tornado>=6.5",
-    "pandas>=2.2.3",
 ]
 test = [
-    "pandas>=2.2.3",
     "pytest>=7.1.2,<9.0.0",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.1.7,<0.4.0",
