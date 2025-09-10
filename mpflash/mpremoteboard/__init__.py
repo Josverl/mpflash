@@ -209,7 +209,6 @@ class MPRemoteBoard:
                     descr, short_descr, version=self.version
                 )
                 self.board_id = board_name or "UNKNOWN_BOARD"
-                # TODO: Get the variant as well
             # get the board_info.toml
             self.get_board_info_toml()
             # TODO: get board_id from the toml file if it exists
