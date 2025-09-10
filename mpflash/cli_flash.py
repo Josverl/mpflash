@@ -11,8 +11,8 @@ from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
-from mpflash.flash import flash_list
-from mpflash.flash.worklist import FlashTaskList, WorkList, create_worklist, tasks_to_legacy_worklist
+from mpflash.flash import flash_tasks
+from mpflash.flash.worklist import FlashTaskList, create_worklist
 from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
@@ -193,10 +193,10 @@ def cli_flash_board(**kwargs) -> int:
         raise MPFlashError("Only one version can be flashed at a time")
 
     params.versions = [clean_version(v) for v in params.versions]
-    worklist: WorkList = []
+    tasks: FlashTaskList = []
 
     if len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
-        # A one or more serial port including the board / variant
+        # One or more serial ports including the board / variant (auto-detect ports)
         comports = filtered_comports(
             ignore=params.ignore,
             include=params.serial,
@@ -211,27 +211,22 @@ def cli_flash_board(**kwargs) -> int:
             board_id=board_id,
             custom_firmware=params.custom,
         )
-        worklist = tasks_to_legacy_worklist(tasks)
-    # if serial port == auto and there are one or more specified/detected boards
     elif params.serial == ["*"] and params.boards:
+        # Auto mode on detected boards with optional include/ignore filtering
         if not all_boards:
             log.trace("No boards detected yet, scanning for connected boards")
             _, _, _, all_boards = connected_ports_boards_variants(include=params.ports, ignore=params.ignore)
-        # if variant id provided on the cmdline, treat is as an override
         if params.variant:
             for b in all_boards:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
-
         tasks = create_worklist(
             params.versions[0],
             connected_boards=all_boards,
             include_ports=params.serial,
             ignore_ports=params.ignore,
         )
-        worklist = tasks_to_legacy_worklist(tasks)
-    elif params.versions[0] and params.boards[0] and params.serial:
-        # A one or more serial port including the board / variant
-        # Use the user-selected serial port(s) (not the MicroPython 'port' like rp2/esp32) to find matching COM ports
+    elif params.versions[0] and params.boards and params.serial:
+        # Manual specification of serial ports + board
         comports = filtered_comports(
             ignore=params.ignore,
             include=params.serial,
@@ -240,23 +235,19 @@ def cli_flash_board(**kwargs) -> int:
         tasks = create_worklist(
             params.versions[0],
             serial_ports=comports,
-            # if variant specified, board_id already resolved earlier; keep original board_id here
             board_id=params.boards[0],
         )
-        worklist = tasks_to_legacy_worklist(tasks)
     else:
-        # just this serial port on auto
-        # Create a single board for auto-detection
+        # Single serial port auto-detection
         connected_boards = [MPRemoteBoard(params.serial[0])]
         tasks = create_worklist(
             params.versions[0],
             connected_boards=connected_boards,
         )
-        worklist = tasks_to_legacy_worklist(tasks)
     if not params.custom:
-        jid.ensure_firmware_downloaded(worklist, version=params.versions[0], force=params.force)
-    if flashed := flash_list(
-        worklist,
+        jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
+    if flashed := flash_tasks(
+        tasks,
         params.erase,
         params.bootloader,
         flash_mode=params.flash_mode,

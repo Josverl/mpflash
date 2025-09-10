@@ -31,24 +31,14 @@ This release includes several new features and improvements:
   - Restructured mpboard_id to use a SQLite db to be able to ID more boards and variants
   - vendored and adapted `board_database.py` from mpflash, kudos @mattytrentini
 
-## ⚠️ Breaking API Changes (v1.25.1+)
+## ⚠️ Breaking API Changes (v1.26+)
 
-**Important for Library Users**: The worklist module API has been completely refactored with breaking changes. Legacy worklist functions have been **removed** and are **no longer supported**.
+**Important for Library Users**: The worklist module API has been completely refactored with breaking changes. 
+Legacy worklist functions have been **removed**.
 
 - **Removed Functions**: `auto_update_worklist()`, `manual_worklist()`, `manual_board()`, `single_auto_worklist()`, `full_auto_worklist()`, `filter_boards()`
 - **New API**: Modern interface with `create_worklist()`, `FlashTask` dataclass, and `WorklistConfig` objects
 - **CLI Unchanged**: Command-line interface remains fully compatible
-
-**Migration Example**:
-```python
-# OLD (no longer works)
-from mpflash.flash.worklist import manual_worklist
-worklist = manual_worklist(["COM1"], board_id="ESP32_GENERIC", version="1.25.0")
-
-# NEW
-from mpflash.flash.worklist import create_worklist  
-tasks = create_worklist("1.25.0", serial_ports=["COM1"], board_id="ESP32_GENERIC")
-```
 
 See [API Documentation](docs/api-reference.md) for complete migration guide.
 

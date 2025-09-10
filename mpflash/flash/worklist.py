@@ -3,8 +3,6 @@
 This module provides functionality for creating worklists - collections of board-firmware
 pairs that need to be flashed.
 
-## New API
-
 The API provides a clean, maintainable interface:
 
 ```python
@@ -24,14 +22,6 @@ tasks = create_worklist("1.22.0", serial_ports=["COM1"], board_id="ESP32_GENERIC
 tasks = create_worklist("1.22.0", connected_boards=all_boards, include_ports=["COM*"])
 ```
 
-## Key Improvements
-
-1. **Descriptive Types**: `FlashTask` dataclass instead of generic tuples
-2. **Configuration Objects**: `WorklistConfig` for cleaner parameter handling
-3. **Consistent Naming**: Clear, consistent function names
-4. **Better Error Handling**: More specific error messages and validation
-5. **Separation of Concerns**: Utility functions for common operations
-6. **High-level Interface**: Single `create_worklist()` function for most use cases
 """
 
 from dataclasses import dataclass
@@ -80,8 +70,8 @@ class WorklistConfig:
     """Configuration for creating worklists."""
 
     version: str
-    include_ports: List[str] = None
-    ignore_ports: List[str] = None
+    include_ports: Optional[List[str]] = None
+    ignore_ports: Optional[List[str]] = None
     board_id: Optional[str] = None
     custom_firmware: bool = False
 
@@ -102,12 +92,14 @@ class WorklistConfig:
         return cls(version=version, board_id=board_id, custom_firmware=custom_firmware)
 
     @classmethod
-    def for_filtered_boards(cls, version: str, include_ports: List[str] = None, ignore_ports: List[str] = None) -> "WorklistConfig":
+    def for_filtered_boards(
+        cls, version: str, include_ports: Optional[List[str]] = None, ignore_ports: Optional[List[str]] = None
+    ) -> "WorklistConfig":
         """Create config for filtered board selection."""
         return cls(version=version, include_ports=include_ports or [], ignore_ports=ignore_ports or [])
 
 
-# Legacy type aliases - kept for compatibility with flash/__init__.py and download/jid.py
+# FIXME: Legacy type aliases - kept for compatibility with deprecated functions
 FlashItem: TypeAlias = Tuple[MPRemoteBoard, Optional[Firmware]]
 WorkList: TypeAlias = List[FlashItem]
 FlashTaskList: TypeAlias = List[FlashTask]
@@ -190,11 +182,11 @@ def _filter_connected_boards(
 def create_worklist(
     version: str,
     *,
-    connected_boards: List[MPRemoteBoard] = None,
-    serial_ports: List[str] = None,
-    board_id: str = None,
-    include_ports: List[str] = None,
-    ignore_ports: List[str] = None,
+    connected_boards: Optional[List[MPRemoteBoard]] = None,
+    serial_ports: Optional[List[str]] = None,
+    board_id: Optional[str] = None,
+    include_ports: Optional[List[str]] = None,
+    ignore_ports: Optional[List[str]] = None,
     custom_firmware: bool = False,
 ) -> FlashTaskList:
     """High-level function to create a worklist based on different scenarios.
@@ -329,7 +321,7 @@ def create_filtered_worklist(
         f"Creating filtered worklist from {len(all_boards)} boards, include: {config.include_ports}, ignore: {config.ignore_ports}, version: {config.version}"
     )
 
-    filtered_boards = _filter_connected_boards(all_boards, config.include_ports, config.ignore_ports)
+    filtered_boards = _filter_connected_boards(all_boards, config.include_ports or [], config.ignore_ports or [])
     if not filtered_boards:
         log.warning("No boards match the filtering criteria")
         return []
@@ -357,20 +349,6 @@ def create_single_board_worklist(
     tasks = create_auto_worklist(connected_boards, config)
     show_mcus(connected_boards)
     return tasks
-
-
-# Conversion utilities
-# #########################################################################################################
-
-
-def tasks_to_legacy_worklist(tasks: FlashTaskList) -> WorkList:
-    """Convert FlashTaskList to legacy WorkList format for backward compatibility."""
-    return [(task.board, task.firmware) for task in tasks]
-
-
-def legacy_worklist_to_tasks(worklist: WorkList) -> FlashTaskList:
-    """Convert legacy WorkList to FlashTaskList format."""
-    return [_create_flash_task(board, firmware) for board, firmware in worklist]
 
 
 # End of worklist.py module
