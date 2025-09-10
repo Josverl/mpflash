@@ -1,24 +1,23 @@
 """Tests for the refactored worklist module."""
 
-import pytest
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
+
+from mpflash.db.models import Firmware
+from mpflash.errors import MPFlashError
 from mpflash.flash.worklist import (
     FlashTask,
     WorklistConfig,
-    create_worklist,
-    create_auto_worklist,
-    create_manual_worklist,
-    create_filtered_worklist,
-    create_single_board_worklist,
-    tasks_to_legacy_worklist,
-    legacy_worklist_to_tasks,
     _create_flash_task,
     _find_firmware_for_board,
+    create_auto_worklist,
+    create_filtered_worklist,
+    create_manual_worklist,
+    create_single_board_worklist,
+    create_worklist,
 )
 from mpflash.mpremoteboard import MPRemoteBoard
-from mpflash.db.models import Firmware
-from mpflash.errors import MPFlashError
 
 
 class TestFlashTask:
@@ -91,34 +90,6 @@ class TestUtilityFunctions:
         assert isinstance(task, FlashTask)
         assert task.board == board
         assert task.firmware == firmware
-
-
-class TestConversionFunctions:
-    """Test conversion between new and legacy formats."""
-
-    def test_tasks_to_legacy_worklist(self):
-        """Test converting FlashTaskList to legacy WorkList."""
-        board = MPRemoteBoard("COM1")
-        firmware = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32")
-        task = FlashTask(board=board, firmware=firmware)
-
-        worklist = tasks_to_legacy_worklist([task])
-
-        assert len(worklist) == 1
-        assert worklist[0] == (board, firmware)
-
-    def test_legacy_worklist_to_tasks(self):
-        """Test converting legacy WorkList to FlashTaskList."""
-        board = MPRemoteBoard("COM1")
-        firmware = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32")
-        worklist = [(board, firmware)]
-
-        tasks = legacy_worklist_to_tasks(worklist)
-
-        assert len(tasks) == 1
-        assert isinstance(tasks[0], FlashTask)
-        assert tasks[0].board == board
-        assert tasks[0].firmware == firmware
 
 
 class TestNewAPIFunctions:

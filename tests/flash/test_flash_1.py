@@ -3,10 +3,11 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
+from mpflash.bootloader.activate import enter_bootloader
 from mpflash.common import BootloaderMethod
 from mpflash.db.models import Firmware
-from mpflash.flash import enter_bootloader, flash_list
-from mpflash.flash.worklist import WorkList
+from mpflash.flash import flash_tasks
+from mpflash.flash.worklist import FlashTaskList, FlashTask
 from mpflash.mpboard_id import board_id
 from mpflash.mpremoteboard import MPRemoteBoard
 
@@ -61,31 +62,33 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
 
 @pytest.mark.parametrize("bootloader", [BootloaderMethod.NONE, BootloaderMethod.MPY])
 @pytest.mark.parametrize("port", ["esp32", "esp8266", "rp2", "stm32", "samd"])
-def test_flash_list(mocker: MockerFixture, test_fw_path: Path, bootloader, port):
+def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port):
     m_flash_uf2 = mocker.patch("mpflash.flash.flash_uf2")
     m_flash_stm32 = mocker.patch("mpflash.flash.flash_stm32")
     m_flash_esp = mocker.patch("mpflash.flash.flash_esp")
     m_mpr_run = mocker.patch("mpflash.bootloader.micropython.MPRemoteBoard.run_command")  # type: ignore
-    m_bootloader = mocker.patch("mpflash.flash.enter_bootloader")
+    m_bootloader = mocker.patch("mpflash.bootloader.activate.enter_bootloader")
     # use
     mocker.patch("mpflash.flash.config._firmware_folder", test_fw_path)
     board = MPRemoteBoard("COM1")
     board.port = "esp32"
-    todo: WorkList = [
-        (
-            board,
-            Firmware(
-                board_id="ESP32_GENERIC",
-                port="esp32",
-                version="1.22.2",
-                build="0",
-                firmware_file="rp2/RPI_PICO_W-v1.22.2.uf2",  # Bit of a Hack : uf2 test depend on a .uf2 file
-            ),
+    
+    # Create FlashTask instead of WorkList tuple
+    task = FlashTask(
+        board=board,
+        firmware=Firmware(
+            board_id="ESP32_GENERIC",
+            port="esp32",
+            version="1.22.2",
+            build="0",
+            firmware_file="rp2/RPI_PICO_W-v1.22.2.uf2",  # Bit of a Hack : uf2 test depend on a .uf2 file
         )
-    ]
-    # test flash_list
+    )
+    tasks: FlashTaskList = [task]
+    
+    # test flash_tasks
     board.port = port
-    result = flash_list(todo, erase=False, bootloader=bootloader)
+    result = flash_tasks(tasks, erase=False, bootloader=bootloader)
     assert result
     assert len(result) == 1
     if port in ["esp32", "esp8266"]:

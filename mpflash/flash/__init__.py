@@ -1,8 +1,6 @@
 from pathlib import Path
 
 from loguru import logger as log
-
-from mpflash.bootloader.activate import enter_bootloader
 from mpflash.common import PORT_FWTYPES, UF2_PORTS, BootloaderMethod
 from mpflash.config import config
 from mpflash.errors import MPFlashError
@@ -10,28 +8,29 @@ from mpflash.errors import MPFlashError
 from .esp import flash_esp
 from .stm32 import flash_stm32
 from .uf2 import flash_uf2
-from .worklist import WorkList
+from .worklist import FlashTaskList
 
 # #########################################################################################################
 
-def flash_list(
-    todo: WorkList,
+
+def flash_tasks(
+    tasks: FlashTaskList,
     erase: bool,
     bootloader: BootloaderMethod,
-    **kwargs
-):  # sourcery skip: use-named-expression
-    """Flash a list of boards with the specified firmware."""
+    **kwargs,
+):
+    """Flash a list of FlashTask items directly."""
     flashed = []
-    for mcu, fw_info in todo:
+    for task in tasks:
+        mcu = task.board
+        fw_info = task.firmware
         if not fw_info:
             log.error(f"Firmware not found for {mcu.board} on {mcu.serialport}, skipping")
             continue
-
         fw_file = config.firmware_folder / fw_info.firmware_file
         if not fw_file.exists():
             log.error(f"File {fw_file} does not exist, skipping {mcu.board} on {mcu.serialport}")
             continue
-
         log.info(f"Updating {mcu.board} on {mcu.serialport} to {fw_info.version}")
         try:
             updated = flash_mcu(mcu, fw_file=fw_file, erase=erase, bootloader=bootloader, **kwargs)
@@ -40,14 +39,13 @@ def flash_list(
             continue
         if updated:
             if fw_info.custom:
-                # Add / Update board_info.toml with the custom_id and Description
                 mcu.get_board_info_toml()
                 if fw_info.description:
                     mcu.toml["description"] = fw_info.description
+                mcu.toml.setdefault("mpflash", {})
                 mcu.toml["mpflash"]["board_id"] = fw_info.board_id
                 mcu.toml["mpflash"]["custom_id"] = fw_info.custom_id
                 mcu.set_board_info_toml()
-
             flashed.append(updated)
         else:
             log.error(f"Failed to flash {mcu.board} on {mcu.serialport}")
@@ -63,6 +61,8 @@ def flash_mcu(
         **kwargs
     ):
         """Flash a single MCU with the specified firmware."""
+        from mpflash.bootloader.activate import enter_bootloader
+        
         updated = None
         try:
             if mcu.port in UF2_PORTS and fw_file.suffix == ".uf2":
