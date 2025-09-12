@@ -13,7 +13,7 @@ from .common import DownloadParams, FlashParams, ParamType
 from .config import config
 from .mpboard_id import get_known_boards_for_port, known_ports, known_stored_boards
 from .mpremoteboard import MPRemoteBoard
-from .versions import micropython_versions
+from .versions import clean_version, micropython_versions
 
 
 def ask_missing_params(
@@ -106,6 +106,7 @@ def ask_missing_params(
 def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
     """
     Filters the known boards based on the selected versions and returns the filtered boards.
+    If no boards are found for the requested version(s), falls back to previous stable/preview versions.
 
     Args:
         answers (dict): The user's answers.
@@ -114,8 +115,11 @@ def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
         Sequence[Tuple[str, str]]: The filtered boards.
     """
     versions = []
+    original_versions = []
+
     # if version is not asked ; then need to get the version from the inputs
     if "versions" in answers:
+        original_versions = list(answers["versions"])
         versions = list(answers["versions"])
         if "stable" in versions:
             versions.remove("stable")
@@ -124,7 +128,45 @@ def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
             versions.remove("preview")
             versions.extend((micropython_versions()[-1], micropython_versions()[-2]))  # latest preview and stable
 
-    some_boards = known_stored_boards(answers["port"], versions)  #    or known_mp_boards(answers["port"])
+    some_boards = known_stored_boards(answers["port"], versions)
+
+    # If no boards found and we have specific versions, try fallback
+    if not some_boards and versions:
+        log.debug(f"No boards found for {answers['port']} with version(s) {versions}, trying fallback")
+
+        # Get all micropython versions to find fallback candidates
+        all_versions = micropython_versions()
+        fallback_versions = []
+
+        for original_version in original_versions:
+            if original_version == "stable":
+                # For stable, try previous stable versions
+                stable_versions = [v for v in all_versions if not v.endswith("preview")]
+                # Try the last 3 stable versions
+                fallback_versions.extend(stable_versions[-3:])
+            elif original_version == "preview":
+                # For preview, try current preview and recent stable versions
+                preview_versions = [v for v in all_versions if v.endswith("preview")]
+                stable_versions = [v for v in all_versions if not v.endswith("preview")]
+                fallback_versions.extend(preview_versions[-1:] + stable_versions[-2:])
+            else:
+                # For specific version, try that version and previous versions
+                try:
+                    version_index = all_versions.index(original_version)
+                    # Try current and up to 2 previous versions
+                    start_idx = max(0, version_index - 2)
+                    fallback_versions.extend(all_versions[start_idx : version_index + 1])
+                except ValueError:
+                    # Version not found in list, try recent stable versions
+                    stable_versions = [v for v in all_versions if not v.endswith("preview")]
+                    fallback_versions.extend(stable_versions[-2:])
+
+        # Remove duplicates and clean versions
+        fallback_versions = [clean_version(v) for v in list(set(fallback_versions))]
+
+        if fallback_versions:
+            log.debug(f"Trying fallback versions: {fallback_versions}")
+            some_boards = known_stored_boards(answers["port"], fallback_versions)
 
     if some_boards:
         # Create a dictionary where the keys are the second elements of the tuples
