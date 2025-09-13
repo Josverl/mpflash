@@ -16,7 +16,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from loguru import logger as log
-
 from mpflash.logger import set_loglevel
 
 
@@ -55,41 +54,6 @@ def test_angle_bracket_logging():
 
     print(f"   Result: {success_count}/{len(test_messages)} messages logged successfully")
     assert success_count == len(test_messages)
-
-    # # Test 2: Safe configuration
-    # print("\n2. Testing with safe logger configuration:")
-    # print("-" * 50)
-    # configure_safe_logging()
-
-    # safe_success_count = 0
-    # for i, message in enumerate(test_messages, 1):
-    #     try:
-    #         log.trace(f"Safe Test {i}: {message}")
-    #         print(f"   ✓ Successfully logged safe message {i}")
-    #         safe_success_count += 1
-    #     except Exception as e:
-    #         print(f"   ✗ Error logging safe message {i}: {e}")
-
-    # print(f"   Result: {safe_success_count}/{len(test_messages)} messages logged successfully")
-
-    # # Test 3: External logger safety setup
-    # print("\n3. Testing external logger safety setup:")
-    # print("-" * 50)
-    # setup_external_logger_safety()
-
-    # external_success_count = 0
-    # for i, message in enumerate(test_messages, 1):
-    #     try:
-    #         log.trace(f"External Test {i}: {message}")
-    #         print(f"   ✓ Successfully logged external message {i}")
-    #         external_success_count += 1
-    #     except Exception as e:
-    #         print(f"   ✗ Error logging external message {i}: {e}")
-
-    # print(f"   Result: {external_success_count}/{len(test_messages)} messages logged successfully")
-
-    # assert all(count == len(test_messages) for count in [success_count, safe_success_count, external_success_count])
-
 
 if __name__ == "__main__":
     test_angle_bracket_logging()

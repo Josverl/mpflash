@@ -5,10 +5,6 @@ Ensures log messages are compatible with the current console encoding.
 Removes or replaces Unicode icons if the encoding is not UTF-8.
 Prevents Loguru colorization errors with angle bracket notation.
 
-Usage for external packages:
-    from mpflash.logger import setup_external_logger_safety
-    setup_external_logger_safety()
-
 This is particularly important when using packages like micropython-stubber
 that may log messages containing angle bracket notation like <board_default>.
 """
@@ -108,50 +104,6 @@ def set_loglevel(loglevel: str) -> None:
         colorize=False,  # This prevents Loguru from parsing angle brackets as color tags
         format=_log_formatter,
     )  # type: ignore
-
-
-# def configure_safe_logging() -> None:
-#     """
-#     Configure logging to be safe from colorization errors.
-
-#     This function helps prevent issues when external packages
-#     (like micropython-stubber) log messages with angle brackets
-#     that could be misinterpreted as color tags.
-#     """
-#     # Remove all existing handlers to start fresh
-#     try:
-#         log.remove()
-#     except ValueError:
-#         pass
-
-#     # Add a completely safe handler with no colorization
-#     log.add(
-#         sys.stderr,
-#         level="TRACE",
-#         colorize=False,  # Completely disable colorization
-#         format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} - {message}",
-#     )
-
-
-# def setup_external_logger_safety() -> None:
-#     """
-#     Setup safe logging configuration for external packages.
-
-#     Call this function before running tools that might log messages
-#     with angle bracket notation (like micropython-stubber) to prevent
-#     Loguru colorization errors.
-#     """
-#     import logging
-
-#     # Configure the root logger to be safe
-#     logging.basicConfig(
-#         level=logging.DEBUG,
-#         format="%(asctime)s | %(levelname)s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
-#         handlers=[logging.StreamHandler(sys.stderr)],
-#     )
-
-#     # Also configure loguru for safety
-#     configure_safe_logging()
 
 
 def make_quiet() -> None:

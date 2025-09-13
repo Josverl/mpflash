@@ -33,26 +33,8 @@ from mpflash.logger import configure_safe_logging
 configure_safe_logging()
 ```
 
-### 3. External Logger Safety
-
-The `setup_external_logger_safety()` function configures both the standard Python logging and Loguru for safe operation:
-
-```python
-from mpflash.logger import setup_external_logger_safety
-setup_external_logger_safety()
-```
-
 ## Usage
 
-### For micropython-stubber users:
-
-Before running stubber commands that might log problematic messages, initialize safe logging:
-
-```python
-from mpflash.logger import setup_external_logger_safety
-setup_external_logger_safety()
-
-# Now run stubber commands safely
 ```
 
 ### For other external packages:
@@ -63,12 +45,6 @@ If you encounter similar logging errors with other packages, use one of these ap
 ```python
 from mpflash.logger import configure_safe_logging
 configure_safe_logging()
-```
-
-**Option 2: External logger safety (recommended)**
-```python
-from mpflash.logger import setup_external_logger_safety
-setup_external_logger_safety()
 ```
 
 ## Verification
