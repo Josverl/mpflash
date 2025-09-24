@@ -23,7 +23,7 @@ def show_mcus(
 
 def abbrv_family(family: str, is_wide: bool) -> str:
     if not is_wide:
-        ABRV = {"micropython": "mpy", "circuitpython": "cpy", "unknown": "?"}
+        ABRV = {"MicroPython": "MPy", "CircuitPython": "CP", "unknown": "?"}
         return ABRV.get(family, family[:4])
     return family
 
