@@ -18,6 +18,7 @@ PORT_FWTYPES = {
     "esp8266": [".bin"],
     "rp2": [".uf2"],
     "samd": [".uf2"],
+    "psoc6": [".hex", ".elf", ".bin"],  # PSoC6 support via OpenOCD
     # below this not yet implemented / tested
     "mimxrt": [".hex"],
     "nrf": [".uf2"],
