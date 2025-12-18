@@ -25,8 +25,8 @@ PORT_FWTYPES = {
 }
 
 UF2_PORTS = [port for port, exts in PORT_FWTYPES.items() if ".uf2" in exts]
-
-
+SA_PORTS = {"windows", "unix", "webassembly"}
+"""Stand alone ports that  have no boards, just variants"""
 @dataclass
 class Params:
     """Common parameters for downloading and flashing firmware"""

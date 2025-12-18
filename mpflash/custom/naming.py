@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import mpflash.basicgit as git
+from mpflash.common import SA_PORTS
 from mpflash.logger import log
 
 
@@ -64,6 +65,8 @@ def port_and_boardid_from_path(firmware_path: Path) -> Tuple[Optional[str], Opti
         board_id = build_match.group(2)
         # Remove variant suffix (e.g., GENERIC_S3-SPIRAM_OCT -> GENERIC_S3)
         board_id = board_id.split("-")[0]
+        if port in SA_PORTS:
+            board_id = f"{port}-{board_id}"
         return port, board_id
 
     # Pattern: /path/to/micropython/ports/{port}/firmware.ext
