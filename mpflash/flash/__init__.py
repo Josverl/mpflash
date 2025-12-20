@@ -6,6 +6,7 @@ from mpflash.config import config
 from mpflash.errors import MPFlashError
 
 from .esp import flash_esp
+from .psoc6 import flash_psoc6
 from .stm32 import flash_stm32
 from .uf2 import flash_uf2
 from .worklist import FlashTaskList
@@ -76,6 +77,9 @@ def flash_mcu(
             elif mcu.port in ["esp32", "esp8266"]:
                 #  bootloader is handled by esptool for esp32/esp8266
                 updated = flash_esp(mcu, fw_file=fw_file, erase=erase, **kwargs)
+            elif mcu.port in ["psoc6"]:
+                # PSoC6 flashing via OpenOCD - no separate bootloader activation needed
+                updated = flash_psoc6(mcu, fw_file=fw_file, erase=erase)
             else:
                 raise MPFlashError(f"Don't (yet) know how to flash {mcu.port}-{mcu.board} on {mcu.serialport}")
         except Exception as e:
