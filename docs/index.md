@@ -12,6 +12,7 @@ This is the comprehensive documentation for MPFlash, a command-line tool and Pyt
 ### Developer Documentation
 - **[Developer Guide](developer.md)** - Complete development setup and code standards
 - **[API Reference](api-reference.md)** - Comprehensive API documentation
+- **[MPRemoteBoard API](mpremoteboard_api.md)** - Remote board control and mpremote integration
 - **[Architecture](architecture.md)** - System architecture and design patterns
 - **[Contributing](contributing.md)** - How to contribute to the project
 

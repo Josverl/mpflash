@@ -4,6 +4,8 @@
 
 This document provides a comprehensive API reference for using MPFlash as a library in your own projects.
 
+For detailed remote-board control and mpremote integration, see [docs/mpremoteboard_api.md](mpremoteboard_api.md).
+
 ## Breaking Changes Notice
 
 **⚠️ Important: API Breaking Changes in v1.25.1+**
@@ -84,6 +86,8 @@ config.interactive = False
 #### `mpflash.connected.get_connected_comports()`
 
 Get list of connected MicroPython boards.
+
+> For deeper mpremote-based board interrogation and command execution, see the dedicated [MPRemoteBoard API](mpremoteboard_api.md).
 
 ```python
 def get_connected_comports(
