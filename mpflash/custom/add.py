@@ -3,10 +3,7 @@ from pathlib import Path
 
 from loguru import logger as log
 
-from mpflash.config import config
-from mpflash.custom.copy import copy_firmware
 from mpflash.custom.naming import custom_fw_from_path
-from mpflash.db.core import Session
 from mpflash.db.models import Firmware
 from mpflash.errors import MPFlashError
 
@@ -63,6 +60,11 @@ def add_firmware(
     - custom: bool, optional, if the firmware is a custom firmware, default False
     """
     try:
+        from mpflash import custom as custom_pkg
+
+        config = custom_pkg.config
+        Session = custom_pkg.Session
+        copy_fn = custom_pkg.copy_firmware
         source = source.expanduser().absolute()
         if not source.exists() or not source.is_file():
             log.error(f"Source file {source} does not exist or is not a file")
@@ -80,7 +82,7 @@ def add_firmware(
             # assume the the firmware_file has already been prepared
             fw_filename = config.firmware_folder / new_fw.firmware_file
 
-            if not copy_firmware(source, fw_filename, force):
+            if not copy_fn(source, fw_filename, force):
                 log.error(f"Failed to copy {source} to {fw_filename}")
                 return False
             # add to inventory
