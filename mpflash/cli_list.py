@@ -81,6 +81,10 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
 
     if progress:
         show_mcus(conn_mcus, refresh=False)
+    reset_connected_mcus(conn_mcus)
+    return 0 if conn_mcus else 1
+
+def reset_connected_mcus(conn_mcus):
     for mcu in conn_mcus:
         # reset the board so it can continue to whatever it was running before
         if mcu.family == "circuitpython":
@@ -90,4 +94,3 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
             continue
         else:
             mcu.run_command("reset")
-    return 0 if conn_mcus else 1

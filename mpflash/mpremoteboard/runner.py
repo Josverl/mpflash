@@ -5,12 +5,12 @@ Run a command and return the output and return code as a tuple
 import subprocess
 from dataclasses import dataclass
 from threading import Timer
-from typing import List, Optional, Tuple
-from unittest.mock import DEFAULT
+from typing import Callable, List, Optional, Tuple, Union
 
 from loguru import logger as log
 
 LogTagList = List[str]
+LineHandler = Callable[[str], Optional[str]]
 
 
 @dataclass
@@ -20,6 +20,8 @@ class LogTags:
     warning_tags: LogTagList
     success_tags: LogTagList
     ignore_tags: LogTagList
+    trace_tags: Optional[LogTagList] = None
+    trace_res: Optional[LogTagList] = None
 
 
 DEFAULT_RESET_TAGS = [
@@ -33,63 +35,75 @@ DEFAULT_RESET_TAGS = [
 ]
 
 DEFAULT_ERROR_TAGS = ["Traceback ", "Error: ", "Exception: ", "ERROR :", "CRIT  :"]
-DEFAULT_WARNING_TAGS = ["WARN  :", "TRACE :"]
+DEFAULT_WARNING_TAGS = ["WARNING:", "WARN  :", "TRACE :"]
 DEFAULT_SUCCESS_TAGS = ["Done", "File saved", "File removed", "File renamed"]
 DEFAULT_IGNORE_TAGS = [
     '  File "<stdin>",',
     "mpremote: rm -r: cannot remove :/ Operation not permitted",
 ]
 
+CLI_LOG_TAGS = LogTags(
+    reset_tags=DEFAULT_RESET_TAGS,
+    error_tags=DEFAULT_ERROR_TAGS,
+    warning_tags=DEFAULT_WARNING_TAGS,
+    success_tags=DEFAULT_SUCCESS_TAGS,
+    ignore_tags=DEFAULT_IGNORE_TAGS,
+)
 
-def run(
+IPYTHON_LOG_TAGS = LogTags(
+    reset_tags=DEFAULT_RESET_TAGS,
+    error_tags=DEFAULT_ERROR_TAGS,
+    warning_tags=DEFAULT_WARNING_TAGS,
+    success_tags=["SUCCESS", "SUCCESS~"],
+    ignore_tags=[],
+    trace_tags=["Traceback (most recent call last)", '   File "<stdin>", '],
+    trace_res=[r"\s+File \"[\w<>.]+\", line \d+, in .*"],
+)
+
+
+def _default_cli_handler(*, tags: LogTags, log_errors: bool, no_info: bool) -> LineHandler:
+    def handle(line: str) -> Optional[str]:
+        stripped = line.rstrip("\n")
+        if any(tag in line for tag in tags.reset_tags):
+            raise RuntimeError("Board reset detected")
+        if any(tag in line for tag in tags.error_tags):
+            if log_errors:
+                log.error(stripped)
+        elif any(tag in line for tag in tags.warning_tags):
+            log.warning(stripped)
+        elif any(tag in line for tag in tags.success_tags):
+            log.success(stripped)
+        elif any(tag in line for tag in tags.ignore_tags):
+            return None
+        else:
+            if not no_info:
+                if stripped.startswith(("INFO  : ", "WARN  : ", "ERROR : ")):
+                    stripped = stripped[8:].lstrip()
+                log.info(stripped)
+        return line
+
+    return handle
+
+
+def execute(
     cmd: List[str],
-    timeout: int = 60,
-    log_errors: bool = True,
-    no_info: bool = False,
     *,
+    timeout: Union[int, float] = 60,
+    line_handler: LineHandler,
+    log_errors: bool = True,
     log_warnings: bool = False,
-    reset_tags: Optional[LogTagList] = None,
-    error_tags: Optional[LogTagList] = None,
-    warning_tags: Optional[LogTagList] = None,
-    success_tags: Optional[LogTagList] = None,
     ignore_tags: Optional[LogTagList] = None,
+    follow: bool = True,
 ) -> Tuple[int, List[str]]:
     # sourcery skip: no-long-functions
     """
-    Run a command and return the output and return code as a tuple
-    Parameters
-    ----------
-    cmd : List[str]
-        The command to run
-    timeout : int, optional
-        The timeout in seconds, by default 60
-    log_errors : bool, optional
-        If False, don't log errors, Default: true
-    no_info : bool, optional
-        If True, don't log info, by default False
-    error_tags : Optional[LogTagList], optional
-        A list of strings to look for in the output to log as errors, by default None
-    warning_tags : Optional[LogTagList], optional
-        A list of strings to look for in the output to log as warnings, by default None
-    Returns
-    -------
-    Tuple[int, List[str]]
-        The return code and the output as a list of strings
+    Run a command with a pluggable line handler and return the exit code and output.
+    The handler controls logging and filtering so both CLI and Jupyter flows can share
+    the same core loop.
     """
-    if not reset_tags:
-        reset_tags = DEFAULT_RESET_TAGS
-    if not error_tags:
-        error_tags = DEFAULT_ERROR_TAGS
-    if not warning_tags:
-        warning_tags = DEFAULT_WARNING_TAGS
-    if not success_tags:
-        success_tags = DEFAULT_SUCCESS_TAGS
-    if not ignore_tags:
-        ignore_tags = DEFAULT_IGNORE_TAGS
 
     replace_tags = ["\x1b[1A"]
-
-    output = []
+    output: List[str] = []
     try:
         proc = subprocess.Popen(
             cmd,
@@ -100,56 +114,86 @@ def run(
         )
     except FileNotFoundError as e:
         raise FileNotFoundError(f"Failed to start {cmd[0]}") from e
+
+    # timeout == 0 means wait forever
+    timer: Optional[Timer] = None
     _timed_out = False
 
     def timed_out():
+        nonlocal _timed_out
         _timed_out = True
         if log_warnings:
             log.warning(f"Command {cmd} timed out after {timeout} seconds")
         proc.kill()
 
-    timer = Timer(timeout, timed_out)
-    try:
+    if timeout > 0:
+        timer = Timer(timeout, timed_out)
         timer.start()
-        # stdout has most of the output, assign log categories based on text tags
+
+    try:
+        if not follow:
+            proc.wait(timeout=timeout if timeout > 0 else None)
+            return proc.returncode or 0, output
+
         if proc.stdout:
             for line in proc.stdout:
                 if not line or not line.strip():
                     continue
                 for tag in replace_tags:
                     line = line.replace(tag, "")
-                output.append(line)  # full output, no trimming
-                if any(tag in line for tag in reset_tags):
-                    raise RuntimeError("Board reset detected")
-
-                line = line.rstrip("\n")
-                # if any of the error tags in the line
-                if any(tag in line for tag in error_tags):
-                    if not log_errors:
-                        continue
-                    log.error(line)
-                elif any(tag in line for tag in warning_tags):
-                    log.warning(line)
-                elif any(tag in line for tag in success_tags):
-                    log.success(line)
-                elif any(tag in line for tag in ignore_tags):
-                    continue
-                else:
-                    if not no_info:
-                        if line.startswith(("INFO  : ", "WARN  : ", "ERROR : ")):
-                            line = line[8:].lstrip()
-                        log.info(line)
+                handled = line_handler(line)
+                if handled is not None:
+                    output.append(handled)
         if proc.stderr and log_errors:
             for line in proc.stderr:
-                if any(tag in line for tag in ignore_tags):
+                if ignore_tags and any(tag in line for tag in ignore_tags):
                     continue
-                log.warning(line)
+                log.warning(line.rstrip("\n"))
     except UnicodeDecodeError as e:
         log.error(f"Failed to decode output: {e}")
     finally:
-        timer.cancel()
+        if timer:
+            timer.cancel()
         if _timed_out:
             raise TimeoutError(f"Command {cmd} timed out after {timeout} seconds")
 
     proc.wait(timeout=1)
     return proc.returncode or 0, output
+
+
+def run(
+    cmd: List[str],
+    timeout: Union[int, float] = 60,
+    log_errors: bool = True,
+    no_info: bool = False,
+    *,
+    log_warnings: bool = False,
+    reset_tags: Optional[LogTagList] = None,
+    error_tags: Optional[LogTagList] = None,
+    warning_tags: Optional[LogTagList] = None,
+    success_tags: Optional[LogTagList] = None,
+    ignore_tags: Optional[LogTagList] = None,
+) -> Tuple[int, List[str]]:
+    """
+    CLI-oriented wrapper around the shared executor.
+    Uses mpflash defaults while delegating processing to the shared loop.
+    """
+
+    tags = LogTags(
+        reset_tags or DEFAULT_RESET_TAGS,
+        error_tags or DEFAULT_ERROR_TAGS,
+        warning_tags or DEFAULT_WARNING_TAGS,
+        success_tags or DEFAULT_SUCCESS_TAGS,
+        ignore_tags or DEFAULT_IGNORE_TAGS,
+    )
+
+    handler = _default_cli_handler(tags=tags, log_errors=log_errors, no_info=no_info)
+
+    return execute(
+        cmd,
+        timeout=timeout,
+        line_handler=handler,
+        log_errors=log_errors,
+        log_warnings=log_warnings,
+        ignore_tags=tags.ignore_tags,
+    )

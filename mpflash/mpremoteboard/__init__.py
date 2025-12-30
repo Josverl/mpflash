@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import serial.tools.list_ports
+from rich.progress import track
+from tenacity import retry, stop_after_attempt, wait_fixed
+
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpboard_id.board_id import find_board_id_by_description
 from mpflash.mpremoteboard.runner import run
-from rich.progress import track
-from tenacity import retry, stop_after_attempt, wait_fixed
 
 if sys.version_info >= (3, 11):
     import tomllib  # type: ignore
@@ -63,7 +64,7 @@ class MPRemoteBoard:
         self.build = ""
         self.location = location  # USB location
         self.toml = {}
-        portinfo = list(serial.tools.list_ports.grep(serialport)) 
+        portinfo = list(serial.tools.list_ports.grep(serialport))
         if not portinfo or len(portinfo) != 1:
             self.vid = 0x00
             self.pid = 0x00
@@ -90,8 +91,8 @@ class MPRemoteBoard:
     @property
     def board(self) -> str:
         _board = self._board_id.split("-")[0]
-        # Workaround for Pimoroni boards 
-        if not "-" in self._board_id:
+        # Workaround for Pimoroni boards
+        if "-" not in self._board_id:
             # match with the regex : (.*)(_\d+MB)$
             match = re.match(r"(.*)_(\d+MB)$", self._board_id)
             if match:
@@ -106,12 +107,12 @@ class MPRemoteBoard:
     def variant(self) -> str:
         _variant = self._board_id.split("-")[1] if "-" in self._board_id else ""
         if not _variant:
-            # Workaround for Pimoroni boards 
+            # Workaround for Pimoroni boards
             # match with the regex : (.*)(_\d+MB)$
             match = re.match(r"(.*)_(\d+MB)$", self._board_id)
             if match:
                 _variant = match.group(2)
-        return _variant 
+        return _variant
 
     @variant.setter
     def variant(self, value: str) -> None:
@@ -131,7 +132,6 @@ class MPRemoteBoard:
     def connected_comports(
         bluetooth: bool = False, description: bool = False
     ) -> List[str]:
-        # TODO: rename to connected_comports
         """
         Get a list of connected comports.
 
@@ -167,7 +167,7 @@ class MPRemoteBoard:
         return sorted(output)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_mcu_info(self, timeout: int = 2):
+    def get_mcu_info(self, timeout: Union[int, float] = 2):
         """
         Get MCU information from the connected board.
 
@@ -197,7 +197,9 @@ class MPRemoteBoard:
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]
-            self.description = descr = info["description"] if 'description' in info else info["board"]
+            self.description = descr = (
+                info["description"] if "description" in info else info["board"]
+            )
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
             if info.get("board_id", None):
@@ -278,7 +280,9 @@ class MPRemoteBoard:
                 log_errors=False,
             )
         except Exception as e:
-            raise MPFlashError(f"Failed to write board_info.toml for {self.serialport}: {e}") from e
+            raise MPFlashError(
+                f"Failed to write board_info.toml for {self.serialport}: {e}"
+            ) from e
         finally:
             # remove the temp file
             if toml_path.exists():
@@ -309,7 +313,7 @@ class MPRemoteBoard:
         *,
         log_errors: bool = True,
         no_info: bool = False,
-        timeout: int = 60,
+        timeout: Union[int, float] = 60,
         resume: Optional[bool] = None,
         **kwargs,
     ):
@@ -325,19 +329,34 @@ class MPRemoteBoard:
         Returns:
         - bool: True if the command succeeded, False otherwise.
         """
+        full_cmd = self.build_cmd(cmd, resume=resume)
+        log.debug(" ".join(full_cmd))
+        result = run(full_cmd, timeout, log_errors, no_info)
+        self.connected = result[0] == OK
+        return result
+
+    def build_cmd(
+        self,
+        cmd: Union[str, List[str]],
+        *,
+        resume: Optional[bool] = None,
+        auto_connect: bool = True,
+    ) -> List[str]:
+        """Construct a full mpremote command with optional connect/resume prefix."""
         if isinstance(cmd, str):
             cmd = cmd.split(" ")
+
+        prefix = self.cmd_prefix(resume) if auto_connect else []
+        return prefix + cmd
+
+    def cmd_prefix(self, resume: bool = True) -> List[str]:
         prefix = [sys.executable, "-m", "mpremote"]
         if self.serialport:
             prefix += ["connect", self.serialport]
         # if connected add resume to keep state between commands
         if (resume != False) and self.connected or resume:
             prefix += ["resume"]
-        cmd = prefix + cmd
-        log.debug(" ".join(cmd))
-        result = run(cmd, timeout, log_errors, no_info, **kwargs)
-        self.connected = result[0] == OK
-        return result
+        return prefix
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1))
     def mip_install(self, name: str) -> bool:
@@ -372,28 +391,18 @@ class MPRemoteBoard:
                 break
 
     def to_dict(self) -> dict:
-        """
-        Serialize the MPRemoteBoard object to JSON, including all attributes and readable properties.
-
-        Returns:
-        - str: A JSON string representation of the object.
-        """
-
-        def get_properties(obj):
-            """Helper function to get all readable properties."""
-            return {
-                name: getattr(obj, name)
-                for name in dir(obj.__class__)
-                if isinstance(getattr(obj.__class__, name, None), property)
-            }
-
-        # Combine instance attributes, readable properties, and private attributes
-        data = {**self.__dict__, **get_properties(self)}
-
-        # remove the path and firmware attibutes from the json output as they are always empty
-        del data["_board_id"]  # dup of board_id
-        del data["connected"]
-        del data["path"]
-        del data["firmware"]
-
-        return data
+        """Return a minimal MCU description with only populated board info fields."""
+        return {
+            "serialport": self.serialport,
+            "version": self.version,
+            "family": self.family,
+            "port": self.port,
+            "board": self.board,
+            "variant": self.variant,
+            "board_id": self.board_id,
+            "build": self.build,
+            "description": self.description,
+            "cpu": self.cpu,
+            "arch": self.arch,
+            "mpy": self.mpy,
+        }
