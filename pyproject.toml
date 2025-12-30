@@ -5,7 +5,7 @@
 
 [project]
 name = "mpflash"
-version = "1.26.7"
+version = "1.26.9"
 description = "Flash and download tool for MicroPython firmwares"
 authors = [
     {name = "Jos Verlinde", email = "jos_verlinde@hotmail.com"}
@@ -54,6 +54,7 @@ dependencies = [
     "sqlalchemy>=2.0.41",
     "tomli-w>=1.2.0",
     "tomli>=2.2.1",
+    "libusb<1.0.29",
 ]
 
 [project.optional-dependencies]
