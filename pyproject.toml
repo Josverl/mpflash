@@ -5,7 +5,7 @@
 
 [project]
 name = "mpflash"
-version = "1.26.7"
+version = "1.26.8"
 description = "Flash and download tool for MicroPython firmwares"
 authors = [
     {name = "Jos Verlinde", email = "jos_verlinde@hotmail.com"}
@@ -275,6 +275,7 @@ ignore = ["F821"]
 
 [dependency-groups]
 dev = [
+    "keyring>=25.7.0",
     "pytest>=8.4.1",
     "pytest-mock>=3.15.0",
 ]
