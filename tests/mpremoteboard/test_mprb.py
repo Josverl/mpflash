@@ -155,6 +155,47 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.variant == ""
 
 
+def test_mpy_fw_info_keeps_description(monkeypatch):
+    from mpflash.mpremoteboard import mpy_fw_info as mpy_info
+
+    class FakeImplementation:
+        def __init__(self):
+            self._machine = "Test Board with MCU"
+            self._build = "TEST-BOARD"
+            self.version = (1, 26, 0, "")
+            self._mpy = 0
+            self.name = "MicroPython"
+
+        def __getitem__(self, index):
+            return ("MicroPython",)[index]
+
+    monkeypatch.setattr(mpy_info.sys, "implementation", FakeImplementation())
+    monkeypatch.setattr(mpy_info.sys, "platform", "esp32")
+
+    def version_str(version: tuple) -> str:
+        v_str = ".".join(str(n) for n in version[:3])
+        if len(version) > 3 and version[3]:
+            v_str += f"-{version[3]}"
+        return v_str
+
+    monkeypatch.setattr(mpy_info, "_version_str", version_str, raising=False)
+
+    info = mpy_info._get_base_system_info()
+    mpy_info._normalize_port_info(info)
+    mpy_info._extract_version_info(info)
+    mpy_info._extract_hardware_info(info)
+    mpy_info._extract_build_info(info)
+    mpy_info._detect_firmware_family(info)
+    mpy_info._process_micropython_version(info)
+    mpy_info._process_mpy_info(info)
+    mpy_info._format_version_strings(info)
+
+    assert info["description"] == "Test Board with MCU"
+    assert info["board_id"] == "TEST-BOARD"
+    assert info["board"] == "TEST"
+    assert info["variant"] == "BOARD"
+
+
 @pytest.mark.parametrize(
     "id, cmd, ret_code, exception",
     [
