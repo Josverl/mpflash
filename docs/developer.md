@@ -367,11 +367,12 @@ uv build
 
 # Publish to PyPI
 # set token in environment variable
-export UV_PUBLISH_TOKEN="pypi-123456789abcdef"
-# uv publish --index testpypi # optionally
-uv publish #
-```
 
+```pwsh
+uv install keyring
+$env:UV_PUBLISH_TOKEN=(python -m keyring get pypi uv_publish
+del env:UV_PUBLISH_TOKEN
+```
 ### Documentation Updates
 - Update README.md with new features
 - Add changelog entries

@@ -1562,6 +1562,7 @@ test = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "keyring" },
     { name = "pytest" },
     { name = "pytest-mock" },
 ]
@@ -1611,6 +1612,7 @@ provides-extras = ["dev", "test"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "keyring", specifier = ">=25.7.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-mock", specifier = ">=3.15.0" },
 ]
