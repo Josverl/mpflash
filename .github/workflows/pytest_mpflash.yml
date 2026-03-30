@@ -81,7 +81,7 @@ jobs:
             - name: Upload coverage-mpflash-*.xml to Codecov
               if: always() # ignore errors
               continue-on-error: true
-              uses: codecov/codecov-action@v5
+              uses: codecov/codecov-action@v6
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   # fail_ci_if_error: false
