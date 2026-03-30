@@ -210,6 +210,7 @@ def cli_flash_board(**kwargs) -> int:
             serial_ports=comports,
             board_id=board_id,
             custom_firmware=params.custom,
+            port=params.ports[0] if params.ports else None,
         )
     elif params.serial == ["*"] and params.boards:
         # Auto mode on detected boards with optional include/ignore filtering
@@ -236,6 +237,7 @@ def cli_flash_board(**kwargs) -> int:
             params.versions[0],
             serial_ports=comports,
             board_id=params.boards[0],
+            port=params.ports[0] if params.ports else None,
         )
     else:
         # Single serial port auto-detection
