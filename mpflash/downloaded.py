@@ -96,7 +96,10 @@ def find_downloaded_firmware(
             if fw_list:
                 return [fw_list[0]]
         else:
-            fw_list = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids), Firmware.version == version).all()
+            query = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids), Firmware.version == version)
+            if port:
+                query = query.filter(Firmware.port == port)
+            fw_list = query.all()
             if fw_list:
                 return fw_list
     log.warning(f"No firmware files found for board {board_id} version {version}")

@@ -279,9 +279,42 @@ class TestCreateManualBoard:
 
         result = _create_manual_board("COM1", "ESP32_GENERIC", "1.22.0", False)
 
-        mock_find_board.assert_called_once_with("ESP32_GENERIC")
+        mock_find_board.assert_called_once_with("ESP32_GENERIC", port="")
         mock_find_firmware.assert_called_once()
         mock_create_task.assert_called_once()
+        assert result == expected_task
+
+    @patch("mpflash.flash.worklist.find_known_board")
+    @patch("mpflash.flash.worklist._find_firmware_for_board")
+    @patch("mpflash.flash.worklist._create_flash_task")
+    @patch("mpflash.flash.worklist.log")
+    def test_generic_board_with_esp32_port_hint(self, mock_log, mock_create_task, mock_find_firmware, mock_find_board):
+        """Test GENERIC board with --port esp32 hint correctly resolves to esp32.
+
+        Regression test for: mpflash flash --version v1.10.0 --port esp32 --board GENERIC
+        The port hint must be forwarded to find_known_board so the correct esp32
+        board (ESP32_GENERIC) is selected instead of the esp8266 GENERIC entry.
+        """
+        from mpflash.flash.worklist import _create_manual_board
+
+        board_info = Mock()
+        board_info.port = "esp32"
+        board_info.mcu = "ESP32"
+        mock_find_board.return_value = board_info
+
+        firmware = Firmware(board_id="ESP32_GENERIC", version="v1.10", port="esp32")
+        mock_find_firmware.return_value = firmware
+
+        expected_task = FlashTask(MPRemoteBoard("COM9"), firmware)
+        mock_create_task.return_value = expected_task
+
+        result = _create_manual_board("COM9", "GENERIC", "v1.10", False, port="esp32")
+
+        # The port hint must be forwarded to find_known_board
+        mock_find_board.assert_called_once_with("GENERIC", port="esp32")
+        # The firmware lookup must use the esp32 board, not esp8266
+        found_board = mock_find_firmware.call_args[0][0]
+        assert found_board.port == "esp32", f"Expected esp32, got {found_board.port}"
         assert result == expected_task
 
 

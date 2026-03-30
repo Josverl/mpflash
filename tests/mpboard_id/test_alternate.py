@@ -26,20 +26,34 @@ and that the boards list is extended properly.
         ("GENERIC", "myPort", ["GENERIC", "MYPORT_GENERIC"]),
         ("ESP32_BOARDEXTRA", "", ["ESP32_BOARDEXTRA", "BOARDEXTRA"]),
         ("ESP8266_DEVICE", "", ["ESP8266_DEVICE", "DEVICE"]),
-        # Variant V1.20.0 --> 1.25.0
+        # Old board name GENERIC_SPIRAM (esp32, v1.18-v1.20) with explicit port.
+        # From v1.21.0 the board was renamed to ESP32_GENERIC-SPIRAM (hyphen).
+        # Both the underscore form (ESP32_GENERIC_SPIRAM) and the hyphen form
+        # (ESP32_GENERIC-SPIRAM) must be included so old firmware can be found.
+        (
+            "GENERIC_SPIRAM",
+            "esp32",
+            [
+                "GENERIC_SPIRAM",
+                "ESP32_GENERIC_SPIRAM",
+                "ESP32_GENERIC-SPIRAM",
+                "GENERIC",
+                "ESP32_GENERIC",
+            ],
+        ),
+        # Old board name GENERIC_SPIRAM without port hint → both ESP32 and ESP8266 variants.
         (
             "GENERIC_SPIRAM",
             "",
             [
                 "GENERIC_SPIRAM",
                 "ESP32_GENERIC_SPIRAM",
+                "ESP32_GENERIC-SPIRAM",
                 "ESP8266_GENERIC_SPIRAM",
+                "ESP8266_GENERIC-SPIRAM",
                 "GENERIC",
-                # "GENERIC-SPIRAM",
                 "ESP32_GENERIC",
-                # "ESP32_GENERIC-SPIRAM",
                 "ESP8266_GENERIC",
-                # "ESP8266_GENERIC-SPIRAM",
             ],
         ),
     ],

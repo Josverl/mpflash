@@ -41,3 +41,33 @@ def test_find_known_board(session_fx, mocker):
     assert isinstance(board, Board)
     assert board.board_id == "PYBV11"
     assert board.port == "stm32"
+
+
+def test_find_known_board_with_port_esp8266(session_fx, mocker):
+    """GENERIC board looked up with port='esp8266' should return the esp8266 board.
+
+    In the board DB, GENERIC (plain) was always an esp8266 board (v1.18-v1.20).
+    """
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
+    board = find_known_board("GENERIC", port="esp8266")
+    assert isinstance(board, Board)
+    assert board.port == "esp8266"
+
+
+def test_find_known_board_generic_prefers_esp32_when_port_esp32(session_fx, mocker):
+    """GENERIC board looked up with port='esp32' should resolve to an esp32 board.
+
+    In the board DB, GENERIC (plain) only exists as an esp8266 board (v1.18-v1.20).
+    ESP32 boards in that era used GENERIC_SPIRAM, GENERIC_OTA, etc.
+    From v1.21.0 onward they were renamed to ESP32_GENERIC.
+
+    When a user specifies --board GENERIC --port esp32 (as in the old v1.10 era),
+    find_known_board must fall back to the ESP32_GENERIC alternate name so the
+    correct esp32 port/MCU info is used instead of the esp8266 GENERIC entry.
+    """
+    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
+    # 'GENERIC' exists only as esp8266 in the DB; with port='esp32' the function
+    # should fall back to 'ESP32_GENERIC' via alternate_board_names.
+    board = find_known_board("GENERIC", port="esp32")
+    assert isinstance(board, Board)
+    assert board.port == "esp32", f"Expected esp32, got {board.port}"

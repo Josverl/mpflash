@@ -43,6 +43,12 @@ def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
         # old and new name for PICO_W
         ("rp2", "RPI_PICO_W", "1.22.2", True),
         ("rp2", "PICO_W", "1.22.2", True),
+        # Old-style esp32 board names used up to v1.20.0, mapped via alternate_board_names
+        # to their v1.21.0+ equivalents (e.g. GENERIC_SPIRAM → ESP32_GENERIC-SPIRAM).
+        # Firmware in the test DB only goes back to v1.23.0, so use that version.
+        ("esp32", "GENERIC_SPIRAM", "1.23.0", True),
+        ("esp32", "GENERIC_OTA", "1.23.0", True),
+        ("esp32", "GENERIC_D2WD", "1.23.0", True),
         ("fake", "NO_BOARD", "1.22.2", False),
     ],
 )
@@ -69,4 +75,37 @@ def test_find_downloaded_firmware(port, board_id, version, OK, mocker: MockerFix
         else:
             # firware not linked to a board is OK
             pass
-        assert board_id in fw.board_id, f"Expected {board_id}, got {fw.board_id}"
+
+
+def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_fx):
+    """Ensure port filter prevents cross-platform firmware selection.
+
+    When the DB contains both ESP32_GENERIC and ESP8266_GENERIC firmware for the same
+    version, querying by alternate name with port='esp32' must NOT return esp8266
+    firmware and vice-versa. This guards against the regression where
+    --port esp32 --board GENERIC would incorrectly return ESP8266 firmware.
+    """
+    mocker.patch("mpflash.downloaded.Session", session_fx)
+
+    # Search using the new ESP32_GENERIC name with explicit esp32 port
+    esp32_results = find_downloaded_firmware(version="v1.24.1", board_id="ESP32_GENERIC", port="esp32")
+    # Search using the new ESP8266_GENERIC name with explicit esp8266 port
+    esp8266_results = find_downloaded_firmware(version="v1.24.1", board_id="ESP8266_GENERIC", port="esp8266")
+
+    assert esp32_results, "Should find ESP32 firmware"
+    assert esp8266_results, "Should find ESP8266 firmware"
+
+    # esp32 query must only return esp32 firmware
+    for fw in esp32_results:
+        assert fw.port == "esp32", f"esp32 query returned wrong port: {fw.port} ({fw.board_id})"
+
+    # esp8266 query must only return esp8266 firmware
+    for fw in esp8266_results:
+        assert fw.port == "esp8266", f"esp8266 query returned wrong port: {fw.port} ({fw.board_id})"
+
+    # Verify that the port-specific searches do NOT overlap
+    esp32_board_ids = {fw.board_id for fw in esp32_results}
+    esp8266_board_ids = {fw.board_id for fw in esp8266_results}
+    assert not esp32_board_ids.intersection(esp8266_board_ids), (
+        f"ESP32 and ESP8266 results overlap: {esp32_board_ids & esp8266_board_ids}"
+    )

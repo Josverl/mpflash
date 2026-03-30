@@ -63,24 +63,59 @@ def known_stored_boards(port: str, versions: List[str] = []) -> List[Tuple[str, 
     return sorted(list(boards))
 
 
-def find_known_board(board_id: str, version="") -> Board:
+def find_known_board(board_id: str, version="", port="") -> Board:
     """
-    Find the board for the given BOARD_ID or 'board description'
-    if the board_id is not found, it will try to find it by description.
+    Find the board for the given BOARD_ID or 'board description'.
+    If a port is provided, prefer boards matching that port.
+    If the board_id is not found, it will try alternate names (e.g. GENERIC → ESP32_GENERIC).
+    If the board_id contains an @, it will split it and use the first part as the board_id.
 
-    if the board_id contains an @, it will split it and use the first part as the board_id
-    Returns the board info as a Board object
+    Returns the board info as a Board object.
     """
+    from mpflash.mpboard_id.alternate import alternate_board_names
+
+    lookup_id = board_id.split("@")[0]
     with Session() as session:
-        qry = session.query(Board).filter(Board.board_id == board_id.split("@")[0])
+        qry = session.query(Board).filter(Board.board_id == lookup_id)
         if version:
             qry = qry.filter(Board.version == version)
-        board = qry.first()
-        if not board:
-            # if no board found, try to find it by description
-            qry = session.query(Board).filter(Board.description == board_id)
+        candidates = qry.all()
+        if candidates:
+            if port:
+                # Prefer the board whose port matches the user-specified port
+                matching = [b for b in candidates if b.port == port]
+                if matching:
+                    return matching[0]
+                # No port match among candidates - fall through to alternate name lookup
+            else:
+                return candidates[0]
+
+        # Try alternate names (e.g. GENERIC → ESP32_GENERIC when port="esp32")
+        alt_names = alternate_board_names(lookup_id, port)
+        for alt_id in alt_names[1:]:  # skip the first (already tried above)
+            qry = session.query(Board).filter(Board.board_id == alt_id)
+            if port:
+                qry = qry.filter(Board.port == port)
             if version:
                 qry = qry.filter(Board.version == version)
+            board = qry.first()
+            if board:
+                log.debug(f"Resolved board {board_id!r} → {alt_id!r} (port={board.port})")
+                return board
+
+        # Fall back to description search
+        qry = session.query(Board).filter(Board.description == lookup_id)
+        if version:
+            qry = qry.filter(Board.version == version)
+        if port:
+            qry = qry.filter(Board.port == port)
+        board = qry.first()
         if board:
             return board
+
+        # Last resort: return first candidate ignoring port mismatch
+        if candidates:
+            log.warning(f"Board {board_id!r} not found for port {port!r}, using {candidates[0].port!r} board")
+            return candidates[0]
+
     raise MPFlashError(f"Board {board_id} not found")

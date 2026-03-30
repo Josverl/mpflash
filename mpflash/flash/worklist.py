@@ -74,6 +74,7 @@ class WorklistConfig:
     ignore_ports: Optional[List[str]] = None
     board_id: Optional[str] = None
     custom_firmware: bool = False
+    port: Optional[str] = None  # user-specified port override
 
     def __post_init__(self):
         if self.include_ports is None:
@@ -87,9 +88,9 @@ class WorklistConfig:
         return cls(version=version)
 
     @classmethod
-    def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False) -> "WorklistConfig":
+    def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False, port: Optional[str] = None) -> "WorklistConfig":
         """Create config for manually specified boards."""
-        return cls(version=version, board_id=board_id, custom_firmware=custom_firmware)
+        return cls(version=version, board_id=board_id, custom_firmware=custom_firmware, port=port)
 
     @classmethod
     def for_filtered_boards(
@@ -127,15 +128,15 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
     return firmware
 
 
-def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False) -> FlashTask:
+def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False, port: str = "") -> FlashTask:
     """Create a FlashTask for manually specified board parameters."""
     log.debug(f"Creating manual board task: {serial_port} {board_id} {version}")
 
     board = MPRemoteBoard(serial_port)
 
-    # Look up board information
+    # Look up board information, preferring the user-specified port
     try:
-        info = find_known_board(board_id)
+        info = find_known_board(board_id, port=port)
         board.port = info.port
         board.cpu = info.mcu  # Need CPU type for esptool
     except (LookupError, MPFlashError) as e:
@@ -185,6 +186,7 @@ def create_worklist(
     include_ports: Optional[List[str]] = None,
     ignore_ports: Optional[List[str]] = None,
     custom_firmware: bool = False,
+    port: Optional[str] = None,
 ) -> FlashTaskList:
     """High-level function to create a worklist based on different scenarios.
 
@@ -199,6 +201,7 @@ def create_worklist(
         include_ports: Port patterns to include (for filtered mode)
         ignore_ports: Port patterns to ignore (for filtered mode)
         custom_firmware: Whether to use custom firmware
+        port: User-specified port type override (e.g. 'esp32', 'esp8266')
 
     Returns:
         List of FlashTask objects
@@ -218,7 +221,7 @@ def create_worklist(
     """
     # Manual mode: specific serial ports with board_id
     if serial_ports and board_id:
-        config = WorklistConfig.for_manual_boards(version, board_id, custom_firmware)
+        config = WorklistConfig.for_manual_boards(version, board_id, custom_firmware, port=port)
         return create_manual_worklist(serial_ports, config)
 
     # Auto mode with filtering
@@ -295,7 +298,7 @@ def create_manual_worklist(
     tasks: FlashTaskList = []
     for port in serial_ports:
         log.trace(f"Manual updating {port} to {config.board_id} {config.version}")
-        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware)
+        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware, port=config.port or "")
         tasks.append(task)
 
     return tasks
