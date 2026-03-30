@@ -98,14 +98,15 @@ def test_flash_esp_chips(mock_mcu, mock_esptool, port, cpu, expected_addr, expec
     """All ESP32 variants and ESP8266 should use compress=True."""
     mock_mcu.port = port
     mock_mcu.cpu = cpu
+    fw_path = Path("/path/to/firmware.bin")
 
-    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False)
+    result = flash_esp(mock_mcu, fw_path, erase=False)
 
     assert result == mock_mcu
     mock_esptool["loader"].change_baud.assert_called_once_with(expected_baud)
     mock_esptool["write"].assert_called_once_with(
         mock_esptool["loader"],
-        [(int(expected_addr, 16), "/path/to/firmware.bin")],
+        [(int(expected_addr, 16), str(fw_path))],
         flash_mode="keep",
         flash_size="detect",
         compress=True,
