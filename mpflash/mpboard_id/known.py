@@ -115,7 +115,7 @@ def find_known_board(board_id: str, version="", port="") -> Board:
 
         # Last resort: return first candidate ignoring port mismatch
         if candidates:
-            log.warning(f"Board {board_id!r} not found for port {port!r}, using {candidates[0].port!r} board")
+            log.warning(f"Board {board_id!r} not found for port {port!r}; falling back to {candidates[0].port!r} board from earlier match")
             return candidates[0]
 
     raise MPFlashError(f"Board {board_id} not found")
