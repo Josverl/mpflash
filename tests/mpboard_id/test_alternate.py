@@ -64,3 +64,30 @@ def test_alternate_board_names(board_id: str, port: str, expected: List[str]) ->
     """
     result = alternate_board_names(board_id, port)
     assert result == expected, f"Expected {expected} but got {result} for board_id: {board_id}, port: {port}"
+
+
+def test_add_renamed_boards_extends_list():
+    """add_renamed_boards adds alternate names for each entry, including upper-case variants."""
+    boards = ["ESP32_GENERIC", "RPI_PICO"]
+    result = add_renamed_boards(boards)
+    assert "ESP32_GENERIC" in result
+    assert "GENERIC" in result   # stripped ESP32_ prefix
+    assert "RPI_PICO" in result
+    assert "PICO" in result      # stripped RPI_ prefix
+
+
+def test_add_renamed_boards_handles_lowercase():
+    """add_renamed_boards also processes the upper-cased version of each board."""
+    boards = ["esp32_generic"]
+    result = add_renamed_boards(boards)
+    # Original lowercase preserved
+    assert "esp32_generic" in result
+    # Upper-cased form and its alternate should also be present
+    assert "ESP32_GENERIC" in result
+
+
+def test_add_renamed_boards_deduplication_not_required():
+    """add_renamed_boards may contain duplicates; callers should de-dup if needed."""
+    boards = ["PICO"]
+    result = add_renamed_boards(boards)
+    assert "RPI_PICO" in result
