@@ -14,7 +14,7 @@ def alternate_board_names(board_id, port="") -> List[str]:
         more.append(board_id.replace("RPI_", ""))
     elif board_id.startswith("GENERIC"):
         # Determine the suffix after "GENERIC" (e.g. "_SPIRAM", "_OTA", "")
-        suffix = board_id[len("GENERIC"):]  # e.g. "_SPIRAM", "_OTA", ""
+        suffix = board_id[len("GENERIC"):]
         if port:
             underscore_name = board_id.replace("GENERIC", f"{port.upper()}_GENERIC")
             more.append(underscore_name)

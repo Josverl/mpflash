@@ -54,7 +54,7 @@ def test_find_known_board_with_port_esp8266(session_fx, mocker):
     assert board.port == "esp8266"
 
 
-def test_find_known_board_generic_prefers_esp32_when_port_esp32(session_fx, mocker):
+def test_find_known_board_generic_with_esp32_port(session_fx, mocker):
     """GENERIC board looked up with port='esp32' should resolve to an esp32 board.
 
     In the board DB, GENERIC (plain) only exists as an esp8266 board (v1.18-v1.20).
