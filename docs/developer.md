@@ -30,8 +30,8 @@ mpflash/
 - **cli_flash.py**: Board flashing commands
 
 #### Database Layer (`db/`)
-- **models.py**: SQLAlchemy models for boards and firmware
-- **core.py**: Database initialization and migration
+- **models.py**: Peewee ORM models for boards, firmware, and metadata
+- **core.py**: Database initialisation and connection management
 - **gather_boards.py**: Board data collection and management
 - **loader.py**: Data loading utilities
 
@@ -46,78 +46,171 @@ mpflash/
   - MicroPython REPL-based activation
   - Manual intervention support
 
-## Database Schema
+## Database
 
-The application uses SQLite with SQLAlchemy ORM:
+The application uses **SQLite** via the **[Peewee](https://docs.peewee-orm.com/)** ORM. The database file location defaults to the OS user data directory and can be overridden with the `MPFLASH_FIRMWARE` environment variable.
 
-### Board Table
-```sql
-CREATE TABLE boards (
-    board_id VARCHAR(40) NOT NULL,
-    version VARCHAR(12) NOT NULL,
-    board_name VARCHAR NOT NULL,
-    mcu VARCHAR NOT NULL,
-    variant VARCHAR DEFAULT '',
-    port VARCHAR(30) NOT NULL,
-    path VARCHAR NOT NULL,
-    description VARCHAR NOT NULL,
-    family VARCHAR DEFAULT 'micropython',
-    custom BOOLEAN DEFAULT false,
-    PRIMARY KEY (board_id, version)
-);
+### Peewee Models
+
+Models are defined in `mpflash/db/models.py`. All models inherit from `BaseModel` which binds them to the shared `SqliteDatabase` instance initialised in `core.py`.
+
+```python
+import peewee
+
+database = peewee.SqliteDatabase(None)  # path set at runtime by core.py
+
+class BaseModel(peewee.Model):
+    class Meta:
+        database = database
 ```
 
-### Firmware Table
-```sql
-CREATE TABLE firmwares (
-    board_id VARCHAR(40) NOT NULL,
-    version VARCHAR(12) NOT NULL,
-    firmware_file VARCHAR NOT NULL,
-    port VARCHAR(20) DEFAULT '',
-    description VARCHAR DEFAULT '',
-    source VARCHAR NOT NULL,
-    build INTEGER DEFAULT 0,
-    custom BOOLEAN DEFAULT false,
-    PRIMARY KEY (board_id, version, firmware_file),
-    FOREIGN KEY (board_id, version) REFERENCES boards (board_id, version)
-);
+### Schema
+
+#### `metadata` table — key/value configuration store
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `name` | `VARCHAR` | Primary key |
+| `value` | `TEXT` | |
+
+#### `boards` table — all known MicroPython boards
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `board_id` | `VARCHAR(40)` | Composite PK with `version` |
+| `version` | `VARCHAR(12)` | Composite PK with `board_id` |
+| `board_name` | `TEXT` | |
+| `mcu` | `TEXT` | |
+| `variant` | `TEXT` | |
+| `port` | `VARCHAR(30)` | e.g. `rp2`, `esp32` |
+| `path` | `TEXT` | Path in micropython repo |
+| `description` | `TEXT` | |
+| `family` | `TEXT` | Default `micropython` |
+| `custom` | `BOOLEAN` | `True` if user-added board |
+
+#### `firmwares` table — downloaded firmware files
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `board_id` | `VARCHAR(40)` | Composite PK |
+| `version` | `VARCHAR(12)` | Composite PK |
+| `firmware_file` | `TEXT` | Composite PK; path to file |
+| `port` | `VARCHAR(20)` | |
+| `description` | `TEXT` | |
+| `source` | `TEXT` | Download URL or `custom` |
+| `build` | `INTEGER` | Preview build number |
+| `custom` | `BOOLEAN` | `True` if user-provided |
+| `custom_id` | `VARCHAR(40)` | Nullable; custom board ID |
+
+### Database Initialisation
+
+`core.py` initialises the shared database instance on module load:
+
+```python
+from mpflash.db.core import database  # SqliteDatabase instance
+
+# Use the session context manager for transactions:
+from mpflash.db.core import Session
+
+with Session() as session:
+    boards = Board.select().where(Board.port == "rp2")
 ```
+
+The context manager opens the connection (if closed), wraps the block in an atomic transaction and commits on exit (or rolls back on exception).
 
 ## Development Setup
 
 ### Prerequisites
-- Python 3.9.2+
-- uv for dependency management (or pip)
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) for dependency and environment management
 - Git for version control
 
-### Installation
+### Getting Started
+
+Clone the repo and install all dependencies (including dev and test extras) into a local virtual environment:
+
 ```bash
 git clone https://github.com/Josverl/mpflash.git
 cd mpflash
 uv sync --all-extras
 ```
 
-### Environment Variables
-Set up your development environment:
-```bash
-# Copy and configure environment
-cp .env.example .env
+This creates a `.venv` in the project directory. Activate it when running commands directly:
 
-# Key variables:
-MPFLASH_FIRMWARE=./scratch    # Firmware storage location
-PYTHONPATH=src                # Test source path
+```bash
+# Windows
+.venv\Scripts\Activate.ps1
+
+# Linux / macOS
+source .venv/bin/activate
+```
+
+Or prefix commands with `uv run` to use the venv automatically without activating it.
+
+### Environment Variables
+
+Optional overrides for local development:
+
+```bash
+MPFLASH_FIRMWARE=./scratch    # firmware storage location (instead of ~/Downloads/firmware)
+PYTHONPATH=src                # needed when running pytest directly
 ```
 
 ### Running Tests
+
 ```bash
 # Run all tests
 uv run pytest
 
-# Run with coverage
+# Run with coverage report
 uv run pytest --cov=mpflash
 
-# Run specific test categories
+# Skip slow git-related tests
 uv run pytest -m "not basicgit"
+
+# Full coverage + HTML report
+uv run coverage run -m pytest tests -m 'not basicgit'
+uv run coverage html          # output in htmlcov/
+```
+
+### Building the Package
+
+```bash
+# Build wheel and sdist into dist/
+uv build
+```
+
+The built files appear in `dist/`. To verify the package installs correctly:
+
+```bash
+uv tool install dist/mpflash-*.whl
+mpflash --version
+```
+
+### Upgrading Dependencies
+
+To upgrade all packages to the latest versions allowed by `pyproject.toml` version constraints and update `uv.lock`:
+
+```bash
+uv sync --upgrade
+```
+
+To upgrade a single package:
+
+```bash
+uv sync --upgrade-package <package-name>
+```
+
+After upgrading, run the tests to catch any regressions:
+
+```bash
+uv run pytest -m "not basicgit"
+```
+
+To check for known security vulnerabilities in the current lockfile:
+
+```bash
+uv audit
 ```
 
 ## Code Standards
@@ -405,6 +498,6 @@ del env:UV_PUBLISH_TOKEN
 ## Resources
 
 - [MicroPython Downloads](https://micropython.org/download/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
+- [Peewee ORM Documentation](https://docs.peewee-orm.com/)
 - [Click Documentation](https://click.palletsprojects.com/)
 - [Rich Documentation](https://rich.readthedocs.io/)

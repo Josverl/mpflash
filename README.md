@@ -303,6 +303,15 @@ Hard resetting via RTS pin...
 Note that if no matching firmware can be found for a board, it will be skipped.
 (For example, the PYBV11 and ESP32_GENERIC_S3 boards in the example above.)
 
+## Contributing and Development
+
+For contributors and developers working on mpflash itself, see the [Developer Documentation](docs/developer.md) for:
+- Getting started / local setup
+- Running tests and coverage
+- Building the package
+- Upgrading dependencies
+- Code standards and architecture
+
 ## Issues and bug reports
 Please report any issues or bugs in the [issue tracker](https://github.com/Josverl/mpflash/issues).
 
