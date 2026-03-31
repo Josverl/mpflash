@@ -92,7 +92,7 @@ def session_fx(db_fx):
 @pytest.fixture(scope="module")
 def db_mem():
     """Empty in-memory Peewee database for isolated unit tests."""
-    from mpflash.db.models import Board, Firmware, Metadata
+    from mpflash.db.models import Board, Firmware, Metadata, database
 
     mem_db = peewee.SqliteDatabase(":memory:")
     mem_db.bind([Metadata, Board, Firmware])
@@ -101,6 +101,9 @@ def db_mem():
     yield mem_db
     if not mem_db.is_closed():
         mem_db.close()
+    # Restore model bindings to the shared module-level database so that
+    # subsequent test modules using db_fx/session_fx see the correct DB.
+    database.bind([Metadata, Board, Firmware])
 
 
 @pytest.fixture(scope="function")
