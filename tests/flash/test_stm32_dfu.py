@@ -282,7 +282,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
+        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu), \
+             patch("mpflash.flash.stm32_dfu.dfu_init", return_value=None):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
             flash_stm32_dfu(_make_board(), fw)
 
