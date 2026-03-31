@@ -6,7 +6,8 @@ import subprocess
 from dataclasses import dataclass
 from threading import Timer
 from typing import List, Optional, Tuple
-from unittest.mock import DEFAULT
+
+DEFAULT = object()  # sentinel value (replaces unittest.mock.DEFAULT)
 
 from loguru import logger as log
 

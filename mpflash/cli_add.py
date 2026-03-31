@@ -9,7 +9,6 @@ from loguru import logger as log
 from mpflash.errors import MPFlashError
 
 from .cli_group import cli
-from mpflash.custom import add_custom_firmware
 
 
 @cli.command(
@@ -58,6 +57,7 @@ def cli_add_custom(
     description: str = "",
 ) -> int:
     """Add a custom MicroPython firmware from a local file."""
+    from mpflash.custom import add_custom_firmware
 
     try:
         return add_custom_firmware(

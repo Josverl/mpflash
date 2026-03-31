@@ -5,18 +5,12 @@ from pathlib import Path
 import rich_click as click
 from loguru import logger as log
 
-from mpflash.connected import connected_ports_boards_variants
-from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
-from mpflash.mpboard_id import find_known_board
-from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
 
-from .ask_input import ask_missing_params
 from .cli_group import cli
 from .common import DownloadParams
 from .config import config
-from .download import download
 
 
 @cli.command(
@@ -80,6 +74,13 @@ from .download import download
     help="""Force download of firmware even if it already exists.""",
 )
 def cli_download(**kwargs) -> int:
+    from mpflash.connected import connected_ports_boards_variants
+    from mpflash.downloaded import clean_downloaded_firmwares
+    from mpflash.mpboard_id import find_known_board
+    from mpflash.mpboard_id.alternate import add_renamed_boards
+    from .ask_input import ask_missing_params
+    from .download import download
+
     params = DownloadParams(**kwargs)
     params.versions = list(params.versions)
     params.boards = list(params.boards)

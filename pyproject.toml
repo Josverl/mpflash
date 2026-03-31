@@ -73,6 +73,8 @@ test = [
     "distro>=1.8.0",
     "fasteners>=0.19",
     "mock>=4.0.3,<6.0.0",
+    "tuna>=0.5.11",
+    "pyinstrument>=5.1.0",
 ]
 # perf = [
 #     "scalene>=1.5.51",

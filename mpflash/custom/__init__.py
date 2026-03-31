@@ -1,6 +1,5 @@
 
 from loguru import logger as log
-from mpremote.mip import _rewrite_url as rewrite_url  # type: ignore
 
 from mpflash.config import config
 from mpflash.custom.copy import copy_firmware as copy_firmware
@@ -22,7 +21,6 @@ __all__ = [
     "custom_fw_from_path",
     "extract_commit_count",
     "port_and_boardid_from_path",
-    "rewrite_url",
 ]
 
 
