@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from mpflash.ask_input import ask_missing_params, filter_matching_boards
+from mpflash.ask_input import _split_board_variant, ask_missing_params, filter_matching_boards
 from mpflash.common import DownloadParams, FlashParams
 from mpflash.config import MPFlashConfig
 from pytest_mock import MockerFixture
@@ -30,7 +30,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
 
 
 @pytest.mark.parametrize(
-    "id, download, input, serial_return, versions_return, port_boards_return, check",
+    "id, download, input, serial_return, versions_return, port_boards_variant_return, check",
     [
         (
             "10 D -v ? -b ?",
@@ -44,7 +44,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,  # ask_serialport not called for download
             ["1.14.0"],  # ask_mp_version return
-            ("esp32", ["OTHER_BOARD"]),  # ask_port_board return
+            ("esp32", ["OTHER_BOARD"], ""),  # ask_port_board_variant return (port, boards, variant)
             {
                 "versions": ["1.14.0"],
                 "boards": ["OTHER_BOARD"],
@@ -62,7 +62,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,
             ["1.14.0"],
-            ("esp32", ["OTHER_BOARD"]),
+            ("esp32", ["OTHER_BOARD"], ""),
             {
                 "versions": ["1.14.0"],
                 "boards": ["OTHER_BOARD", "SEEED_WIO_TERMINAL"],
@@ -80,7 +80,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,
             ["1.22.0"],
-            None,  # ask_port_board not called (boards already set)
+            None,  # ask_port_board_variant not called (boards already set)
             {"versions": ["1.22.0"]},
         ),
         # versions as string
@@ -96,7 +96,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,
             None,  # ask_mp_version not called (versions already set)
-            ("esp32", ["SEEED_WIO_TERMINAL"]),
+            ("esp32", ["SEEED_WIO_TERMINAL"], ""),
             {"versions": ["preview"]},
         ),
         (
@@ -111,7 +111,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,
             "1.14.0",  # string return (not list)
-            None,  # ask_port_board not called
+            None,  # ask_port_board_variant not called
             {"versions": ["preview", "1.14.0"]},
         ),
         (
@@ -126,12 +126,12 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             None,
             None,  # ask_mp_version not called
-            ("esp32", ["SEEED_WIO_TERMINAL", "FAKE_BOARD"]),
+            ("esp32", ["SEEED_WIO_TERMINAL", "FAKE_BOARD"], ""),
             {
                 # "versions": ["stable"]
             },
         ),
-        # flash
+        # flash — variant empty
         (
             "50 F -b ? -v preview",
             False,
@@ -146,8 +146,26 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             "COM4",
             None,  # ask_mp_version not called
-            ("esp32", ["SEEED_WIO_TERMINAL"]),
+            ("esp32", ["SEEED_WIO_TERMINAL"], ""),
             {},
+        ),
+        # flash — variant set
+        (
+            "51 F -b ? -v preview with variant",
+            False,
+            {
+                "versions": ["preview"],
+                "boards": ["?"],
+                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
+                "serial": [],
+                "erase": True,
+                "bootloader": True,
+                "cpu": "",
+            },
+            "COM4",
+            None,
+            ("esp32", ["ESP32_GENERIC"], "SPIRAM"),  # variant returned
+            {"variant": "SPIRAM"},
         ),
         # Check that the port description is trimmed
         (
@@ -164,7 +182,7 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             },
             "COM4 Manufacturer Description",
             None,  # ask_mp_version not called
-            ("esp32", ["SEEED_WIO_TERMINAL"]),
+            ("esp32", ["SEEED_WIO_TERMINAL"], ""),
             {
                 "serial": ["COM4"],
             },
@@ -178,7 +196,7 @@ def test_ask_missing_params_with_interactivity(
     input: dict,
     serial_return,
     versions_return,
-    port_boards_return,
+    port_boards_variant_return,
     check: dict,
     mocker: MockerFixture,
 ):
@@ -195,12 +213,17 @@ def test_ask_missing_params_with_interactivity(
     # Mock each helper function individually
     m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)
     m_mp_version: Mock = mocker.patch("mpflash.ask_input.ask_mp_version", return_value=versions_return)
-    if port_boards_return is not None:
-        m_port_board: Mock = mocker.patch("mpflash.ask_input.ask_port_board", return_value=port_boards_return)
+    if port_boards_variant_return is not None:
+        m_port_board_variant: Mock = mocker.patch(
+            "mpflash.ask_input.ask_port_board_variant",
+            return_value=port_boards_variant_return,
+        )
     else:
-        m_port_board = mocker.patch("mpflash.ask_input.ask_port_board", return_value=(None, None))
+        m_port_board_variant = mocker.patch(
+            "mpflash.ask_input.ask_port_board_variant",
+            return_value=(None, None, None),
+        )
 
-    # make sure we can be interactive, even in CI
     result = ask_missing_params(params)
 
     # Verify helpers were called as expected
@@ -213,10 +236,10 @@ def test_ask_missing_params_with_interactivity(
         m_mp_version.assert_called_once()
 
     boards_need_asking = not input.get("boards") or "?" in (input.get("boards") or [])
-    if boards_need_asking and port_boards_return is not None:
-        m_port_board.assert_called_once()
+    if boards_need_asking and port_boards_variant_return is not None:
+        m_port_board_variant.assert_called_once()
     elif not boards_need_asking:
-        m_port_board.assert_not_called()
+        m_port_board_variant.assert_not_called()
 
     # explicit checks
     for key in check:
@@ -226,6 +249,28 @@ def test_ask_missing_params_with_interactivity(
         else:
             assert getattr(result, key) == check[key]
 
+
+# ---------------------------------------------------------------------------
+# Unit tests for _split_board_variant
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "board_id, expected_board, expected_variant",
+    [
+        ("ESP32_GENERIC-SPIRAM", "ESP32_GENERIC", "SPIRAM"),
+        ("ESP32_GENERIC-OTA", "ESP32_GENERIC", "OTA"),
+        ("PYBV10-dp-thread", "PYBV10", "dp-thread"),     # variant with hyphen
+        ("ESP32_GENERIC", "ESP32_GENERIC", ""),            # no variant
+        ("PICO_W", "PICO_W", ""),                          # underscores only
+        ("ESP32_GENERIC_S3-SPIRAM_OCT", "ESP32_GENERIC_S3", "SPIRAM_OCT"),
+    ],
+)
+def test_split_board_variant(board_id: str, expected_board: str, expected_variant: str):
+    """Test that board_id is correctly split into base board and variant."""
+    board, variant = _split_board_variant(board_id)
+    assert board == expected_board
+    assert variant == expected_variant
 
 @pytest.mark.parametrize(
     "port, versions, expected_fallback",

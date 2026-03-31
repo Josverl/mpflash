@@ -60,6 +60,30 @@ def known_stored_boards(port: str, versions: List[str] = []) -> List[Tuple[str, 
     return sorted(list(boards))
 
 
+def known_board_variants_dict(port: str, versions: List[str] = []) -> dict:
+    """
+    Build a ``{board_id: variant_hint}`` dict for all boards matching port+versions.
+
+    The dict is designed for use with ``richui.Richui().input(completion=dict)``.
+    Keys are full board_ids in ``board[-variant]`` format (e.g. ``ESP32_GENERIC-SPIRAM``);
+    values are the variant part shown as a hint (e.g. ``SPIRAM``), or an empty string
+    for boards without a variant.
+
+    Args:
+        port: MicroPython port to filter for (e.g. ``esp32``).
+        versions: Actual version strings to filter for (cleaned).
+
+    Returns:
+        Ordered dict mapping board_id → variant hint string.
+    """
+    mp_boards = get_known_boards_for_port(port, versions)
+    seen: dict = {}
+    for board in sorted(mp_boards, key=lambda b: b.board_id):
+        if board.board_id not in seen:
+            seen[board.board_id] = board.variant or ""
+    return seen
+
+
 def find_known_board(board_id: str, version="", port="") -> Board:
     """
     Find the board for the given BOARD_ID or 'board description'.
