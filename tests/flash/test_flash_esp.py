@@ -47,7 +47,7 @@ def mock_esptool(mocker):
     "cpu, expected_chip, expected_addr, expected_baud",
     [
         ("ESP32", "esp32", "0x1000", 921_600),
-        ("ESP32C2", "esp32c2", "0x1000", 921_600),
+        ("ESP32C2", "esp32c2", "0x0", 921_600),
         ("ESP32S2", "esp32s2", "0x1000", 460_800),
         ("ESP32S3", "esp32s3", "0x0", 921_600),
         ("ESP32C3", "esp32c3", "0x0", 921_600),
@@ -86,7 +86,7 @@ def test_flash_esp_unsupported_board(mock_mcu):
     "port, cpu, expected_addr, expected_baud",
     [
         ("esp32", "ESP32", "0x1000", 921_600),
-        ("esp32", "ESP32C2", "0x1000", 921_600),
+        ("esp32", "ESP32C2", "0x0", 921_600),
         ("esp32", "ESP32S2", "0x1000", 460_800),
         ("esp32", "ESP32S3", "0x0", 921_600),
         ("esp32", "ESP32C3", "0x0", 921_600),
@@ -109,6 +109,7 @@ def test_flash_esp_chips(mock_mcu, mock_esptool, port, cpu, expected_addr, expec
         [(int(expected_addr, 16), str(fw_path))],
         flash_mode="keep",
         flash_size="detect",
+        force=True,
         compress=True,
     )
 
@@ -147,7 +148,9 @@ def test_flash_esp_compress_fallback(mock_mcu, mock_esptool):
     assert mock_esptool["write"].call_count == 2
     first_call, second_call = mock_esptool["write"].call_args_list
     assert first_call.kwargs.get("compress") is True
+    assert first_call.kwargs.get("force") is True
     assert second_call.kwargs.get("no_compress") is True
+    assert second_call.kwargs.get("force") is True
 
 
 def test_flash_esp_compress_fallback_also_fails(mock_mcu, mock_esptool):

@@ -53,7 +53,7 @@ def _chip_params(cpu: str) -> Tuple[str, str, int]:
         return "esp8266", "0x0", 460_800
     # ESP32 family — check variants before the plain "ESP32" fallback
     if "C2" in cpu_upper:
-        return "esp32c2", "0x1000", 921_600
+        return "esp32c2", "0x0", 921_600
     if "S2" in cpu_upper:
         return "esp32s2", "0x1000", 460_800
     if "S3" in cpu_upper:
@@ -151,7 +151,7 @@ def flash_esp(
                 espcmds.erase_flash(esp)
 
             addr_data = [(int(start_addr, 16), str(fw_file))]
-            write_kwargs = {"flash_mode": flash_mode, "flash_size": flash_size}
+            write_kwargs = {"flash_mode": flash_mode, "flash_size": flash_size, "force": True}
 
             log.info("Writing flash (compressed)...")
             try:
