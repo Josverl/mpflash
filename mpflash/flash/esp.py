@@ -31,6 +31,7 @@ from typing import Literal, Optional, Tuple
 import esptool.cmds as espcmds
 from esptool import FatalError
 from esptool.loader import ESPLoader
+from esptool.targets import CHIP_DEFS
 from loguru import logger as log
 
 from mpflash.mpboard_id import find_known_board
@@ -38,31 +39,38 @@ from mpflash.mpremoteboard import MPRemoteBoard
 
 FlashMode = Literal["keep", "qio", "qout", "dio", "dout"]
 
+# Baud rates per chip key — the only thing not exposed by esptool ROM classes.
+_BAUD_FOR: dict = {
+    "esp8266": 460_800,
+    "esp32s2": 460_800,
+    "esp32c6": 460_800,
+}
+_DEFAULT_BAUD = 921_600
+
 
 def _chip_params(cpu: str) -> Tuple[str, str, int]:
-    """Return ``(chip_name, start_addr_hex, baud_rate)`` for a CPU string.
+    """Return ``(chip_key, start_addr_hex, baud_rate)`` for a CPU string.
+
+    Flash start addresses are read directly from the esptool ROM class
+    (``CHIP_DEFS[chip_key].BOOTLOADER_FLASH_OFFSET``) so they stay correct
+    for any chip esptool supports without duplication.
 
     Args:
-        cpu: CPU identifier, e.g. ``"ESP32"``, ``"ESP32S3"``, ``"ESP8266"``.
+        cpu: CPU identifier, e.g. ``"ESP32"``, ``"ESP32S3"``, ``"ESP32P4"``.
 
     Returns:
-        A tuple of ``(esptool chip name, flash start address, baud rate)``.
+        A tuple of ``(esptool chip key, flash start address hex, baud rate)``.
     """
-    cpu_upper = cpu.upper()
-    if cpu_upper == "ESP8266":
-        return "esp8266", "0x0", 460_800
-    # ESP32 family — check variants before the plain "ESP32" fallback
-    if "C2" in cpu_upper:
-        return "esp32c2", "0x0", 921_600
-    if "S2" in cpu_upper:
-        return "esp32s2", "0x1000", 460_800
-    if "S3" in cpu_upper:
-        return "esp32s3", "0x0", 921_600
-    if "C3" in cpu_upper:
-        return "esp32c3", "0x0", 921_600
-    if "C6" in cpu_upper:
-        return "esp32c6", "0x0", 460_800
-    return "esp32", "0x1000", 921_600
+    # Normalise: "ESP32-P4" or "ESP32P4" → "esp32p4"
+    chip_key = cpu.lower().replace("-", "")
+    rom_cls = CHIP_DEFS.get(chip_key)
+    if rom_cls is None:
+        log.warning(f"Unknown CPU '{cpu}', falling back to esp32 defaults")
+        chip_key = "esp32"
+        rom_cls = CHIP_DEFS["esp32"]
+    start_addr = hex(rom_cls.BOOTLOADER_FLASH_OFFSET)
+    baud = _BAUD_FOR.get(chip_key, _DEFAULT_BAUD)
+    return chip_key, start_addr, baud
 
 
 def _log_esptool_cmd(
