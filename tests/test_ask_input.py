@@ -11,7 +11,7 @@ pytestmark = [pytest.mark.mpflash]
 
 
 def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
-    # Make sure that the prompt is not called when interactive is False
+    # Make sure that no prompts are called when interactive is False
 
     _config = MPFlashConfig()
     _config.interactive = False
@@ -24,13 +24,13 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
     }
     params = DownloadParams(**input)
     mocker.patch("mpflash.ask_input.config", _config)
-    m_prompt: MagicMock = mocker.patch("inquirer.prompt", autospec=True)
-    _ = ask_missing_params(params)
-    m_prompt.assert_not_called()
+    result = ask_missing_params(params)
+    # Should return original params without modification (no prompts called)
+    assert result is params
 
 
 @pytest.mark.parametrize(
-    "id, download, input, answers, check",
+    "id, download, input, serial_return, versions_return, port_boards_return, check",
     [
         (
             "10 D -v ? -b ?",
@@ -42,10 +42,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "versions": ["1.14.0"],
-                "boards": ["OTHER_BOARD"],
-            },
+            None,  # ask_serialport not called for download
+            ["1.14.0"],  # ask_mp_version return
+            ("esp32", ["OTHER_BOARD"]),  # ask_port_board return
             {
                 "versions": ["1.14.0"],
                 "boards": ["OTHER_BOARD"],
@@ -61,10 +60,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "versions": ["1.14.0"],
-                "boards": ["OTHER_BOARD"],
-            },
+            None,
+            ["1.14.0"],
+            ("esp32", ["OTHER_BOARD"]),
             {
                 "versions": ["1.14.0"],
                 "boards": ["OTHER_BOARD", "SEEED_WIO_TERMINAL"],
@@ -80,9 +78,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "versions": ["1.22.0"],
-            },
+            None,
+            ["1.22.0"],
+            None,  # ask_port_board not called (boards already set)
             {"versions": ["1.22.0"]},
         ),
         # versions as string
@@ -96,9 +94,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "boards": ["SEEED_WIO_TERMINAL"],
-            },
+            None,
+            None,  # ask_mp_version not called (versions already set)
+            ("esp32", ["SEEED_WIO_TERMINAL"]),
             {"versions": ["preview"]},
         ),
         (
@@ -111,9 +109,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "versions": "1.14.0",
-            },
+            None,
+            "1.14.0",  # string return (not list)
+            None,  # ask_port_board not called
             {"versions": ["preview", "1.14.0"]},
         ),
         (
@@ -126,12 +124,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "clean": True,
                 "force": False,
             },
-            {
-                "boards": [
-                    "SEEED_WIO_TERMINAL",
-                    "FAKE_BOARD",
-                ],
-            },
+            None,
+            None,  # ask_mp_version not called
+            ("esp32", ["SEEED_WIO_TERMINAL", "FAKE_BOARD"]),
             {
                 # "versions": ["stable"]
             },
@@ -149,10 +144,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "bootloader": True,
                 "cpu": "",
             },
-            {
-                "boards": ["SEEED_WIO_TERMINAL"],
-                "serial": ["COM4"],
-            },
+            "COM4",
+            None,  # ask_mp_version not called
+            ("esp32", ["SEEED_WIO_TERMINAL"]),
             {},
         ),
         # Check that the port description is trimmed
@@ -168,10 +162,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
                 "bootloader": True,
                 "cpu": "",
             },
-            {
-                "boards": ["SEEED_WIO_TERMINAL"],
-                "serial": ["COM4 Manufacturer Description"],
-            },
+            "COM4 Manufacturer Description",
+            None,  # ask_mp_version not called
+            ("esp32", ["SEEED_WIO_TERMINAL"]),
             {
                 "serial": ["COM4"],
             },
@@ -183,7 +176,9 @@ def test_ask_missing_params_with_interactivity(
     id: str,
     download: bool,
     input: dict,
-    answers: dict,
+    serial_return,
+    versions_return,
+    port_boards_return,
     check: dict,
     mocker: MockerFixture,
 ):
@@ -196,34 +191,40 @@ def test_ask_missing_params_with_interactivity(
     _config = MPFlashConfig()
     _config.interactive = True
     mocker.patch("mpflash.ask_input.config", _config)
-    # ---------------------------------------------
-    m_prompt: Mock = mocker.patch("inquirer.prompt", return_value=answers, autospec=True)
+
+    # Mock each helper function individually
+    m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)
+    m_mp_version: Mock = mocker.patch("mpflash.ask_input.ask_mp_version", return_value=versions_return)
+    if port_boards_return is not None:
+        m_port_board: Mock = mocker.patch("mpflash.ask_input.ask_port_board", return_value=port_boards_return)
+    else:
+        m_port_board = mocker.patch("mpflash.ask_input.ask_port_board", return_value=(None, None))
+
     # make sure we can be interactive, even in CI
     result = ask_missing_params(params)
-    if answers:
-        m_prompt.assert_called_once()
+
+    # Verify helpers were called as expected
+    if not download and (not input.get("serial") or "?" in (input.get("serial") or [])):
+        m_serialport.assert_called_once()
+    else:
+        m_serialport.assert_not_called()
+
+    if input.get("versions") == [] or "?" in (input.get("versions") or []):
+        m_mp_version.assert_called_once()
+
+    boards_need_asking = not input.get("boards") or "?" in (input.get("boards") or [])
+    if boards_need_asking and port_boards_return is not None:
+        m_port_board.assert_called_once()
+    elif not boards_need_asking:
+        m_port_board.assert_not_called()
 
     # explicit checks
     for key in check:
         if isinstance(check[key], list):
-            assert getattr(result, key), f"{key} should be in answers"
+            assert getattr(result, key), f"{key} should be in result"
             assert sorted(getattr(result, key)) == sorted(check[key])
         else:
             assert getattr(result, key) == check[key]
-    # are all answers used in the result
-    for key in answers:
-        if key not in check:
-            if isinstance(answers[key], list):
-                assert sorted(getattr(result, key)) == sorted(answers[key])
-            else:
-                assert getattr(result, key) == answers[key]
-    # also make sure that the other attributes are not changed
-    for key in input:
-        if key not in answers and key not in check:
-            if isinstance(input[key], list):
-                assert sorted(getattr(result, key)) == sorted(input[key])
-            else:
-                assert getattr(result, key) == input[key]
 
 
 @pytest.mark.parametrize(

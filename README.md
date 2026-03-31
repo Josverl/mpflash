@@ -8,6 +8,8 @@
 
 This tool was initially created to be used in a CI/CD pipeline to automate the process of downloading and flashing MicroPython firmware to multiple boards, but it has been extend with a TUI to be used for manual downloadig, flashing and development.
 
+The interactive prompts use [**rich-inquirer**](https://pypi.org/project/rich-inquirer/) for a modern, keyboard-navigable TUI experience that integrates visually with Rich terminal output.  Selection lists, fuzzy search, and multi-select are all rendered with Rich styling.  A standard terminal (VT100-compatible) is required; redirected or non-interactive stdin (e.g. CI pipelines) will automatically skip interactive prompts.
+
 `mpflash` has been tested on:  
  - OS: Windows x64, Linux X64, and macOS.
  - Micropython (hardware) ports: 

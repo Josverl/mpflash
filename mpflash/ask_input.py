@@ -1,11 +1,11 @@
 """
-Interactive input for mpflash.
+Interactive input for mpflash using rich-inquirer for a modern TUI experience.
 
-Note: The prompts can use "{version}" and "{action}" to insert the version and action in the prompt without needing an f-string.
-The values are provided from the answers dictionary.
+Prompts are rendered with Rich styling and support keyboard navigation,
+fuzzy search (version picker), and multi-select (download mode).
 """
 
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from loguru import logger as log
 
@@ -20,63 +20,70 @@ def ask_missing_params(
     params: ParamType,
 ) -> ParamType:
     """
-    Asks the user for parameters that have not been supplied on the commandline and returns the updated params.
+    Asks the user for parameters not supplied on the command line and returns updated params.
+
+    Runs interactive rich-inquirer prompts for serial port, firmware version,
+    and board selection.  Returns an empty list if the user cancels any prompt.
 
     Args:
-        params (ParamType): The parameters to be updated.
+        params: The parameters to be updated.
 
     Returns:
-        ParamType: The updated parameters.
+        The updated parameters, or an empty list if the user cancelled.
     """
     if not config.interactive:
         # no interactivity allowed
         log.info("Interactive mode disabled. Skipping ask for user input.")
         return params
 
-    import inquirer
-
     log.trace(f"ask_missing_params: {params}")
 
-    # if action flash,  single input
-    # if action download, multiple input
+    # if action flash, single input; if action download, multiple input
     multi_select = isinstance(params, DownloadParams)
     action = "download" if isinstance(params, DownloadParams) else "flash"
 
-    questions = []
     answers: Dict[str, Union[str, List]] = {"action": action}
+
+    # Ask for serial port (flash mode only)
     if not multi_select:
         if not params.serial or "?" in params.serial:
-            questions.append(ask_serialport(multi_select=False, bluetooth=False))
+            serial = ask_serialport(multi_select=False, bluetooth=False)
+            if serial is None:
+                return []  # type: ignore
+            answers["serial"] = serial
         else:
             answers["serial"] = params.serial
 
+    # Ask for firmware version(s) when not already provided
     if params.versions == [] or "?" in params.versions:
-        questions.append(ask_mp_version(multi_select=multi_select, action=action))
+        versions = ask_mp_version(
+            multi_select=multi_select,
+            action=action,
+            serial=str(answers.get("serial", "")),
+        )
+        if versions is None:
+            return []  # type: ignore
+        answers["versions"] = versions
     else:
         # versions is used to show only the boards for the selected versions
         answers["versions"] = params.versions  # type: ignore
 
+    # Ask for port and board(s) when not already provided
     if not params.boards or "?" in params.boards:
-        questions.extend(ask_port_board(multi_select=multi_select, action=action))
-    if questions:
-        # Store the pre-existing answers before prompting
-        pre_existing_answers = dict(answers)
-        prompted_answers = inquirer.prompt(questions, answers=answers)  # type: ignore
-        if not prompted_answers:
-            # input cancelled by user
+        port, boards = ask_port_board(multi_select=multi_select, action=action, answers=answers)
+        if port is None or boards is None:
             return []  # type: ignore
-        # Merge pre-existing answers with prompted answers
-        answers = {**pre_existing_answers, **prompted_answers}
-    if not answers:
-        # input cancelled by user
-        return []  # type: ignore
+        answers["port"] = port
+        answers["boards"] = boards
+
     log.trace(f"answers: {answers}")
+
     if isinstance(params, FlashParams) and "serial" in answers:
         if isinstance(answers["serial"], str):
             answers["serial"] = [answers["serial"]]
-        params.serial = [s.split()[0] for s in answers["serial"]]  # split to remove the description
+        params.serial = [s.split()[0] for s in answers["serial"]]  # strip description
+
     if "port" in answers:
-        #  params.ports = [p for p in params.ports if p != "?"]  # remove the "?" if present
         if isinstance(answers["port"], str):
             params.ports.append(answers["port"])
         elif isinstance(answers["port"], list):  # type: ignore
@@ -85,15 +92,16 @@ def ask_missing_params(
             raise ValueError(f"Unexpected type for answers['port']: {type(answers['port'])}")
 
     if "boards" in answers:
-        params.boards = [b for b in params.boards if b != "?"]  # remove the "?" if present
+        params.boards = [b for b in params.boards if b != "?"]  # remove placeholder
         params.boards.extend(answers["boards"] if isinstance(answers["boards"], list) else [answers["boards"]])
+
     if "versions" in answers:
-        params.versions = [v for v in params.versions if v != "?"]  # remove the "?" if present
-        # make sure it is a list
+        params.versions = [v for v in params.versions if v != "?"]  # remove placeholder
         if isinstance(answers["versions"], (list, tuple)):
             params.versions.extend(answers["versions"])
         else:
             params.versions.append(answers["versions"])
+
     # remove duplicates
     params.ports = list(set(params.ports))
     params.boards = list(set(params.boards))
@@ -179,107 +187,127 @@ def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
     return some_boards
 
 
-def ask_port_board(*, multi_select: bool, action: str):
+def ask_port_board(*, multi_select: bool, action: str, answers: dict) -> Tuple[Optional[str], Optional[List[str]]]:
     """
-    Asks the user for the port and board selection.
+    Runs port and board selection prompts interactively using rich-inquirer.
+
+    Asks the user to select a port first, then filters boards by port and
+    selected versions before asking for board selection.
 
     Args:
-        questions (list): The list of questions to be asked.
-        action (str): The action to be performed.
+        multi_select: Whether to allow multiple board selections (download mode).
+        action: The action being performed ('flash' or 'download').
+        answers: Current answers dict used for message context and board filtering.
 
     Returns:
-        None
+        Tuple of (port, boards) or (None, None) if the user cancelled.
     """
     # import only when needed to reduce load time
-    import inquirer
+    from rich_inquirer.prompt import MultiSelectPrompt, SelectPrompt
 
-    # if action flash,  single input
-    # if action download, multiple input
-    inquirer_ux = inquirer.Checkbox if multi_select else inquirer.List
-    return [
-        inquirer.List(
-            "port",
-            message="Which port do you want to {action} " + "to {serial} ?" if action == "flash" else "?",
-            choices=known_ports(),
-            # autocomplete=True,
-        ),
-        inquirer_ux(
-            "boards",
-            message=("Which {port} board firmware do you want to {action} " + "to {serial} ?" if action == "flash" else "?"),
-            choices=filter_matching_boards,
-            validate=at_least_one_validation,  # type: ignore
-            # validate=lambda _, x: True if x else "Please select at least one board",  # type: ignore
-        ),
-    ]
+    serial = str(answers.get("serial", ""))
+    suffix = f" to {serial}" if serial and action == "flash" else ""
+
+    # Ask for port
+    ports = known_ports()
+    if not ports:
+        log.warning("No known ports found in database.")
+        return None, None
+
+    port_prompt = SelectPrompt(
+        message=f"Which port do you want to {action}{suffix}?",
+        choices=ports,
+    )
+    port = port_prompt.ask()
+    if port is None:
+        return None, None
+
+    # Get board choices based on selected port and current version answers
+    answers_with_port = {**answers, "port": port}
+    board_choices = list(filter_matching_boards(answers_with_port))
+    boards_message = f"Which {port} board firmware do you want to {action}{suffix}?"
+
+    if multi_select:
+        from rich.console import Console
+
+        _console = Console()
+        while True:
+            boards_prompt = MultiSelectPrompt(message=boards_message, choices=board_choices)
+            boards = boards_prompt.ask()
+            if boards is None:
+                return port, None
+            if boards:
+                return port, boards
+            _console.print("[red]Please select at least one board.[/red]")
+    else:
+        boards_prompt = SelectPrompt(message=boards_message, choices=board_choices)
+        boards = boards_prompt.ask()
+        if boards is None:
+            return port, None
+        return port, [boards] if isinstance(boards, str) else boards
 
 
-def at_least_one_validation(answers, current) -> bool:
-    import inquirer.errors
-
-    if not current:
-        raise inquirer.errors.ValidationError("", reason="Please select at least one item.")
-    if isinstance(current, list) and not any(current):
-        raise inquirer.errors.ValidationError("", reason="Please select at least one item.")
-    return True
-
-
-def ask_mp_version(multi_select: bool, action: str):
+def ask_mp_version(multi_select: bool, action: str, serial: str = "") -> Optional[Union[str, List[str]]]:
     """
-    Asks the user for the version selection.
+    Runs firmware version selection prompt interactively using rich-inquirer.
+
+    Uses FuzzyPrompt for single selection (flash) and MultiSelectPrompt for
+    multiple selections (download) with a validation loop.
 
     Args:
-        questions (list): The list of questions to be asked.
-        action (str): The action to be performed.
+        multi_select: Whether to allow selecting multiple versions.
+        action: The action being performed ('flash' or 'download').
+        serial: Current serial port string (for message context in flash mode).
 
     Returns:
-
+        Selected version string, list of version strings, or None if cancelled.
     """
     # import only when needed to reduce load time
-    import inquirer
-    import inquirer.errors
+    from rich.console import Console
+    from rich_inquirer.prompt import FuzzyPrompt, MultiSelectPrompt
 
-    input_ux = inquirer.Checkbox if multi_select else inquirer.List
-
+    _console = Console()
     mp_versions: List[str] = micropython_versions()
     mp_versions.reverse()  # newest first
 
     # remove the versions for which there are no known boards in the board_info.json
-    # todo: this may be a little slow
     mp_versions = [v for v in mp_versions if "preview" in v or get_known_boards_for_port("stm32", [v])]
 
-    message = "Which version(s) do you want to {action} " + ("to {serial} ?" if action == "flash" else "?")
-    q = input_ux(
-        # inquirer.List(
-        "versions",
-        message=message,
-        # Hints would be nice , but needs a hint for each and every option
-        # hints=["Use space to select multiple options"],
-        choices=mp_versions,
-        autocomplete=True,
-        validate=at_least_one_validation,  # type: ignore
-    )
-    return q
+    suffix = f" to {serial}" if serial and action == "flash" else ""
+    message = f"Which version(s) do you want to {action}{suffix}?"
+
+    if multi_select:
+        while True:
+            prompt = MultiSelectPrompt(message=message, choices=mp_versions)
+            result = prompt.ask()
+            if result is None:
+                return None
+            if result:
+                return result
+            _console.print("[red]Please select at least one version.[/red]")
+    else:
+        # FuzzyPrompt provides autocomplete-style search for single selection
+        prompt = FuzzyPrompt(message=message, choices=mp_versions, limit=15)
+        return prompt.ask()
 
 
-def ask_serialport(*, multi_select: bool = False, bluetooth: bool = False):
+def ask_serialport(*, multi_select: bool = False, bluetooth: bool = False) -> Optional[str]:
     """
-    Asks the user for the serial port selection.
+    Runs serial port selection prompt interactively using rich-inquirer.
 
     Args:
-        questions (list): The list of questions to be asked.
-        action (str): The action to be performed.
+        multi_select: Reserved for future multi-select support (currently unused).
+        bluetooth: Whether to include Bluetooth serial ports in the list.
 
     Returns:
-        None
+        Selected serial port string (may include description), or None if cancelled.
     """
     # import only when needed to reduce load time
-    import inquirer
+    from rich_inquirer.prompt import SelectPrompt
 
     comports = MPRemoteBoard.connected_comports(bluetooth=bluetooth, description=True) + ["auto"]
-    return inquirer.List(
-        "serial",
-        message="Which serial port do you want to {action} ?",
+    prompt = SelectPrompt(
+        message="Which serial port do you want to use?",
         choices=comports,
-        other=True,
-        validate=lambda _, x: True if x else "Please select or enter a serial port",  # type: ignore
     )
+    return prompt.ask()
