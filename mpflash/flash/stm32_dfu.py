@@ -48,14 +48,16 @@ def flash_stm32_dfu(
     fw_file: Path,
     *,
     erase: bool = True,
+    address: int = 0x08000000,
 ) -> Optional[MPRemoteBoard]:
     """
     Flashes the STM32 microcontroller using DFU (Device Firmware Upgrade).
 
     Args:
         mcu (MPRemoteBoard): The remote board to flash.
-        fw_file (Path): The path to the firmware file (.dfu).
+        fw_file (Path): The path to the firmware file (.dfu or .bin).
         erase (bool, optional): Whether to erase the memory before flashing. Defaults to True.
+        address (int, optional): Target memory address for .bin files. Defaults to 0x08000000.
 
     Returns:
         Optional[MPRemoteBoard]: The flashed remote board if successful, None otherwise.
@@ -70,8 +72,8 @@ def flash_stm32_dfu(
         log.error(f"File {fw_file} not found")
         return None
 
-    if fw_file.suffix != ".dfu":
-        log.error(f"File {fw_file} is not a .dfu file")
+    if fw_file.suffix not in (".dfu", ".bin"):
+        log.error(f"File {fw_file} is not a .dfu or .bin file")
         return None
 
     kwargs = {"idVendor": 0x0483, "idProduct": 0xDF11}
@@ -90,11 +92,15 @@ def flash_stm32_dfu(
         log.info("Mass erase...")
         pydfu.mass_erase()
 
-    log.debug("Read DFU file...")
-    elements = pydfu.read_dfu_file(fw_file)
+    if fw_file.suffix == ".bin":
+        log.debug(f"Read .bin file at address 0x{address:08x}...")
+        elements = pydfu.read_bin_file(fw_file, address)
+    else:
+        log.debug("Read DFU file...")
+        elements = pydfu.read_dfu_file(fw_file)
     if not elements:
-        print("No data in dfu file")
-        return
+        log.error("No data in firmware file")
+        return None
     log.info("Writing memory...")
     pydfu.write_elements(elements, False, progress=pydfu.cli_progress)
 
