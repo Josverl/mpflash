@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -38,7 +37,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["?"],
                 "boards": ["?"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -56,7 +54,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["?"],
                 "boards": ["?", "SEEED_WIO_TERMINAL"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -74,7 +71,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["?"],
                 "boards": ["SEEED_WIO_TERMINAL"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -90,7 +86,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["preview"],
                 "boards": ["?"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -105,7 +100,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["preview", "?"],
                 "boards": ["SEEED_WIO_TERMINAL"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -120,7 +114,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["stable"],
                 "boards": [],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "clean": True,
                 "force": False,
             },
@@ -138,10 +131,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["preview"],
                 "boards": ["?"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "serial": [],
                 "erase": True,
-                "bootloader": True,
+                "bootloader": "auto",
                 "cpu": "",
             },
             "COM4",
@@ -156,10 +148,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["preview"],
                 "boards": ["?"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "serial": [],
                 "erase": True,
-                "bootloader": True,
+                "bootloader": "auto",
                 "cpu": "",
             },
             "COM4",
@@ -174,10 +165,9 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
             {
                 "versions": ["preview"],
                 "boards": ["?"],
-                "fw_folder": Path("C:/Users/josverl/Downloads/firmware"),
                 "serial": [],
                 "erase": True,
-                "bootloader": True,
+                "bootloader": "auto",
                 "cpu": "",
             },
             "COM4 Manufacturer Description",
@@ -189,7 +179,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
         ),
     ],
 )
-@pytest.mark.xfail(reason="Cant get test to work in CI :-(")
 def test_ask_missing_params_with_interactivity(
     id: str,
     download: bool,
