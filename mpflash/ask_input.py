@@ -1,5 +1,5 @@
 """
-Interactive input for mpflash using richui for a modern TUI experience.
+Interactive input for mpflash using questionary for a cross-platform TUI experience.
 
 Port selection uses tab-completion from a list.  Board-variant selection uses
 tab-completion from a ``{board_id: variant_hint}`` dict — the user types a
@@ -23,14 +23,50 @@ from .versions import clean_version, micropython_versions
 
 
 # ---------------------------------------------------------------------------
-# Module-level lazy Richui instance (avoids paying import cost at startup)
+# Questionary-based input helpers (cross-platform replacement for richui)
 # ---------------------------------------------------------------------------
 
-def _ui():
-    """Return a shared Richui instance, imported on first use."""
-    from richui import Richui
 
-    return Richui()
+def _ask_with_completion(
+    prompt: str,
+    completion,
+    meta: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
+    """Ask for input with tab-completion using questionary."""
+    import questionary
+
+    choices = list(completion.keys()) if isinstance(completion, dict) else list(completion)
+
+    q = questionary.autocomplete(
+        prompt,
+        choices=choices,
+        match_middle=True,
+        complete_while_typing=True,
+        meta_information=meta,
+        validate=lambda val: bool(val) or "Please select an option (Ctrl-C to abort).",
+    )
+
+    def _open_completions() -> None:
+        q.application.current_buffer.start_completion(select_first=False)
+
+    try:
+        return q.application.run(pre_run=_open_completions)
+    except KeyboardInterrupt:
+        return None
+
+
+def _ask_select(
+    options: List[str],
+    *,
+    prompt: str,
+    multi_select: bool,
+) -> Optional[Union[str, List[str]]]:
+    """Select from a list using questionary (single or multi-select)."""
+    import questionary
+
+    if multi_select:
+        return questionary.checkbox(prompt, choices=options).ask()
+    return questionary.select(prompt, choices=options).ask()
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +95,9 @@ def ask_missing_params(
         return params
 
     log.trace(f"ask_missing_params: {params}")
+
+    from rich.console import Console
+    Console().print("[dim]Type to filter, Tab to complete, Enter confirms[/dim]")
 
     multi_select = isinstance(params, DownloadParams)
     action = "download" if isinstance(params, DownloadParams) else "flash"
@@ -89,7 +128,8 @@ def ask_missing_params(
         answers["versions"] = params.versions  # type: ignore
 
     # Port, board(s), and variant
-    if not params.boards or "?" in params.boards:
+    variant_unknown = isinstance(params, FlashParams) and params.variant == "?"
+    if not params.boards or "?" in params.boards or variant_unknown:
         port, boards, variant = ask_port_board_variant(
             multi_select=multi_select,
             action=action,
@@ -216,11 +256,11 @@ def ask_port_board_variant(
 
     For flash mode (``multi_select=False``), displays a Rich tree of all
     available boards grouped by base board with variants indented, then uses
-    richui ``input(completion=dict)`` so the user can type and Tab-complete
+    questionary ``autocomplete`` so the user can type and Tab-complete
     a full ``board[-variant]`` identifier.
 
-    For download mode (``multi_select=True``), uses richui ``select`` with
-    multi-select enabled.
+    For download mode (``multi_select=True``), uses questionary ``checkbox``
+    with multi-select enabled.
 
     Args:
         multi_select: True for download (multiple boards), False for flash.
@@ -235,11 +275,7 @@ def ask_port_board_variant(
     # import only when needed to reduce load time
     from rich.console import Console
 
-    ui = _ui()
     _console = Console()
-
-    serial = str(answers.get("serial", ""))
-    suffix = f" to {serial}" if serial and action == "flash" else ""
 
     # --- Port -----------------------------------------------------------
     ports = known_ports()
@@ -247,10 +283,11 @@ def ask_port_board_variant(
         log.warning("No known ports found in database.")
         return None, None, None
 
-    port = ui.input(
-        f"Which port do you want to {action}{suffix}?",
-        completion=ports,
-        footer="<Tab to complete, Enter to confirm>",
+    port_meta = _port_meta()
+    port = _ask_with_completion(
+        f"Port to {action}?",
+        ports,
+        meta=port_meta,
     )
     if not port or port not in ports:
         return None, None, None
@@ -269,17 +306,22 @@ def ask_port_board_variant(
         boards_dict = {bid: "" for display, bid in board_choices if bid}
 
     # Display a rich Tree so the user sees the hierarchy before typing
-    _print_board_tree(port=port, boards_dict=boards_dict, console=_console)
+    # (omitted — options are available via Tab completion)
 
-    boards_message = f"Which {port} board firmware do you want to {action}{suffix}?"
+    boards_message = f"{port.upper()} board to {action}?"
+
+    # Build a mapping from base board name -> list of full board_ids (with variants)
+    base_to_variants: Dict[str, List[str]] = {}
+    for board_id in boards_dict:
+        base, _ = _split_board_variant(board_id)
+        base_to_variants.setdefault(base, []).append(board_id)
 
     if multi_select:
         board_options = list(boards_dict.keys())
         while True:
-            selected = ui.select(
+            selected = _ask_select(
                 board_options,
                 prompt=boards_message,
-                footer="<Space to toggle, Enter to confirm>",
                 multi_select=True,
             )
             if selected is None:
@@ -288,18 +330,34 @@ def ask_port_board_variant(
                 return port, list(selected), ""
             _console.print("[red]Please select at least one board.[/red]")
     else:
+        # Step 1: pick from unique base board names only
+        base_boards = sorted(base_to_variants.keys())
         while True:
-            board_input = ui.input(
-                boards_message,
-                completion=boards_dict,
-                footer="<Tab to complete board[-variant], Enter to confirm>",
-            )
-            if not board_input:
+            base_input = _ask_with_completion(boards_message, base_boards)
+            if not base_input:
                 return port, None, None
-            if board_input in boards_dict:
-                base_board, variant = _split_board_variant(board_input)
-                return port, [base_board], variant
-            _console.print(f"[red]Unknown board {board_input!r}. Use Tab to see valid choices.[/red]")
+            if base_input in base_to_variants:
+                break
+            _console.print(f"[red]Unknown board {base_input!r}.[/red]")
+
+        # Step 2: if multiple variants exist, ask which one
+        variants = base_to_variants[base_input]
+        if len(variants) == 1:
+            full_id = variants[0]
+        else:
+            while True:
+                full_id = _ask_with_completion(
+                    f"Variant to {action}?",
+                    variants,
+                )
+                if not full_id:
+                    return port, None, None
+                if full_id in variants:
+                    break
+                _console.print(f"[red]Unknown variant {full_id!r}.[/red]")
+
+        base_board, variant = _split_board_variant(full_id)
+        return port, [base_board], variant
 
 
 def ask_port_board(
@@ -332,7 +390,7 @@ def ask_mp_version(
     serial: str = "",
 ) -> Optional[Union[str, List[str]]]:
     """
-    Ask for firmware version(s) interactively using richui.
+    Ask for firmware version(s) interactively using questionary.
 
     For single selection (flash), uses ``input`` with tab-completion from the
     version list.  For multi-selection (download), uses ``select`` with
@@ -350,21 +408,18 @@ def ask_mp_version(
     from rich.console import Console
 
     _console = Console()
-    ui = _ui()
 
     mp_versions: List[str] = micropython_versions()
     mp_versions.reverse()  # newest first
     mp_versions = [v for v in mp_versions if "preview" in v or get_known_boards_for_port("stm32", [v])]
 
-    suffix = f" to {serial}" if serial and action == "flash" else ""
-    message = f"Which version(s) do you want to {action}{suffix}?"
+    message = f"Version(s) to {action}?"
 
     if multi_select:
         while True:
-            result = ui.select(
+            result = _ask_select(
                 mp_versions,
                 prompt=message,
-                footer="<Space to toggle, Enter to confirm>",
                 multi_select=True,
             )
             if result is None:
@@ -373,10 +428,9 @@ def ask_mp_version(
                 return list(result)
             _console.print("[red]Please select at least one version.[/red]")
     else:
-        result = ui.input(
+        result = _ask_with_completion(
             message,
-            completion=mp_versions,
-            footer="<Tab to complete, Enter to confirm>",
+            mp_versions,
         )
         return result if result else None
 
@@ -397,14 +451,15 @@ def ask_serialport(
         Selected serial port string (may include a description suffix) or
         ``None`` if the user cancelled.
     """
-    # import only when needed to reduce load time
-    ui = _ui()
+    from rich.console import Console
+    from rich.tree import Tree
 
+    _console = Console()
     comports = MPRemoteBoard.connected_comports(bluetooth=bluetooth, description=True) + ["auto"]
-    result = ui.input(
-        "Which serial port do you want to use?",
-        completion=comports,
-        footer="<Tab to complete, Enter to confirm>",
+
+    result = _ask_with_completion(
+        "Serial port to use?",
+        comports,
     )
     return result if result else None
 
@@ -412,6 +467,26 @@ def ask_serialport(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _port_meta() -> Dict[str, str]:
+    """Build a meta-information dict describing each port's flash/download support."""
+    from .common import PORT_FWTYPES, SA_PORTS
+    from .mpboard_id import known_ports
+
+    meta: Dict[str, str] = {}
+    for port in PORT_FWTYPES:
+        exts = ", ".join(PORT_FWTYPES[port])
+        meta[port] = f"flash ({exts})"
+    for port in SA_PORTS:
+        meta[port] = "n/a"
+    try:
+        for port in known_ports():
+            if port not in meta:
+                meta[port] = "not yet supported"
+    except Exception:
+        pass
+    return meta
 
 
 def _resolve_versions(versions: List[str]) -> List[str]:

@@ -154,8 +154,10 @@ def cli_flash_board(**kwargs) -> int:
     params.bootloader = BootloaderMethod(params.bootloader)
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
-    if params.boards == ["?"] or params.serial == "?":
+    if params.boards == ["?"] or params.serial == "?" :#  or params.variant == "?":
         params.serial = ["?"]
+        # if params.variant == "?":
+        #     params.boards = ["?"]  # trigger full interactive board+variant flow
         if params.boards == ["*"]:
             # No bard specified
             params.boards = ["?"]
@@ -233,10 +235,11 @@ def cli_flash_board(**kwargs) -> int:
             include=params.serial,
             bluetooth=params.bluetooth,
         )
+        board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
         tasks = create_worklist(
             params.versions[0],
             serial_ports=comports,
-            board_id=params.boards[0],
+            board_id=board_id,
             port=params.ports[0] if params.ports else None,
         )
     else:
