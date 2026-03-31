@@ -24,6 +24,7 @@ def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
     mocker.patch("mpflash.db.loader.load_jsonl_to_db", return_value=None)
     mocker.patch("mpflash.db.loader.update_boards", return_value=None)
     mocker.patch("mpflash.db.core.create_database", return_value=None)
+    mocker.patch("mpflash.db.core.run_schema_migrations", return_value=None)
 
     from mpflash.db.core import migrate_database
 
@@ -52,8 +53,7 @@ def test_load_jsonl_to_db_mocked(mocker: MockerFixture, test_fw_path):
         ("fake", "NO_BOARD", "1.22.2", False),
     ],
 )
-def test_find_downloaded_firmware(port, board_id, version, OK, mocker: MockerFixture, session_fx):
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+def test_find_downloaded_firmware(port, board_id, version, OK, session_fx):
 
     result = find_downloaded_firmware(
         version=version,
@@ -85,7 +85,7 @@ def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_
     firmware and vice-versa. This guards against the regression where
     --port esp32 --board GENERIC would incorrectly return ESP8266 firmware.
     """
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+
 
     # Search using the new ESP32_GENERIC name with explicit esp32 port
     esp32_results = find_downloaded_firmware(version="v1.24.1", board_id="ESP32_GENERIC", port="esp32")
@@ -113,7 +113,7 @@ def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_
 
 def test_find_downloaded_firmware_preview_exact_match(mocker: MockerFixture, session_fx):
     """Preview firmware is found by exact board_id match (covers lines 70-80)."""
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+
 
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="ESP32_GENERIC", port="esp32")
     assert result, "Should find preview firmware"
@@ -125,7 +125,7 @@ def test_find_downloaded_firmware_preview_exact_match(mocker: MockerFixture, ses
 
 def test_find_downloaded_firmware_preview_with_alternate_name(mocker: MockerFixture, session_fx):
     """Preview firmware found via alternate board names with port (covers lines 91-97)."""
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+
 
     # PICO → RPI_PICO alternate name path for preview, with port filter (line 92→93 True branch)
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="PICO", port="rp2")
@@ -137,7 +137,7 @@ def test_find_downloaded_firmware_preview_with_alternate_name(mocker: MockerFixt
 
 def test_find_downloaded_firmware_preview_alternate_no_port(mocker: MockerFixture, session_fx):
     """Preview firmware via alternate names without port covers the line 92 False branch."""
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+
 
     # No port provided → the 'if port:' on line 92 is False
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="PICO")
@@ -148,7 +148,7 @@ def test_find_downloaded_firmware_preview_alternate_no_port(mocker: MockerFixtur
 
 def test_find_downloaded_firmware_preview_no_port(mocker: MockerFixture, session_fx):
     """Preview firmware search without port still returns results (covers port-filter branch)."""
-    mocker.patch("mpflash.downloaded.Session", session_fx)
+
 
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="ESP32_GENERIC")
     assert result, "Should find preview firmware even without port"

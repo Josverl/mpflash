@@ -1,85 +1,91 @@
 from pathlib import Path
-from typing import Union
 
-import sqlalchemy as sa
-from sqlalchemy import Index, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, composite, mapped_column, relationship
+import peewee
 
-
-class Base(DeclarativeBase):
-    pass
+# Module-level database instance; will be initialised by core.py
+database = peewee.SqliteDatabase(None)
 
 
-class Metadata(Base):
-    """
-    Configuration information.
-    """
+class BaseModel(peewee.Model):
+    """Base model that all models inherit from."""
 
-    __tablename__ = "metadata"
-    name: Mapped[str] = mapped_column(primary_key=True, unique=True)
-    value: Mapped[str] = mapped_column()
+    class Meta:
+        database = database
+
+
+class Metadata(BaseModel):
+    """Configuration information."""
+
+    name = peewee.CharField(primary_key=True)
+    value = peewee.TextField(default="")
+
+    class Meta:
+        table_name = "metadata"
 
     def __repr__(self) -> str:
-        return f"Config(boards_version={self.name!r}, schema_version={self.value!r})"
+        return f"Config(name={self.name!r}, value={self.value!r})"
 
 
-class Board(Base):
-    """
-    All known Boards model for storing board information.
-    """
+class Board(BaseModel):
+    """All known Boards model for storing board information."""
 
-    __tablename__ = "boards"
-    __table_args__ = (sa.UniqueConstraint("board_id", "version"),)
+    board_id = peewee.CharField(max_length=40)
+    version = peewee.CharField(max_length=12)
+    board_name = peewee.TextField(default="")
+    mcu = peewee.TextField(default="")
+    variant = peewee.TextField(default="")
+    port = peewee.CharField(max_length=30, default="")
+    path = peewee.TextField(default="")  # Path in micropython repo as_posix()
+    description = peewee.TextField(default="")
+    family = peewee.TextField(default="micropython")
+    custom = peewee.BooleanField(default=False)  # True if this is a custom board
 
-    board_id: Mapped[str] = mapped_column(String(40), primary_key=True, unique=False)
-    version: Mapped[str] = mapped_column(String(12), primary_key=True, unique=False)
-    board_name: Mapped[str] = mapped_column()
-    mcu: Mapped[str] = mapped_column()
-    variant: Mapped[str] = mapped_column(default="")
-    port: Mapped[str] = mapped_column(String(30))
-    path: Mapped[str] = mapped_column(comment="Path in micropyton repo as_posix()")
-    description: Mapped[str] = mapped_column()
-    family: Mapped[str] = mapped_column(default="micropython")
-    custom: Mapped[bool] = mapped_column(default=False, comment="True if this is a custom board")
-    firmwares = relationship(
-        "Firmware",
-        back_populates="board",
-        lazy="joined",
-    )
+    class Meta:
+        table_name = "boards"
+        primary_key = peewee.CompositeKey("board_id", "version")
+        indexes = (
+            (("board_id", "version"), True),  # unique composite index
+        )
 
-    board_key = composite(lambda board_id, version: f"{board_id}_{version}", board_id, version)
+    @property
+    def board_key(self) -> str:
+        """Composite key combining board_id and version."""
+        return f"{self.board_id}_{self.version}"
+
+    @property
+    def firmwares(self):
+        """Return all firmware records for this board."""
+        return Firmware.select().where(
+            (Firmware.board_id == self.board_id) & (Firmware.version == self.version)
+        )
 
     def __repr__(self) -> str:
         return f"Board(board_id={self.board_id!r}, version={self.version!r}, board_name={self.board_name!r})"
 
 
-class Firmware(Base):
-    """
-    Firmware model for storing firmware information.
-    """
+class Firmware(BaseModel):
+    """Firmware model for storing firmware information."""
 
-    __tablename__ = "firmwares"
-    __table_args__ = (
-        sa.ForeignKeyConstraint(["board_id", "version"], ["boards.board_id", "boards.version"]),
-        {"sqlite_autoincrement": False},
-    )
+    board_id = peewee.CharField(max_length=40)
+    version = peewee.CharField(max_length=12)
+    firmware_file = peewee.TextField(index=True)  # Path to the firmware file
+    port = peewee.CharField(max_length=20, default="")  # duplicate of board.port
+    description = peewee.TextField(default="")
+    source = peewee.TextField(default="")
+    build = peewee.IntegerField(default=0)  # Build number
+    custom = peewee.BooleanField(default=False)  # True if this is a custom firmware
+    custom_id = peewee.CharField(max_length=40, null=True, default=None)
 
-    board_id: Mapped[str] = mapped_column(String(40), primary_key=True)
-    version: Mapped[str] = mapped_column(String(12), primary_key=True)
-    firmware_file: Mapped[str] = mapped_column(String, primary_key=True, index=True, comment="Path to the firmware file")
-    # Relationship to Board
-    board: Mapped["Board"] = relationship(
-        "Board",
-        back_populates="firmwares",
-        lazy="joined",
-        primaryjoin="and_(Firmware.board_id==Board.board_id, Firmware.version==Board.version)",
-    )
-    port: Mapped[str] = mapped_column(String(20), default="")  # duplicate of board.port
-    description: Mapped[str] = mapped_column(default="")
-    source: Mapped[str] = mapped_column()
-    build: Mapped[int] = mapped_column(default=0, comment="Build number")
-    custom: Mapped[bool] = mapped_column(default=False, comment="True if this is a custom firmware")
-    custom_id: Mapped[Union[str, None]] = mapped_column(String(40), nullable=True, default=None)
+    class Meta:
+        table_name = "firmwares"
+        primary_key = peewee.CompositeKey("board_id", "version", "firmware_file")
+
+    @property
+    def board(self):
+        """Return the parent Board record."""
+        return Board.get_or_none(
+            (Board.board_id == self.board_id) & (Board.version == self.version)
+        )
 
     @property
     def preview(self) -> bool:

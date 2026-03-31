@@ -136,7 +136,6 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     ]
 
     m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
-    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
 
     mprb = MPRemoteBoard("COM20")
     result = mprb.get_mcu_info()  # type: ignore

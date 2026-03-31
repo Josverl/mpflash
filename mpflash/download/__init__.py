@@ -20,8 +20,7 @@ from mpflash.mpboard_id.alternate import add_renamed_boards
 from mpflash.versions import clean_version
 from rich.progress import track
 
-from mpflash.db.core import Session
-from mpflash.db.models import Board, Firmware
+from mpflash.db.models import Board, Firmware, database
 
 from .from_web import fetch_firmware_files, get_boards
 from .fwinfo import FWInfo
@@ -56,12 +55,12 @@ def _get_variant_pattern():
         # If the pattern is already set, return it
         return _PATTERN
 
-    with Session() as session:
+    with database.atomic():
         # Query distinct variants
-        variants = session.query(Board.variant).distinct().all()
+        variants = list(Board.select(Board.variant).distinct())
 
 
-    _VARIANT_SUFFIXES = [f"_{v[0]}" for v in variants if v[0] and v[0].strip()]
+    _VARIANT_SUFFIXES = [f"_{v.variant}" for v in variants if v.variant and v.variant.strip()]
     # workaround for the fact that the variant names do not always match the suffixes
     # e.g. 'PIMORONI_PICOLIPO' has the variant 'FLASH_16MB' but the suffix is '_16MB'
     _VARIANT_SUFFIXES.extend( ["_2MB", "_4MB", "_8MB", "_16MB"] )  # add common SPIRAM size suffixes
@@ -146,14 +145,33 @@ def download_firmware_files(available_firmwares :List[Firmware],firmware_folder:
     """
 
     # with jsonlines.open(firmware_folder / "firmware.jsonl", "a") as writer:
-    with Session() as session:
+    with database.atomic():
         # skipped, downloaded = fetch_firmware_files(available_firmwares, firmware_folder, force, requests, writer)
         downloaded = 0
         for fw in fetch_firmware_files(available_firmwares, firmware_folder, force):
-            session.merge(fw)
+            Firmware.insert(**{
+                "board_id": fw.board_id,
+                "version": fw.version,
+                "firmware_file": fw.firmware_file,
+                "port": fw.port,
+                "description": fw.description,
+                "source": fw.source,
+                "build": fw.build,
+                "custom": fw.custom,
+                "custom_id": fw.custom_id,
+            }).on_conflict(
+                conflict_target=[Firmware.board_id, Firmware.version, Firmware.firmware_file],
+                update={
+                    "port": fw.port,
+                    "description": fw.description,
+                    "source": fw.source,
+                    "build": fw.build,
+                    "custom": fw.custom,
+                    "custom_id": fw.custom_id,
+                },
+            ).execute()
             log.debug(f" {fw.firmware_file} downloaded")
             downloaded += 1
-        session.commit()
     if downloaded > 0:
         clean_downloaded_firmwares()
     return downloaded

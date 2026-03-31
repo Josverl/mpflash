@@ -1,22 +1,111 @@
 from pathlib import Path
 from sqlite3 import DatabaseError, OperationalError
 
+import peewee
 from loguru import logger as log
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import sessionmaker
 
 from mpflash.config import config
 from mpflash.errors import MPFlashError
 
-from .models import Base
+from .models import Board, Firmware, Metadata, database
 
 TRACE = False
-connect_str = f"sqlite:///{config.db_path.as_posix()}"
-if TRACE:
-    log.debug(f"Connecting to database at {connect_str}")
-engine = create_engine(connect_str, echo=TRACE)
-Session = sessionmaker(bind=engine)
+
+
+def _init_database(db_path: Path = config.db_path) -> None:
+    """Initialise the module-level Peewee database with the given path."""
+    if TRACE:
+        log.debug(f"Connecting to database at {db_path}")
+    database.init(str(db_path))
+
+
+# Initialise the database connection immediately on module load
+_init_database()
+
+
+class _SessionContext:
+    """Thin context-manager shim so existing ``with Session() as session:``
+    call-sites continue to work without modification.
+
+    Within the context the database connection is opened (if needed) and
+    wrapped in an atomic transaction.  ``session`` is the database object
+    itself, which exposes ``execute_sql`` for raw SQL.
+    """
+
+    def __init__(self):
+        self._atomic = None
+
+    def __enter__(self):
+        if database.is_closed():
+            database.connect()
+        self._atomic = database.atomic()
+        self._atomic.__enter__()
+        return _SessionProxy(database)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._atomic is not None:
+            result = self._atomic.__exit__(exc_type, exc_val, exc_tb)
+            return result
+        return False
+
+
+class _SessionProxy:
+    """Proxy that exposes the subset of the SQLAlchemy Session API used by
+    the rest of mpflash, translated into Peewee calls."""
+
+    def __init__(self, db: peewee.SqliteDatabase):
+        self._db = db
+
+    # ------------------------------------------------------------------
+    # Raw SQL
+    # ------------------------------------------------------------------
+    def execute(self, query, params=None):
+        """Execute a raw SQL string (accepts Peewee SQL objects or plain strings)."""
+        sql = str(query)
+        return self._db.execute_sql(sql, params)
+
+    # ------------------------------------------------------------------
+    # Transaction helpers (no-ops when inside _SessionContext)
+    # ------------------------------------------------------------------
+    def commit(self):
+        """No-op: the enclosing ``_SessionContext`` uses Peewee's ``atomic()``
+        context manager which commits on ``__exit__``.  Kept for API
+        compatibility with call-sites that were written against SQLAlchemy."""
+        pass
+
+    def rollback(self):
+        """Roll back the current transaction."""
+        self._db.rollback()
+
+    def get_bind(self):
+        """Return a minimal object that exposes ``url.database`` as the DB path.
+
+        Only used in the legacy ``migrate_database`` function.
+        """
+
+        class _Url:
+            database = str(config.db_path)
+
+        class _Bind:
+            url = _Url()
+
+        return _Bind()
+
+
+# Public "Session" is a factory: ``Session()`` returns a _SessionContext
+class _SessionFactory:
+    """Callable that returns a fresh _SessionContext each time."""
+
+    def __call__(self):
+        return _SessionContext()
+
+
+Session = _SessionFactory()
+
+
+# ---------------------------------------------------------------------------
+# Schema-version helpers
+# ---------------------------------------------------------------------------
 
 
 def get_schema_version() -> int:
@@ -34,35 +123,33 @@ def set_schema_version(version: int) -> None:
     set_metadata_value("schema_version", str(version))
 
 
+# ---------------------------------------------------------------------------
+# Migrations
+# ---------------------------------------------------------------------------
+
+
 def migration_001_add_custom_id() -> None:
     """Add custom_id column to firmwares table."""
     log.info("Running migration 001: Add custom_id column to firmwares table")
 
-    with Session() as session:
-        # Check if column already exists
-        result = session.execute(text("PRAGMA table_info(firmwares)")).fetchall()
+    result = database.execute_sql("PRAGMA table_info(firmwares)").fetchall()
+    columns = [row[1] for row in result]
 
-        columns = [row[1] for row in result]
-        if "custom_id" not in columns:
-            # Add column without UNIQUE constraint
-            session.execute(text("ALTER TABLE firmwares ADD COLUMN custom_id VARCHAR(40)"))
-
-            # Create regular index for performance
-            session.execute(text("CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"))
-
-            session.commit()
-            log.info("Added custom_id column and index to firmwares table")
-        else:
-            log.info("custom_id column already exists in firmwares table")
-
-            # Check if index exists and create if needed
-            result = session.execute(text("PRAGMA index_list(firmwares)")).fetchall()
-
-            index_names = [row[1] for row in result]
-            if "idx_firmwares_custom_id" not in index_names:
-                session.execute(text("CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"))
-                session.commit()
-                log.info("Added index to existing custom_id column")
+    if "custom_id" not in columns:
+        database.execute_sql("ALTER TABLE firmwares ADD COLUMN custom_id VARCHAR(40)")
+        database.execute_sql(
+            "CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"
+        )
+        log.info("Added custom_id column and index to firmwares table")
+    else:
+        log.info("custom_id column already exists in firmwares table")
+        result = database.execute_sql("PRAGMA index_list(firmwares)").fetchall()
+        index_names = [row[1] for row in result]
+        if "idx_firmwares_custom_id" not in index_names:
+            database.execute_sql(
+                "CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"
+            )
+            log.info("Added index to existing custom_id column")
 
 
 def run_schema_migrations() -> None:
@@ -77,28 +164,28 @@ def run_schema_migrations() -> None:
     log.info(f"Upgrading database schema from version {current_version} to {target_version}")
 
     try:
-        # Run migrations in order
         if current_version < 1:
             migration_001_add_custom_id()
 
-        # Update schema version
         set_schema_version(target_version)
         log.info(f"Database schema upgraded to version {target_version}")
 
-    except SQLAlchemyError as e:
+    except peewee.PeeweeException as e:
         log.error(f"Migration failed: {e}")
         raise MPFlashError(f"Failed to migrate database schema: {e}")
 
 
+# ---------------------------------------------------------------------------
+# Database creation / data loading
+# ---------------------------------------------------------------------------
+
+
 def migrate_database(boards: bool = True, firmwares: bool = True):
     """Migrate from 1.24.x to 1.25.x and run schema migrations."""
-    # Move import here to avoid circular import
     from .loader import load_jsonl_to_db, update_boards
 
-    # get the location of the database from the session
-    with Session() as session:
-        db_location = session.get_bind().url.database  # type: ignore
-        log.debug(f"Database location: {Path(db_location)}")  # type: ignore
+    db_location = str(config.db_path)
+    log.debug(f"Database location: {Path(db_location)}")
 
     try:
         create_database()
@@ -107,7 +194,6 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
         log.error("Database might already exist, trying to migrate.")
         raise MPFlashError("Database migration failed. Please check the logs for more details.") from e
 
-    # Run schema migrations after creating database
     run_schema_migrations()
 
     if boards:
@@ -117,11 +203,10 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
         if jsonl_file.exists():
             log.info(f"Migrating JSONL data {jsonl_file} to SQLite database.")
             load_jsonl_to_db(jsonl_file)
-            # rename the jsonl file to jsonl.bak
             log.info(f"Renaming {jsonl_file} to {jsonl_file.with_suffix('.jsonl.bak')}")
             try:
                 jsonl_file.rename(jsonl_file.with_suffix(".jsonl.bak"))
-            except OSError as e:
+            except OSError:
                 for i in range(1, 10):
                     try:
                         jsonl_file.rename(jsonl_file.with_suffix(f".jsonl.{i}.bak"))
@@ -132,8 +217,9 @@ def migrate_database(boards: bool = True, firmwares: bool = True):
 
 def create_database():
     """Create the SQLite database and tables if they don't exist."""
-    # Create the database and tables if they don't exist
-    Base.metadata.create_all(engine)
+    if database.is_closed():
+        database.connect()
+    database.create_tables([Metadata, Board, Firmware], safe=True)
 
     # Run schema migrations after table creation
     run_schema_migrations()

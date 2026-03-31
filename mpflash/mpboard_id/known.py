@@ -4,34 +4,33 @@ this info is stored in the board_info.json file
 and is used to identify the board and port for flashing.
 This module provides access to the board info and the known ports and boards."""
 
-from functools import lru_cache
 from typing import List, Optional, Tuple
 
-from sqlalchemy import text
-
-from mpflash.db.core import Session
-from mpflash.db.models import Board
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.versions import clean_version
+
+from mpflash.db.models import Board, database
 
 
 def known_ports(version: str = "") -> list[str]:
     """Return a list of known ports for a given version."""
     version = clean_version(version) if version else "%%"
-    with Session() as session:
-        qry = text("SELECT distinct port FROM boards WHERE version like :version ORDER BY port;")
-        ports = session.execute(qry, {"version": version}).columns("port").fetchall()
-    return [row.port for row in ports]
+    rows = database.execute_sql(
+        "SELECT DISTINCT port FROM boards WHERE version LIKE ? ORDER BY port;",
+        (version,),
+    ).fetchall()
+    return [row[0] for row in rows]
 
 
 def known_versions(port: str = "") -> list[str]:
     """Return a list of known versions for a given port."""
     port = port.strip() if port else "%%"
-    with Session() as session:
-        qry = text("SELECT distinct version FROM boards WHERE port like :port ORDER BY version;")
-        versions = session.execute(qry, {"port": port}).columns("version").fetchall()
-    return [row.version for row in versions]
+    rows = database.execute_sql(
+        "SELECT DISTINCT version FROM boards WHERE port LIKE ? ORDER BY version;",
+        (port,),
+    ).fetchall()
+    return [row[0] for row in rows]
 
 
 def get_known_boards_for_port(port: str = "", versions: List[str] = []):
@@ -42,12 +41,10 @@ def get_known_boards_for_port(port: str = "", versions: List[str] = []):
     versions:  Optional, The Micropython versions to filter for (actual versions required)
     """
     versions = [clean_version(v) for v in versions] if versions else []
-    with Session() as session:
-        qry = session.query(Board).filter(Board.port.like(port))
-        if versions:
-            qry = qry.filter(Board.version.in_(versions))
-        boards = qry.all()
-        return boards
+    qry = Board.select().where(Board.port**port)  # ** is LIKE in Peewee
+    if versions:
+        qry = qry.where(Board.version.in_(versions))
+    return list(qry)
 
 
 def known_stored_boards(port: str, versions: List[str] = []) -> List[Tuple[str, str]]:
@@ -75,47 +72,47 @@ def find_known_board(board_id: str, version="", port="") -> Board:
     from mpflash.mpboard_id.alternate import alternate_board_names
 
     lookup_id = board_id.split("@")[0]
-    with Session() as session:
-        qry = session.query(Board).filter(Board.board_id == lookup_id)
-        if version:
-            qry = qry.filter(Board.version == version)
-        candidates = qry.all()
-        if candidates:
-            if port:
-                # Prefer the board whose port matches the user-specified port
-                matching = [b for b in candidates if b.port == port]
-                if matching:
-                    return matching[0]
-                # No port match among candidates - fall through to alternate name lookup
-            else:
-                return candidates[0]
 
-        # Try alternate names (e.g. GENERIC → ESP32_GENERIC when port="esp32")
-        alt_names = alternate_board_names(lookup_id, port)
-        for alt_id in alt_names[1:]:  # skip the first (already tried above)
-            qry = session.query(Board).filter(Board.board_id == alt_id)
-            if port:
-                qry = qry.filter(Board.port == port)
-            if version:
-                qry = qry.filter(Board.version == version)
-            board = qry.first()
-            if board:
-                log.debug(f"Resolved board {board_id!r} → {alt_id!r} (port={board.port})")
-                return board
-
-        # Fall back to description search
-        qry = session.query(Board).filter(Board.description == lookup_id)
-        if version:
-            qry = qry.filter(Board.version == version)
+    qry = Board.select().where(Board.board_id == lookup_id)
+    if version:
+        qry = qry.where(Board.version == version)
+    candidates = list(qry)
+    if candidates:
         if port:
-            qry = qry.filter(Board.port == port)
+            # Prefer the board whose port matches the user-specified port
+            matching = [b for b in candidates if b.port == port]
+            if matching:
+                return matching[0]
+            # No port match among candidates — fall through to alternate name lookup
+        else:
+            return candidates[0]
+
+    # Try alternate names (e.g. GENERIC → ESP32_GENERIC when port="esp32")
+    alt_names = alternate_board_names(lookup_id, port)
+    for alt_id in alt_names[1:]:  # skip the first (already tried above)
+        qry = Board.select().where(Board.board_id == alt_id)
+        if port:
+            qry = qry.where(Board.port == port)
+        if version:
+            qry = qry.where(Board.version == version)
         board = qry.first()
         if board:
+            log.debug(f"Resolved board {board_id!r} → {alt_id!r} (port={board.port})")
             return board
 
-        # Last resort: return first candidate ignoring port mismatch
-        if candidates:
-            log.warning(f"Board {board_id!r} not found for port {port!r}; falling back to {candidates[0].port!r} board from earlier match")
-            return candidates[0]
+    # Fall back to description search
+    qry = Board.select().where(Board.description == lookup_id)
+    if version:
+        qry = qry.where(Board.version == version)
+    if port:
+        qry = qry.where(Board.port == port)
+    board = qry.first()
+    if board:
+        return board
+
+    # Last resort: return first candidate ignoring port mismatch
+    if candidates:
+        log.warning(f"Board {board_id!r} not found for port {port!r}; falling back to {candidates[0].port!r} board from earlier match")
+        return candidates[0]
 
     raise MPFlashError(f"Board {board_id} not found")

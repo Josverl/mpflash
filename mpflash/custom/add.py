@@ -4,7 +4,7 @@ from pathlib import Path
 from loguru import logger as log
 
 from mpflash.custom.naming import custom_fw_from_path
-from mpflash.db.models import Firmware
+from mpflash.db.models import Firmware, database
 from mpflash.errors import MPFlashError
 
 
@@ -47,8 +47,8 @@ def add_firmware(
     custom: bool = False,
 ) -> bool:
     """
-    Add a firmware to the database , and firmware folder.
-    stored in the port folder, with the filename.
+    Add a firmware to the database, and firmware folder.
+    Stored in the port folder, with the filename.
 
     fw_info is a dict with the following keys:
     - board_id: str, required
@@ -63,43 +63,41 @@ def add_firmware(
         from mpflash import custom as custom_pkg
 
         config = custom_pkg.config
-        Session = custom_pkg.Session
         copy_fn = custom_pkg.copy_firmware
         source = source.expanduser().absolute()
         if not source.exists() or not source.is_file():
             log.error(f"Source file {source} does not exist or is not a file")
             return False
-        with Session() as session:
-            # Check minimal info needed
-            new_fw = Firmware(**fw_info)
-            if custom:
-                new_fw.custom = True
 
-            if not new_fw.board_id:
-                log.error("board_id is required")
-                return False
+        new_fw = Firmware(**fw_info)
+        if custom:
+            new_fw.custom = True
 
-            # assume the the firmware_file has already been prepared
-            fw_filename = config.firmware_folder / new_fw.firmware_file
+        if not new_fw.board_id:
+            log.error("board_id is required")
+            return False
 
-            if not copy_fn(source, fw_filename, force):
-                log.error(f"Failed to copy {source} to {fw_filename}")
-                return False
-            # add to inventory
-            # check if the firmware already exists
-            if custom:
-                qry = session.query(Firmware).filter(Firmware.custom_id == new_fw.custom_id)
-            else:
-                qry = session.query(Firmware).filter(Firmware.board_id == new_fw.board_id)
+        fw_filename = config.firmware_folder / new_fw.firmware_file
 
-            qry = qry.filter(
-                Firmware.board_id == new_fw.board_id,
-                Firmware.version == new_fw.version,
-                Firmware.port == new_fw.port,
-                Firmware.custom == new_fw.custom,
-            )
-            existing_fw = qry.first()
+        if not copy_fn(source, fw_filename, force):
+            log.error(f"Failed to copy {source} to {fw_filename}")
+            return False
 
+        # check if the firmware already exists
+        if custom:
+            qry = Firmware.select().where(Firmware.custom_id == new_fw.custom_id)
+        else:
+            qry = Firmware.select().where(Firmware.board_id == new_fw.board_id)
+
+        qry = qry.where(
+            (Firmware.board_id == new_fw.board_id)
+            & (Firmware.version == new_fw.version)
+            & (Firmware.port == new_fw.port)
+            & (Firmware.custom == new_fw.custom)
+        )
+        existing_fw = qry.first()
+
+        with database.atomic():
             if existing_fw:
                 if not force:
                     log.warning(f"Firmware {existing_fw} already exists")
@@ -111,9 +109,9 @@ def add_firmware(
                 existing_fw.custom = custom
                 if custom:
                     existing_fw.custom_id = new_fw.custom_id
+                existing_fw.save()
             else:
-                session.add(new_fw)
-            session.commit()
+                new_fw.save(force_insert=True)
 
         return True
     except sqlite3.DatabaseError as e:

@@ -55,8 +55,6 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
         "mpflash.cli_download.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
-    mocker.patch("mpflash.download.Session", session_fx)
-    mocker.patch("mpflash.mpboard_id.known.Session", session_fx)
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
     assert result.exit_code == ex_code

@@ -74,11 +74,8 @@ HERE = Path(__file__).parent
         ("RPI_PICO_W", "1.25.0", "Raspberry Pi Pico 2 W", "", "RPI_PICO2_W"),
     ],
 )
-def test_find_board_id(test_id, descr, short_descr, expected_result, version, mocker, session_fx):
-    # Act
-    # patch the Session
-    mocker.patch("mpflash.mpboard_id.board_id.Session", session_fx)
-
+def test_find_board_id(test_id, descr, short_descr, expected_result, version, session_fx):
+    # session_fx ensures the module-level database is connected to the test DB
     if expected_result:
         result = find_board_id_by_description(descr=descr, short_descr=short_descr, version=version)
         # Assert

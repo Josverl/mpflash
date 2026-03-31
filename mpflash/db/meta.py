@@ -1,8 +1,9 @@
+from sqlite3 import DatabaseError, OperationalError
 from typing import Optional
 
+import peewee
 from loguru import logger as log
 
-from .core import DatabaseError, OperationalError, Session
 from .models import Metadata
 
 
@@ -14,10 +15,8 @@ def get_metadata() -> dict:
         dict: Dictionary of metadata name-value pairs.
     """
     try:
-        with Session() as session:
-            metadata = session.query(Metadata).all()
-            return {m.name: m.value for m in metadata}
-    except (DatabaseError, OperationalError) as e:
+        return {m.name: m.value for m in Metadata.select()}
+    except (DatabaseError, OperationalError, peewee.OperationalError) as e:
         log.error(f"Error retrieving metadata: {e}")
         return {}
 
@@ -25,20 +24,15 @@ def get_metadata() -> dict:
 def set_metadata(metadata: dict):
     """
     Set metadata in the database.
+
     Args:
-        metadata (dict): Dictionary of metadata name-value pairs.
-    Returns:
-        None
+        metadata: Dictionary of metadata name-value pairs.
     """
-    with Session() as session:
-        for name, value in metadata.items():
-            existing_metadata = session.query(Metadata).filter(Metadata.name == name).first()
-            if existing_metadata:
-                existing_metadata.value = value
-            else:
-                new_metadata = Metadata(name=name, value=value)
-                session.add(new_metadata)
-        session.commit()
+    for name, value in metadata.items():
+        Metadata.insert(name=name, value=value).on_conflict(
+            conflict_target=[Metadata.name],
+            update={Metadata.value: value},
+        ).execute()
 
 
 def get_metadata_value(name: str) -> Optional[str]:
@@ -46,15 +40,16 @@ def get_metadata_value(name: str) -> Optional[str]:
     Get metadata value by name.
 
     Args:
-        session (Session): SQLAlchemy session.
-        name (str): Name of the metadata.
+        name: Name of the metadata entry.
 
     Returns:
-        Optional[str]: Metadata value or None if not found.
+        Metadata value or None if not found.
     """
-    with Session() as session:
-        metadata = session.query(Metadata).filter(Metadata.name == name).first()
-    return metadata.value if metadata else None
+    try:
+        row = Metadata.get_or_none(Metadata.name == name)
+        return row.value if row else None
+    except (DatabaseError, OperationalError, peewee.OperationalError):
+        return None
 
 
 def set_metadata_value(name: str, value: str):
@@ -62,18 +57,10 @@ def set_metadata_value(name: str, value: str):
     Set metadata value by name.
 
     Args:
-        session (Session): SQLAlchemy session.
-        name (str): Name of the metadata.
-        value (str): Value to set.
-
-    Returns:
-        None
+        name: Name of the metadata entry.
+        value: Value to set.
     """
-    with Session() as session:
-        metadata = session.query(Metadata).filter(Metadata.name == name).first()
-        if metadata:
-            metadata.value = value
-        else:
-            new_metadata = Metadata(name=name, value=value)
-            session.add(new_metadata)
-        session.commit()
+    Metadata.insert(name=name, value=value).on_conflict(
+        conflict_target=[Metadata.name],
+        update={Metadata.value: value},
+    ).execute()

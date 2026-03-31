@@ -69,7 +69,6 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
         "mpflash.cli_flash.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
-    mocker.patch("mpflash.download.Session", session_fx)
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
 
@@ -214,9 +213,6 @@ def test_flash_triggers_just_in_time_download(mocker: MockerFixture, session_fx)
         return_value=(["esp32"], ["ESP32_GENERIC"], [MPRemoteBoard("COM99")]),
         autospec=True,
     )
-    mocker.patch("mpflash.download.Session", session_fx)
-    mocker.patch("mpflash.downloaded.Session", session_fx)
-    mocker.patch("mpflash.db.core.Session", session_fx)
 
     runner = CliRunner()
     args = ["flash", "--board", "ESP32_GENERIC", "--version", "1.24.1"]

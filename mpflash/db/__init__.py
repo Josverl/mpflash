@@ -1,2 +1,2 @@
 
-from .models import Base, Board, Firmware
+from .models import BaseModel, Board, Firmware

@@ -50,10 +50,10 @@ dependencies = [
     "rich-click>=1.8.1",
     "tenacity==9.0.0",
     "cache-to-disk>=2.0.0",
-    "sqlalchemy>=2.0.41",
     "tomli-w>=1.2.0",
     "tomli>=2.2.1",
     "pytest-cov>=7.0.0",
+    "peewee>=4.0.3",
 ]
 
 [project.optional-dependencies]

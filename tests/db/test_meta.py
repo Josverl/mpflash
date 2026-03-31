@@ -5,13 +5,10 @@ import pytest
 from mpflash.db.meta import get_metadata, get_metadata_value, set_metadata, set_metadata_value
 
 
-def test_get_metadata(session_fx, mocker):
+def test_get_metadata(session_fx):
     """
     Test the get_metadata function.
     """
-    # Mock the session
-    mocker.patch("mpflash.db.meta.Session", session_fx)
-
     # Prepare test data
     test_data = {
         "test_key_1": "test_value_1",
@@ -28,12 +25,10 @@ def test_get_metadata(session_fx, mocker):
         assert result[key] == value
 
 
-def test_get_metadata_value(session_fx, mocker):
+def test_get_metadata_value(session_fx):
     """
     Test the get_metadata_value function.
     """
-    # Mock the session
-    mocker.patch("mpflash.db.meta.Session", session_fx)
     # Prepare test data
     test_data = {
         "test_key_1": "test_value_1",

@@ -77,7 +77,6 @@ def test_download_firmwares(
     board_id,
     version,
 ):
-    mocker.patch("mpflash.download.Session", session_fx)
     count = download_firmwares(
         firmware_folder=tmp_path,
         ports=[port],
