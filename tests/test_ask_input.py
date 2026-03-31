@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, Mock
 
+import mpflash.ask_input
 import pytest
 from mpflash.ask_input import _split_board_variant, ask_missing_params, filter_matching_boards
 from mpflash.common import DownloadParams, FlashParams
@@ -195,9 +196,7 @@ def test_ask_missing_params_with_interactivity(
         params = FlashParams(**input)
 
     # make sure we can be interactive during testing, even in CI
-    _config = MPFlashConfig()
-    _config.interactive = True
-    mocker.patch("mpflash.ask_input.config", _config)
+    mocker.patch.object(type(mpflash.ask_input.config), "interactive", new_callable=lambda: property(lambda self: True))
 
     # Mock each helper function individually
     m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)
