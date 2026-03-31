@@ -53,8 +53,11 @@ def check_dfu_devices():
     from mpflash.vendor.pydfu import get_dfu_devices
 
     # need to init on windows to get the right usb backend
-    dfu_init()
-    devices = get_dfu_devices()
+    backend = dfu_init()
+    kwargs = {}
+    if backend is not None:
+        kwargs["backend"] = backend
+    devices = get_dfu_devices(**kwargs)
     return len(devices) > 0
 
 

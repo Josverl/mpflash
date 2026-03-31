@@ -3,26 +3,32 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger as log
-
 from mpflash.mpremoteboard import MPRemoteBoard
 
+# Module-level cached backend for Windows libusb
+_libusb_backend = None
 
-def init_libusb_windows() -> bool:
+
+def init_libusb_windows():
     """
-    Initializes the libusb backend on Windows.
+    Initializes the libusb backend on Windows and caches it module-wide.
 
     Returns:
-        bool: True if the initialization is successful, False otherwise.
+        The usb backend object if successful, None otherwise.
     """
+    global _libusb_backend
+    if _libusb_backend is not None:
+        return _libusb_backend
+
     import libusb  # type: ignore
     import usb.backend.libusb1 as libusb1
 
-    arch = "x64" if platform.architecture()[0] == "64bit" else "x86"
-    libusb1_dll = Path(libusb.__file__).parent / f"_platform\\_windows\\{arch}\\libusb-1.0.dll"
+    arch = "x86_64" if platform.architecture()[0] == "64bit" else "x86"
+    libusb1_dll = Path(libusb.__file__).parent / "_platform" / "windows" / arch / "libusb-1.0.dll"
     if not libusb1_dll.exists():
         raise FileNotFoundError(f"libusb1.dll not found at {libusb1_dll}")
-    backend = libusb1.get_backend(find_library=lambda x: libusb1_dll.as_posix())
-    return backend is not None
+    _libusb_backend = libusb1.get_backend(find_library=lambda x: libusb1_dll.as_posix())
+    return _libusb_backend
 
 
 try:
@@ -34,13 +40,17 @@ except ImportError:
 def dfu_init():
     """
     Initializes the DFU (Device Firmware Upgrade) process.
+
+    Returns:
+        The usb backend on Windows, or None on other platforms.
     """
     if not pydfu:
         log.error("pydfu not found")
         return None
     if platform.system() == "Windows":
         log.debug("Initializing libusb backend on Windows...")
-        init_libusb_windows()
+        return init_libusb_windows()
+    return None
 
 
 def flash_stm32_dfu(
@@ -76,7 +86,11 @@ def flash_stm32_dfu(
         log.error(f"File {fw_file} is not a .dfu or .bin file")
         return None
 
+    backend = dfu_init()
     kwargs = {"idVendor": 0x0483, "idProduct": 0xDF11}
+    if backend is not None:
+        kwargs["backend"] = backend
+
     log.debug("List SPECIFIED DFU devices...")
     try:
         pydfu.list_dfu_devices(**kwargs)
