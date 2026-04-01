@@ -21,7 +21,6 @@ from .mpboard_id import get_known_boards_for_port, known_board_variants_dict, kn
 from .mpremoteboard import MPRemoteBoard
 from .versions import clean_version, micropython_versions
 
-
 # ---------------------------------------------------------------------------
 # Questionary-based input helpers (cross-platform replacement for richui)
 # ---------------------------------------------------------------------------
@@ -96,17 +95,25 @@ def ask_missing_params(
 
     log.trace(f"ask_missing_params: {params}")
 
-    from rich.console import Console
-    Console().print("[dim]Type to filter, Tab to complete, Enter confirms[/dim]")
-
     multi_select = isinstance(params, DownloadParams)
     action = "download" if isinstance(params, DownloadParams) else "flash"
+
+    variant_unknown = isinstance(params, FlashParams) and params.variant == "?"
+    needs_serial = not multi_select and (not params.serial or "?" in params.serial)
+    needs_versions = params.versions == [] or "?" in params.versions
+    needs_board = not params.boards or "?" in params.boards or variant_unknown
+
+    if not (needs_serial or needs_versions or needs_board):
+        return params
+
+    from rich.console import Console
+    Console().print("[dim]Type to filter, Tab to complete, Enter confirms[/dim]")
 
     answers: Dict[str, Union[str, List]] = {"action": action}
 
     # Serial port (flash mode only)
     if not multi_select:
-        if not params.serial or "?" in params.serial:
+        if needs_serial:
             serial = ask_serialport(multi_select=False, bluetooth=False)
             if serial is None:
                 return []  # type: ignore
@@ -115,7 +122,7 @@ def ask_missing_params(
             answers["serial"] = params.serial
 
     # Firmware version(s)
-    if params.versions == [] or "?" in params.versions:
+    if needs_versions:
         versions = ask_mp_version(
             multi_select=multi_select,
             action=action,
@@ -128,8 +135,7 @@ def ask_missing_params(
         answers["versions"] = params.versions  # type: ignore
 
     # Port, board(s), and variant
-    variant_unknown = isinstance(params, FlashParams) and params.variant == "?"
-    if not params.boards or "?" in params.boards or variant_unknown:
+    if needs_board:
         port, boards, variant = ask_port_board_variant(
             multi_select=multi_select,
             action=action,
