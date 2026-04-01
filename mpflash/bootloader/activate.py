@@ -16,6 +16,7 @@ BL_OPTIONS = {
     "samd": [BootloaderMethod.TOUCH_1200, BootloaderMethod.MPY, BootloaderMethod.MANUAL],
     "esp32": [BootloaderMethod.NONE],
     "esp8266": [BootloaderMethod.NONE],
+    "psoc6": [BootloaderMethod.NONE],  # PSoC6 uses OpenOCD directly, no bootloader activation needed
 }
 
 
