@@ -74,9 +74,12 @@ test = [
     "fasteners>=0.19",
     "mock>=4.0.3,<6.0.0",
 ]
-# perf = [
-#     "scalene>=1.5.51",
-# ]
+perf = [
+    "scalene>=1.5.51",
+]
+pyocd = [
+    "pyocd>=0.36.0",
+]
 
 [project.scripts]
 mpflash = "mpflash.cli_main:mpflash"

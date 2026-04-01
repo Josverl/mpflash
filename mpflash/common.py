@@ -56,6 +56,15 @@ class BootloaderMethod(Enum):
     NONE = "none"
 
 
+class FlashMethod(Enum):
+    AUTO = "auto"
+    SERIAL = "serial"  # Traditional serial bootloader methods
+    PYOCD = "pyocd"    # SWD/JTAG programming via pyOCD
+    UF2 = "uf2"        # UF2 file copy method
+    DFU = "dfu"        # STM32 DFU method
+    ESPTOOL = "esptool"  # ESP32/ESP8266 esptool method
+
+
 @dataclass
 class FlashParams(Params):
     """Parameters for flashing a board"""

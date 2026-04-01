@@ -9,7 +9,7 @@ from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
-from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
+from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_tasks
 from mpflash.flash.worklist import FlashTaskList, create_worklist
@@ -113,6 +113,27 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--method",
+    "--flash-method",
+    "flash_method",
+    type=click.Choice([e.value for e in FlashMethod]),
+    default="auto",
+    show_default=True,
+    help="""Flash programming method. 'auto' uses serial bootloader methods (existing behavior). Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+)
+@click.option(
+    "--probe",
+    "--probe-id",  # Keep as alias for backwards compatibility
+    "probe_id", 
+    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    metavar="PROBE_ID",
+)
+@click.option(
+    "--auto-install-packs/--no-auto-install-packs",
+    default=True,
+    help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
@@ -144,6 +165,14 @@ def cli_flash_board(**kwargs) -> int:
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
+        
+    # Convert flash_method to method and convert to enum
+    flash_method_str = kwargs.pop("flash_method", "auto")
+    flash_method = FlashMethod(flash_method_str)
+    
+    # Extract pyOCD options
+    probe_id = kwargs.pop("probe_id", None)
+    auto_install_packs = kwargs.pop("auto_install_packs", True)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -213,6 +242,9 @@ def cli_flash_board(**kwargs) -> int:
             board_id=board_id,
             custom_firmware=params.custom,
             port=params.ports[0] if params.ports else None,
+            version=params.versions[0],
+            custom=params.custom,
+            method=flash_method,
         )
     elif params.serial == ["*"] and params.boards:
         # Auto mode on detected boards with optional include/ignore filtering
@@ -222,11 +254,16 @@ def cli_flash_board(**kwargs) -> int:
         if params.variant:
             for b in all_boards:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
+        # TODO: CHECK MERGE
         tasks = create_worklist(
             params.versions[0],
             connected_comports=all_boards,
             include_ports=params.serial,
             ignore_ports=params.ignore,
+            version=params.versions[0],
+            include=params.serial,
+            ignore=params.ignore,
+            method=flash_method,
         )
     elif params.versions[0] and params.boards and params.serial:
         # Manual specification of serial ports + board
@@ -236,25 +273,33 @@ def cli_flash_board(**kwargs) -> int:
             bluetooth=params.bluetooth,
         )
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
-        tasks = create_worklist(
+        # TODO: CHECK MERGE
+        # tasks = create_worklist(
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
             port=params.ports[0] if params.ports else None,
+            method=flash_method,
         )
     else:
         # Single serial port auto-detection
         connected_comports = [MPRemoteBoard(params.serial[0])]
+        # TODO: CHECK MERGE
         tasks = create_worklist(
             params.versions[0],
             connected_comports=connected_comports,
+            method=flash_method,
         )
     if not params.custom:
         jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
+    # TODO: CHECK MERGE
     if flashed := flash_tasks(
         tasks,
         params.erase,
         params.bootloader,
+        method=flash_method,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
         flash_mode=params.flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
