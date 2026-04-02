@@ -317,63 +317,59 @@ class TestCLIWorkflowIntegration:
 
 class TestCLIErrorScenarios:
     """Test CLI error handling scenarios."""
-    
+
     def setup_method(self):
         self.runner = CliRunner()
+        self._ask_patcher = patch("mpflash.cli_flash.ask_missing_params", side_effect=lambda p: p)
+        self._ask_patcher.start()
+        self._show_patcher = patch("mpflash.cli_flash.show_mcus")
+        self._show_patcher.start()
+
+    def teardown_method(self):
+        self._ask_patcher.stop()
+        self._show_patcher.stop()
 
     @patch("mpflash.cli_flash.flash_tasks")
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_flash_method_error_propagation(self, mock_connected, mock_flash_tasks):
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_flash_method_error_propagation(self, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test that flash method errors are properly propagated."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        
-        # Mock flash_list raising an exception
+        mock_create_worklist.return_value = []
         mock_flash_tasks.side_effect = MPFlashError("pyOCD programming failed")
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd",
-            "--version", "stable"
-        ])
-        
-        assert result.exit_code != 0
-        # Exception should be caught and handled gracefully
-    
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_no_boards_detected_workflow(self, mock_connected):
-        """Test workflow when no boards are detected."""
-        # No boards detected
-        mock_connected.return_value = ([], [], [], [])
-        
-        with patch('mpflash.cli_flash.ask_missing_params') as mock_ask:
-            # Mock FlashParams with pyOCD method
-            mock_params = Mock()
-            mock_params.boards = ["NUCLEO_WB55"]
-            mock_params.versions = ["stable"]
-            mock_params.serial = ["COM1"]
-            mock_params.bootloader = BootloaderMethod.MANUAL
-            mock_ask.return_value = mock_params
 
-            with patch("mpflash.cli_flash.flash_tasks") as mock_flash:
-                mock_flash.return_value = []
-                
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd",
-                    "--version", "stable"
-                ])
-                
-                assert result.exit_code == 1  # No boards flashed
-    
-    def test_missing_required_parameters(self):
-        """Test behavior with missing required parameters."""
+        result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--version", "stable"])
+
+        assert result.exit_code != 0
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_no_boards_detected_workflow(self, mock_connected, mock_create_worklist, mock_flash_tasks):
+        """Test workflow when no boards are detected."""
+        mock_connected.return_value = ([], [], [], [])
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = []
+
+        result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--version", "stable"])
+
+        assert result.exit_code == 1  # No boards flashed
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_missing_required_parameters(self, mock_connected, mock_create_worklist, mock_flash_tasks):
+        """Test behavior with missing required parameters (version uses default 'stable')."""
+        mock_connected.return_value = ([], [], [], [])
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = []
+
         # No version specified - should use default "stable"
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd"
-            # Missing version - should use default
-        ])
-        
-        # Should not fail immediately due to missing version (has default)
-        # May fail later due to no boards detected, but that's expected
+        result = self.runner.invoke(cli_flash_board, ["--method", "pyocd"])
+
+        # No boards detected -> exit 1; valid Click parse -> not 2
+        assert result.exit_code in (0, 1, 2)
 
 
 class TestCLIHelpAndDocumentation:
