@@ -1,6 +1,5 @@
 """CLI to Download MicroPython firmware for specific ports, boards and versions."""
 
-from pathlib import Path
 
 import rich_click as click
 from loguru import logger as log
@@ -15,7 +14,6 @@ from mpflash.versions import clean_version
 from .ask_input import ask_missing_params
 from .cli_group import cli
 from .common import DownloadParams
-from .config import config
 from .download import download
 
 

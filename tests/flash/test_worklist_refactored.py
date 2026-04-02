@@ -4,18 +4,24 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from mpflash.common import FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.errors import MPFlashError
 from mpflash.flash.worklist import (
     FlashTask,
     WorklistConfig,
     _create_flash_task,
+    _create_manual_board,
     _find_firmware_for_board,
+    auto_update_worklist,
     create_auto_worklist,
     create_filtered_worklist,
     create_manual_worklist,
     create_single_board_worklist,
     create_worklist,
+    manual_board,
+    manual_worklist,
+    select_firmware_for_method,
 )
 from mpflash.mpremoteboard import MPRemoteBoard
 
@@ -570,6 +576,185 @@ class TestRemainingAPIFunctions:
         called_boards = mock_create_auto.call_args[0][0]  # First positional argument
         assert len(called_boards) == 1
         assert called_boards[0].serialport == "COM1"
+
+
+class TestSelectFirmwareForMethod:
+    """Test select_firmware_for_method function (lines 162-189)."""
+
+    def test_empty_firmware_list_raises(self):
+        """Test that empty firmware list raises MPFlashError."""
+        with pytest.raises(MPFlashError, match="No firmware files available"):
+            select_firmware_for_method([], FlashMethod.AUTO)
+
+    def test_single_firmware_returned_directly(self):
+        """Test that a single firmware is returned without selection logic."""
+        fw = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw.bin")
+        result = select_firmware_for_method([fw], FlashMethod.AUTO)
+        assert result is fw
+
+    def test_selects_preferred_extension_for_pyocd(self):
+        """Test PYOCD prefers .hex over .bin over .elf."""
+        fw_bin = Firmware(board_id="B", version="1.22.0", port="stm32", firmware_file="fw.bin")
+        fw_hex = Firmware(board_id="B", version="1.22.0", port="stm32", firmware_file="fw.hex")
+        result = select_firmware_for_method([fw_bin, fw_hex], FlashMethod.PYOCD)
+        assert result is fw_hex
+
+    def test_selects_preferred_extension_for_dfu(self):
+        """Test DFU prefers .dfu."""
+        fw_bin = Firmware(board_id="B", version="1.22.0", port="stm32", firmware_file="fw.bin")
+        fw_dfu = Firmware(board_id="B", version="1.22.0", port="stm32", firmware_file="fw.dfu")
+        result = select_firmware_for_method([fw_bin, fw_dfu], FlashMethod.DFU)
+        assert result is fw_dfu
+
+    def test_selects_preferred_extension_for_uf2(self):
+        """Test UF2 prefers .uf2."""
+        fw_bin = Firmware(board_id="B", version="1.22.0", port="rp2", firmware_file="fw.bin")
+        fw_uf2 = Firmware(board_id="B", version="1.22.0", port="rp2", firmware_file="fw.uf2")
+        result = select_firmware_for_method([fw_bin, fw_uf2], FlashMethod.UF2)
+        assert result is fw_uf2
+
+    def test_selects_preferred_extension_for_esptool(self):
+        """Test ESPTOOL prefers .bin."""
+        fw_uf2 = Firmware(board_id="B", version="1.22.0", port="esp32", firmware_file="fw.uf2")
+        fw_bin = Firmware(board_id="B", version="1.22.0", port="esp32", firmware_file="fw.bin")
+        result = select_firmware_for_method([fw_uf2, fw_bin], FlashMethod.ESPTOOL)
+        assert result is fw_bin
+
+    def test_fallback_to_last_when_no_preferred(self):
+        """Test fallback to last firmware when no preferred extension matches."""
+        fw1 = Firmware(board_id="B", version="1.22.0", port="esp32", firmware_file="fw.xyz")
+        fw2 = Firmware(board_id="B", version="1.22.0", port="esp32", firmware_file="fw2.xyz")
+        result = select_firmware_for_method([fw1, fw2], FlashMethod.PYOCD)
+        assert result is fw2
+
+
+class TestAutoUpdateWorklist:
+    """Test auto_update_worklist function (lines 210-234)."""
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    @patch("mpflash.flash.worklist.log")
+    def test_skips_non_micropython(self, mock_log, mock_find_fw):
+        """Test non-MicroPython boards are skipped."""
+        board = MPRemoteBoard("COM1")
+        board.family = "arduino"
+        board.port = "avr"
+        board.board = "UNO"
+
+        result = auto_update_worklist([board], "1.22.0")
+
+        assert result == []
+        mock_find_fw.assert_not_called()
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    @patch("mpflash.flash.worklist.log")
+    def test_no_firmware_found_appends_none(self, mock_log, mock_find_fw):
+        """Test that boards with no firmware are added as (board, None)."""
+        mock_find_fw.return_value = []
+        board = MPRemoteBoard("COM1")
+        board.family = "micropython"
+        board.board = "ESP32_GENERIC"
+        board.port = "esp32"
+
+        result = auto_update_worklist([board], "1.22.0")
+
+        assert len(result) == 1
+        assert result[0] == (board, None)
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    @patch("mpflash.flash.worklist.log")
+    def test_firmware_found_selects_best(self, mock_log, mock_find_fw):
+        """Test that when firmware is found the best is selected."""
+        fw = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw.bin")
+        mock_find_fw.return_value = [fw]
+        board = MPRemoteBoard("COM1")
+        board.family = "micropython"
+        board.board = "ESP32_GENERIC"
+        board.port = "esp32"
+
+        result = auto_update_worklist([board], "1.22.0")
+
+        assert len(result) == 1
+        assert result[0] == (board, fw)
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    @patch("mpflash.flash.worklist.log")
+    def test_multiple_firmwares_warns(self, mock_log, mock_find_fw):
+        """Test warning when multiple firmwares found."""
+        fw1 = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw1.bin")
+        fw2 = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw2.bin")
+        mock_find_fw.return_value = [fw1, fw2]
+        board = MPRemoteBoard("COM1")
+        board.family = "micropython"
+        board.board = "ESP32_GENERIC"
+        board.port = "esp32"
+
+        result = auto_update_worklist([board], "1.22.0")
+
+        assert len(result) == 1
+        mock_log.warning.assert_called()  # Warning about multiple firmwares
+
+
+class TestManualWorklist:
+    """Test manual_worklist function (lines 246-251)."""
+
+    @patch("mpflash.flash.worklist.manual_board")
+    @patch("mpflash.flash.worklist.log")
+    def test_creates_worklist_for_each_port(self, mock_log, mock_manual_board):
+        """Test manual_worklist calls manual_board for each serial port."""
+        fw = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw.bin")
+        board1 = MPRemoteBoard("COM1")
+        board2 = MPRemoteBoard("COM2")
+        mock_manual_board.side_effect = [(board1, fw), (board2, fw)]
+
+        result = manual_worklist(["COM1", "COM2"], board_id="ESP32_GENERIC", version="1.22.0")
+
+        assert len(result) == 2
+        assert mock_manual_board.call_count == 2
+
+    @patch("mpflash.flash.worklist.manual_board")
+    def test_empty_serial_list_returns_empty(self, mock_manual_board):
+        """Test that empty serial list returns empty worklist."""
+        result = manual_worklist([], board_id="ESP32_GENERIC", version="1.22.0")
+        assert result == []
+        mock_manual_board.assert_not_called()
+
+
+class TestManualBoard:
+    """Test manual_board function (lines 264-278)."""
+
+    @patch("mpflash.flash.worklist.find_known_board")
+    @patch("mpflash.flash.worklist._find_firmware_for_board")
+    @patch("mpflash.flash.worklist.log")
+    def test_board_not_found_returns_task_with_no_firmware(self, mock_log, mock_find_fw, mock_find_board):
+        """Test that LookupError from find_known_board results in task with None firmware."""
+        mock_find_board.side_effect = LookupError("Board not found")
+
+        result = manual_board("COM1", board_id="UNKNOWN_BOARD", version="1.22.0")
+
+        assert isinstance(result, FlashTask)
+        assert result.firmware is None
+        mock_log.error.assert_called_once()
+        mock_find_fw.assert_not_called()
+
+    @patch("mpflash.flash.worklist.find_known_board")
+    @patch("mpflash.flash.worklist._find_firmware_for_board")
+    @patch("mpflash.flash.worklist.log")
+    def test_successful_manual_board(self, mock_log, mock_find_fw, mock_find_board):
+        """Test successful manual_board creates correct flash task."""
+        board_info = Mock()
+        board_info.port = "esp32"
+        board_info.mcu = "ESP32"
+        mock_find_board.return_value = board_info
+
+        fw = Firmware(board_id="ESP32_GENERIC", version="1.22.0", port="esp32", firmware_file="fw.bin")
+        mock_find_fw.return_value = fw
+
+        result = manual_board("COM1", board_id="ESP32_GENERIC", version="1.22.0")
+
+        assert isinstance(result, FlashTask)
+        assert result.firmware is fw
+        assert result.board.port == "esp32"
+        assert result.board.board == "ESP32_GENERIC"
 
 
 # End of tests

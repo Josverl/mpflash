@@ -3,12 +3,12 @@ from unittest.mock import Mock
 
 import pytest
 from click.testing import CliRunner
+from mpflash.common import DownloadParams
+from mpflash.mpremoteboard import MPRemoteBoard
 from pytest_mock import MockerFixture
 
 # # module under test :
 from mpflash import cli_main
-from mpflash.common import DownloadParams
-from mpflash.mpremoteboard import MPRemoteBoard
 
 # mark all tests
 pytestmark = pytest.mark.mpflash
@@ -112,7 +112,7 @@ def test_mpflash_connected_comports(
         return_value=(ports, boards, variants, [MPRemoteBoard(p) for p in serialports]),
         autospec=True,
     )
-    m_flash_tasks = mocker.patch("mpflash.cli_flash.flash_tasks", return_value=None, autospec=True)  # type: ignore
+    m_flash_tasks = mocker.patch("mpflash.cli_flash.flash_tasks", return_value=fakes if fakes else [fakeboard()], autospec=True)  # type: ignore
     m_ask_missing_params = mocker.patch(
         "mpflash.cli_flash.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
