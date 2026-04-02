@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mpflash.common import BootloaderMethod
+from mpflash.common import BootloaderMethod, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.download.jid import ensure_firmware_downloaded_tasks
 from mpflash.errors import MPFlashError
-from mpflash.flash import flash_tasks
+from mpflash.flash import _auto_select_flash_method, _select_flash_method, _select_serial_method, flash_mcu, flash_tasks
 from mpflash.flash.worklist import FlashTask, FlashTaskList
 from mpflash.mpremoteboard import MPRemoteBoard
 
@@ -196,6 +196,273 @@ def test_flash_tasks_custom_firmware(mock_config, mock_flash_mcu):
     assert board.toml["description"] == "Custom firmware"
     assert board.toml["mpflash"]["board_id"] == "ESP32_GENERIC"
     assert board.toml["mpflash"]["custom_id"] == "custom_123"
+
+
+# ---------------------------------------------------------------------------
+# Tests for flash_mcu (covers lines 130-154 in flash/__init__.py)
+# ---------------------------------------------------------------------------
+
+
+def _make_mcu(port: str = "esp32", board: str = "ESP32_GENERIC", serialport: str = "COM1"):
+    mcu = MagicMock()
+    mcu.port = port
+    mcu.board = board
+    mcu.serialport = serialport
+    mcu.board_id = board
+    mcu.cpu = "ESP32"
+    return mcu
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.flash_esp")
+@patch("mpflash.flash.enter_bootloader", create=True)
+def test_flash_mcu_esptool(mock_bootloader, mock_flash_esp, mock_select_method):
+    """Test flash_mcu routes to flash_esp for ESPTOOL method."""
+    mock_select_method.return_value = FlashMethod.ESPTOOL
+    expected = MagicMock()
+    mock_flash_esp.return_value = expected
+
+    mcu = _make_mcu(port="esp32")
+    fw_file = Path("fw.bin")
+
+    result = flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert result is expected
+    mock_flash_esp.assert_called_once_with(mcu, fw_file=fw_file, erase=False)
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.flash_uf2")
+@patch("mpflash.flash.enter_bootloader", create=True)
+def test_flash_mcu_uf2(mock_enter_bl, mock_flash_uf2, mock_select_method):
+    """Test flash_mcu routes to flash_uf2 for UF2 method."""
+    mock_select_method.return_value = FlashMethod.UF2
+    mock_enter_bl.return_value = True
+    expected = MagicMock()
+    mock_flash_uf2.return_value = expected
+
+    mcu = _make_mcu(port="rp2")
+    fw_file = Path("fw.uf2")
+
+    with patch("mpflash.bootloader.activate.enter_bootloader", return_value=True):
+        result = flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert result is expected
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.flash_stm32")
+@patch("mpflash.flash.enter_bootloader", create=True)
+def test_flash_mcu_dfu(mock_enter_bl, mock_flash_stm32, mock_select_method):
+    """Test flash_mcu routes to flash_stm32 for DFU method."""
+    mock_select_method.return_value = FlashMethod.DFU
+    mock_enter_bl.return_value = True
+    expected = MagicMock()
+    mock_flash_stm32.return_value = expected
+
+    mcu = _make_mcu(port="stm32")
+    fw_file = Path("fw.dfu")
+
+    with patch("mpflash.bootloader.activate.enter_bootloader", return_value=True):
+        result = flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert result is expected
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.is_debug_programming_available")
+@patch("mpflash.flash.flash_pyocd")
+def test_flash_mcu_pyocd(mock_flash_pyocd, mock_is_available, mock_select_method):
+    """Test flash_mcu routes to flash_pyocd for PYOCD method."""
+    mock_select_method.return_value = FlashMethod.PYOCD
+    mock_is_available.return_value = True
+    expected = MagicMock()
+    mock_flash_pyocd.return_value = expected
+
+    mcu = _make_mcu(port="stm32")
+    fw_file = Path("fw.hex")
+
+    result = flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert result is expected
+    mock_flash_pyocd.assert_called_once()
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.is_debug_programming_available")
+def test_flash_mcu_pyocd_not_available(mock_is_available, mock_select_method):
+    """Test flash_mcu raises MPFlashError when pyocd not available."""
+    mock_select_method.return_value = FlashMethod.PYOCD
+    mock_is_available.return_value = False
+
+    mcu = _make_mcu(port="stm32")
+    fw_file = Path("fw.hex")
+
+    with pytest.raises(MPFlashError):
+        flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+
+@patch("mpflash.flash._select_flash_method")
+def test_flash_mcu_unsupported_method(mock_select_method):
+    """Test flash_mcu raises MPFlashError for unsupported method."""
+    # Return a method value not in the if/elif chain
+    mock_select_method.return_value = FlashMethod.SERIAL
+
+    mcu = _make_mcu()
+    fw_file = Path("fw.bin")
+
+    with pytest.raises(MPFlashError):
+        flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+
+@patch("mpflash.flash._select_flash_method")
+@patch("mpflash.flash.flash_esp")
+def test_flash_mcu_wraps_exception(mock_flash_esp, mock_select_method):
+    """Test flash_mcu wraps unexpected exceptions in MPFlashError."""
+    mock_select_method.return_value = FlashMethod.ESPTOOL
+    mock_flash_esp.side_effect = RuntimeError("unexpected error")
+
+    mcu = _make_mcu()
+    fw_file = Path("fw.bin")
+
+    with pytest.raises(MPFlashError, match="Failed to flash"):
+        flash_mcu(mcu, fw_file=fw_file, erase=False, bootloader=BootloaderMethod.AUTO)
+
+
+# ---------------------------------------------------------------------------
+# Tests for _select_flash_method (covers lines 180-193 in flash/__init__.py)
+# ---------------------------------------------------------------------------
+
+
+@patch("mpflash.flash.is_debug_programming_available")
+@patch("mpflash.flash.is_pyocd_supported_from_mcu")
+def test_select_flash_method_pyocd_valid(mock_is_supported, mock_is_available):
+    """Test _select_flash_method returns PYOCD when explicitly requested and supported."""
+    mock_is_available.return_value = True
+    mock_is_supported.return_value = True
+
+    mcu = _make_mcu(port="stm32")
+    result = _select_flash_method(mcu, FlashMethod.PYOCD, Path("fw.hex"))
+
+    assert result == FlashMethod.PYOCD
+
+
+@patch("mpflash.flash.is_debug_programming_available")
+def test_select_flash_method_pyocd_not_available(mock_is_available):
+    """Test _select_flash_method raises when pyocd not available (lines 181-182)."""
+    mock_is_available.return_value = False
+
+    mcu = _make_mcu(port="stm32")
+    with pytest.raises(MPFlashError, match="Debug probe"):
+        _select_flash_method(mcu, FlashMethod.PYOCD, Path("fw.hex"))
+
+
+@patch("mpflash.flash.is_debug_programming_available")
+@patch("mpflash.flash.is_pyocd_supported_from_mcu")
+def test_select_flash_method_pyocd_unsupported_target(mock_is_supported, mock_is_available):
+    """Test _select_flash_method raises when target not supported (line 184-185)."""
+    mock_is_available.return_value = True
+    mock_is_supported.return_value = False
+
+    mcu = _make_mcu(port="stm32")
+    mcu.cpu = "UNKNOWN_CPU"
+    with pytest.raises(MPFlashError, match="pyOCD does not support"):
+        _select_flash_method(mcu, FlashMethod.PYOCD, Path("fw.hex"))
+
+
+def test_select_flash_method_uf2_valid():
+    """Test _select_flash_method returns UF2 for rp2 with .uf2 file."""
+    mcu = _make_mcu(port="rp2")
+    result = _select_flash_method(mcu, FlashMethod.UF2, Path("fw.uf2"))
+    assert result == FlashMethod.UF2
+
+
+def test_select_flash_method_uf2_invalid_port():
+    """Test _select_flash_method raises for UF2 with wrong port (line 187)."""
+    mcu = _make_mcu(port="esp32")
+    with pytest.raises(MPFlashError, match="UF2 method not suitable"):
+        _select_flash_method(mcu, FlashMethod.UF2, Path("fw.uf2"))
+
+
+def test_select_flash_method_dfu_valid():
+    """Test _select_flash_method returns DFU for stm32 (line 190)."""
+    mcu = _make_mcu(port="stm32")
+    result = _select_flash_method(mcu, FlashMethod.DFU, Path("fw.dfu"))
+    assert result == FlashMethod.DFU
+
+
+def test_select_flash_method_dfu_invalid_port():
+    """Test _select_flash_method raises DFU with non-stm32 (line 191-192)."""
+    mcu = _make_mcu(port="esp32")
+    with pytest.raises(MPFlashError, match="DFU method not suitable"):
+        _select_flash_method(mcu, FlashMethod.DFU, Path("fw.dfu"))
+
+
+def test_select_flash_method_esptool_valid():
+    """Test _select_flash_method returns ESPTOOL for esp32 (line 194)."""
+    mcu = _make_mcu(port="esp32")
+    result = _select_flash_method(mcu, FlashMethod.ESPTOOL, Path("fw.bin"))
+    assert result == FlashMethod.ESPTOOL
+
+
+def test_select_flash_method_esptool_invalid_port():
+    """Test _select_flash_method raises ESPTOOL with non-esp port (lines 195-196)."""
+    mcu = _make_mcu(port="stm32")
+    with pytest.raises(MPFlashError, match="esptool method not suitable"):
+        _select_flash_method(mcu, FlashMethod.ESPTOOL, Path("fw.bin"))
+
+
+@patch("mpflash.flash._select_serial_method")
+def test_select_flash_method_serial_delegates(mock_serial):
+    """Test _select_flash_method with SERIAL delegates to _select_serial_method (line 198)."""
+    mock_serial.return_value = FlashMethod.ESPTOOL
+    mcu = _make_mcu(port="esp32")
+    result = _select_flash_method(mcu, FlashMethod.SERIAL, Path("fw.bin"))
+    assert result == FlashMethod.ESPTOOL
+    mock_serial.assert_called_once_with(mcu, Path("fw.bin"))
+
+
+def test_select_flash_method_auto_delegates_to_auto():
+    """Test _select_flash_method AUTO mode returns auto selection."""
+    mcu = _make_mcu(port="esp32")
+    result = _select_flash_method(mcu, FlashMethod.AUTO, Path("fw.bin"))
+    assert result == FlashMethod.ESPTOOL
+
+
+# ---------------------------------------------------------------------------
+# Tests for _auto_select_flash_method and _select_serial_method
+# ---------------------------------------------------------------------------
+
+
+def test_auto_select_uf2_for_rp2():
+    mcu = _make_mcu(port="rp2")
+    result = _auto_select_flash_method(mcu, Path("fw.uf2"))
+    assert result == FlashMethod.UF2
+
+
+def test_auto_select_dfu_for_stm32():
+    mcu = _make_mcu(port="stm32")
+    result = _auto_select_flash_method(mcu, Path("fw.dfu"))
+    assert result == FlashMethod.DFU
+
+
+def test_auto_select_esptool_for_esp32():
+    mcu = _make_mcu(port="esp32")
+    result = _auto_select_flash_method(mcu, Path("fw.bin"))
+    assert result == FlashMethod.ESPTOOL
+
+
+def test_auto_select_esptool_for_esp8266():
+    mcu = _make_mcu(port="esp8266")
+    result = _auto_select_flash_method(mcu, Path("fw.bin"))
+    assert result == FlashMethod.ESPTOOL
+
+
+def test_select_serial_method_unknown_raises():
+    """Test _select_serial_method raises for unknown platform."""
+    mcu = _make_mcu(port="unknown_port")
+    with pytest.raises(MPFlashError, match="Don't know how to flash"):
+        _select_serial_method(mcu, Path("fw.bin"))
 
 
 @patch("mpflash.download.jid.find_downloaded_firmware")
