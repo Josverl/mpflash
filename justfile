@@ -11,7 +11,8 @@ set shell := ["pwsh", "-c"]
 # Set shell for Windows OSs:
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 
-default:
+# Show recipes
+help:
   @just --list
 
 
@@ -24,14 +25,21 @@ sync:
 test: 
   uv run pytest -v
 
+# create coverage report, build html report
+coverage:
+  uv run pytest --cov --cov-report=term-missing
+  coverage html
+  start coverage/index.html
+
 # bump mpflash's version
 bump bump="patch":
   uv version --bump {{bump}}
 
-# build
+# build the project for distribution
 build:
   uv build
 
+# publish the project to PyPI
 publish : build
   uv publish
 
@@ -42,10 +50,10 @@ lock:
   uv lock
 
 
-[script('python')]
-python:
-  print('Hello from python!')
-  from pathlib import Path
-  print(f'Current directory: {Path.cwd()}')
+# [script('python')]
+# python:
+#   print('Hello from python!')
+#   from pathlib import Path
+#   print(f'Current directory: {Path.cwd()}')
 
 
