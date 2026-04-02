@@ -1,10 +1,10 @@
+import sys
 from typing import List
-
-import rich_click as click
-from loguru import logger as log
 
 import mpflash.download.jid as jid
 import mpflash.mpboard_id as mpboard_id
+import rich_click as click
+from loguru import logger as log
 from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
@@ -216,7 +216,7 @@ def cli_flash_board(**kwargs) -> int:
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
-        return 2
+        sys.exit(2)
     assert isinstance(params, FlashParams)
 
     if len(params.versions) > 1:
@@ -242,9 +242,6 @@ def cli_flash_board(**kwargs) -> int:
             board_id=board_id,
             custom_firmware=params.custom,
             port=params.ports[0] if params.ports else None,
-            version=params.versions[0],
-            custom=params.custom,
-            method=flash_method,
         )
     elif params.serial == ["*"] and params.boards:
         # Auto mode on detected boards with optional include/ignore filtering
@@ -254,16 +251,11 @@ def cli_flash_board(**kwargs) -> int:
         if params.variant:
             for b in all_boards:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
-        # TODO: CHECK MERGE
         tasks = create_worklist(
             params.versions[0],
             connected_comports=all_boards,
             include_ports=params.serial,
             ignore_ports=params.ignore,
-            version=params.versions[0],
-            include=params.serial,
-            ignore=params.ignore,
-            method=flash_method,
         )
     elif params.versions[0] and params.boards and params.serial:
         # Manual specification of serial ports + board
@@ -273,22 +265,19 @@ def cli_flash_board(**kwargs) -> int:
             bluetooth=params.bluetooth,
         )
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
-        # TODO: CHECK MERGE
-        # tasks = create_worklist(
+        tasks = create_worklist(
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
+            custom_firmware=params.custom,
             port=params.ports[0] if params.ports else None,
-            method=flash_method,
         )
     else:
         # Single serial port auto-detection
         connected_comports = [MPRemoteBoard(params.serial[0])]
-        # TODO: CHECK MERGE
         tasks = create_worklist(
             params.versions[0],
             connected_comports=connected_comports,
-            method=flash_method,
         )
     if not params.custom:
         jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
@@ -307,4 +296,4 @@ def cli_flash_board(**kwargs) -> int:
         return 0
     else:
         log.error("No boards were flashed")
-        return 1
+        sys.exit(1)

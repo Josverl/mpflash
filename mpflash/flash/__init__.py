@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from loguru import logger as log
-from mpflash.bootloader.activate import enter_bootloader
-from mpflash.common import PORT_FWTYPES, UF2_PORTS, BootloaderMethod, FlashMethod
+from mpflash.common import (PORT_FWTYPES, UF2_PORTS, BootloaderMethod,
+                            FlashMethod)
 from mpflash.config import config
 from mpflash.errors import MPFlashError
 

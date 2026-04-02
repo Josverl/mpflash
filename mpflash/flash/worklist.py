@@ -28,15 +28,15 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from loguru import logger as log
-from typing_extensions import TypeAlias
-
-from mpflash.common import filtered_portinfos, FlashMethod
-from mpflash.db.models import Firmware
+from mpflash.common import FlashMethod, filtered_portinfos
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
 from mpflash.list import show_mcus
 from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
+from typing_extensions import TypeAlias
+
+from mpflash.db.models import Firmware
 
 # #########################################################################################################
 
@@ -132,6 +132,20 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
 def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False, port: str = "") -> FlashTask:
     """Create a FlashTask for manually specified board parameters."""
     log.debug(f"Creating manual board task: {serial_port} {board_id} {version}")
+    board = MPRemoteBoard(serial_port)
+
+    try:
+        info = find_known_board(board_id, port=port)
+        board.port = info.port
+        board.cpu = info.mcu  # Need CPU type for esptool
+    except (LookupError, MPFlashError) as e:
+        log.error(f"Board {board_id} not found in board database")
+        log.exception(e)
+        return _create_flash_task(board, None)
+
+    board.board = board_id
+    firmware = _find_firmware_for_board(board, version, custom)
+    return _create_flash_task(board, firmware)
 
 
 def select_firmware_for_method(firmwares: List[Firmware], method: FlashMethod) -> Firmware:
@@ -261,27 +275,18 @@ def manual_board(
 
     board.board = board_id
     firmware = _find_firmware_for_board(board, version, custom)
-    # TODO: CHECK MERGE
-    # Select firmware based on flash method
-    fw_info = select_firmware_for_method(firmwares, method)
-
-        return _create_flash_task(board, firmware)
+    return _create_flash_task(board, firmware)
 
 
 def _filter_connected_comports(
     all_boards: List[MPRemoteBoard],
     include: List[str],
     ignore: List[str],
-    version: str,
-    method: FlashMethod = FlashMethod.AUTO,
 ) -> List[MPRemoteBoard]:
     """Filter connected boards based on include/ignore patterns."""
 
-    log.debug(f"full_auto_worklist: {len(all_boards)} boards, include: {include}, ignore: {ignore}, version: {version}")
-    if selected_boards := filter_boards(all_boards, include=include, ignore=ignore):
-        return auto_update_worklist(selected_boards, version, method)
-    else:
-        return []
+    log.debug(f"_filter_connected_comports: {len(all_boards)} boards, include: {include}, ignore: {ignore}")
+    return filter_boards(all_boards, include=include, ignore=ignore) or []
 
 
 def filter_boards(

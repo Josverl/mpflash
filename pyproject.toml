@@ -128,7 +128,7 @@ testpaths = ["tests"]
 norecursedirs = [".*", ".*/*"]
 junit_family = "xunit1"
 
-addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
+addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow and not hil'"
 # --capture=no
 
 markers = [
@@ -139,6 +139,7 @@ markers = [
     "legacy: reeally old tests that need to be updated or removed",
 
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "hil: Hardware-In-the-Loop tests requiring physical hardware (deselected by default)",
     "integration: Integration tests (slower)",
     "mocked: to replace/compensate for most of the slow and git tests",
     #

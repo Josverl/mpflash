@@ -5,14 +5,15 @@ Tests the CLI flash command with pyOCD method selection,
 parameter parsing, and error handling.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 from click.testing import CliRunner
 
 # Import CLI functions and related modules
 from mpflash.cli_flash import cli_flash_board
-from mpflash.common import FlashMethod, BootloaderMethod
+from mpflash.common import BootloaderMethod, FlashMethod
 from mpflash.errors import MPFlashError
 
 # Import test fixtures
@@ -21,211 +22,240 @@ from tests.fixtures.mock_pyocd_data import MOCK_MCUS, MOCK_PROBES
 
 class TestCLIFlashCommandPyOCD:
     """Test CLI flash command with pyOCD integration."""
-    
+
     def setup_method(self):
         """Set up CLI runner for testing."""
         self.runner = CliRunner()
-    
-    @patch('mpflash.cli_flash.flash_list')
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    @patch('mpflash.cli_flash.jid.ensure_firmware_downloaded')
-    def test_flash_with_pyocd_method(self, mock_download, mock_connected, mock_flash_list):
+        self._ask_patcher = patch("mpflash.cli_flash.ask_missing_params", side_effect=lambda p: p)
+        self._ask_patcher.start()
+        self._show_patcher = patch("mpflash.cli_flash.show_mcus")
+        self._show_patcher.start()
+
+    def teardown_method(self):
+        self._ask_patcher.stop()
+        self._show_patcher.stop()
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    @patch("mpflash.cli_flash.jid.ensure_firmware_downloaded_tasks")
+    def test_flash_with_pyocd_method(self, mock_download, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test flash command with explicit pyOCD method."""
         # Mock board detection
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        
+        mock_create_worklist.return_value = []
         # Mock successful flashing
-        mock_flash_list.return_value = [mock_board]
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd",
-            "--version", "stable",
-            "--probe-id", "066CFF",
-            "--auto-install-packs"
-        ])
-        
+        mock_flash_tasks.return_value = [mock_board]
+
+        result = self.runner.invoke(
+            cli_flash_board, ["--method", "pyocd", "--version", "stable", "--probe-id", "066CFF", "--auto-install-packs"]
+        )
+
         assert result.exit_code == 0
-        
+
         # Verify flash_list was called with correct parameters
-        mock_flash_list.assert_called_once()
-        call_args = mock_flash_list.call_args
-        
+        mock_flash_tasks.assert_called_once()
+        call_args = mock_flash_tasks.call_args
+
         assert call_args[1]["method"] == FlashMethod.PYOCD
         assert call_args[1]["probe_id"] == "066CFF"
         assert call_args[1]["auto_install_packs"] is True
-    
-    @patch('mpflash.cli_flash.flash_list')
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    @patch('mpflash.cli_flash.jid.ensure_firmware_downloaded')
-    def test_flash_with_pyocd_no_auto_install(self, mock_download, mock_connected, mock_flash_list):
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    @patch("mpflash.cli_flash.jid.ensure_firmware_downloaded_tasks")
+    def test_flash_with_pyocd_no_auto_install(self, mock_download, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test flash command with pyOCD and disabled pack installation."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        mock_flash_list.return_value = [mock_board]
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd",
-            "--version", "stable", 
-            "--no-auto-install-packs"
-        ])
-        
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = [mock_board]
+
+        result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--version", "stable", "--no-auto-install-packs"])
+
         assert result.exit_code == 0
-        
-        call_args = mock_flash_list.call_args
+
+        call_args = mock_flash_tasks.call_args
         assert call_args[1]["auto_install_packs"] is False
-    
-    @patch('mpflash.cli_flash.flash_list')
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_flash_with_auto_method_excludes_pyocd(self, mock_connected, mock_flash_list):
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_flash_with_auto_method_excludes_pyocd(self, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test that auto method selection excludes pyOCD by default."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        mock_flash_list.return_value = [mock_board]
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "auto",  # Should not use pyOCD
-            "--version", "stable"
-        ])
-        
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = [mock_board]
+
+        result = self.runner.invoke(
+            cli_flash_board,
+            [
+                "--method",
+                "auto",  # Should not use pyOCD
+                "--version",
+                "stable",
+            ],
+        )
+
         assert result.exit_code == 0
-        
-        call_args = mock_flash_list.call_args
+
+        call_args = mock_flash_tasks.call_args
         assert call_args[1]["method"] == FlashMethod.AUTO
-    
-    @patch('mpflash.cli_flash.flash_list')
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_flash_command_parameter_extraction(self, mock_connected, mock_flash_list):
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_flash_command_parameter_extraction(self, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test that pyOCD parameters are correctly extracted from CLI args."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        mock_flash_list.return_value = [mock_board]
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd",
-            "--probe-id", "066CFF505750827567154312",
-            "--version", "stable",
-            "--erase",
-            "--auto-install-packs"
-        ])
-        
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = [mock_board]
+
+        result = self.runner.invoke(
+            cli_flash_board,
+            ["--method", "pyocd", "--probe-id", "066CFF505750827567154312", "--version", "stable", "--erase", "--auto-install-packs"],
+        )
+
         assert result.exit_code == 0
-        
-        call_args = mock_flash_list.call_args
+
+        call_args = mock_flash_tasks.call_args
         assert call_args[1]["method"] == FlashMethod.PYOCD
         assert call_args[1]["probe_id"] == "066CFF505750827567154312"
         assert call_args[1]["auto_install_packs"] is True
         assert call_args[0][1] is True  # erase parameter
-    
+
     def test_invalid_flash_method(self):
         """Test error handling for invalid flash method."""
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "invalid_method",
-            "--version", "stable"
-        ])
-        
+        result = self.runner.invoke(cli_flash_board, ["--method", "invalid_method", "--version", "stable"])
+
         assert result.exit_code != 0
         assert "Invalid value" in result.output
-    
-    @patch('mpflash.cli_flash.flash_list')
-    @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_flash_failure_handling(self, mock_connected, mock_flash_list):
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.connected_ports_boards_variants")
+    def test_flash_failure_handling(self, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test handling of flash operation failures."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        
+        mock_create_worklist.return_value = []
         # Mock flash failure
-        mock_flash_list.return_value = []  # No boards flashed
-        
-        result = self.runner.invoke(cli_flash_board, [
-            "--method", "pyocd",
-            "--version", "stable"
-        ])
-        
+        mock_flash_tasks.return_value = []  # No boards flashed
+
+        result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--version", "stable"])
+
         assert result.exit_code == 1
-        assert "No boards were flashed" in result.output
+        # note: log.error message goes to loguru, not result.output
 
 
 class TestCLIParameterValidation:
     """Test CLI parameter validation and error handling."""
-    
+
     def setup_method(self):
         self.runner = CliRunner()
-    
+        self._ask_patcher = patch("mpflash.cli_flash.ask_missing_params", side_effect=lambda p: p)
+        self._ask_patcher.start()
+        self._show_patcher = patch("mpflash.cli_flash.show_mcus")
+        self._show_patcher.start()
+
+    def teardown_method(self):
+        self._ask_patcher.stop()
+        self._show_patcher.stop()
+
     def test_probe_id_parameter_validation(self):
         """Test probe ID parameter accepts various formats."""
-        with patch('mpflash.cli_flash.flash_list') as mock_flash:
-            with patch('mpflash.cli_flash.connected_ports_boards_variants') as mock_connected:
-                mock_board = MOCK_MCUS["stm32wb55"]
-                mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-                mock_flash.return_value = [mock_board]
-                
-                # Test short probe ID
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd",
-                    "--probe-id", "066C",
-                    "--version", "stable"
-                ])
-                
-                assert result.exit_code == 0
-                
-                # Test full probe ID
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd", 
-                    "--probe-id", "066CFF505750827567154312",
-                    "--version", "stable"
-                ])
-                
-                assert result.exit_code == 0
-    
+        with patch("mpflash.cli_flash.flash_tasks") as mock_flash:
+            with patch("mpflash.cli_flash.create_worklist") as mock_worklist:
+                with patch("mpflash.cli_flash.connected_ports_boards_variants") as mock_connected:
+                    mock_board = MOCK_MCUS["stm32wb55"]
+                    mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
+                    mock_worklist.return_value = []
+                    mock_flash.return_value = [mock_board]
+
+                    # Test short probe ID
+                    result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--probe-id", "066C", "--version", "stable"])
+
+                    assert result.exit_code == 0
+
+                    # Test full probe ID
+                    result = self.runner.invoke(
+                        cli_flash_board, ["--method", "pyocd", "--probe-id", "066CFF505750827567154312", "--version", "stable"]
+                    )
+
+                    assert result.exit_code == 0
+
     def test_auto_install_packs_default_true(self):
         """Test that auto-install-packs defaults to True."""
-        with patch('mpflash.cli_flash.flash_list') as mock_flash:
-            with patch('mpflash.cli_flash.connected_ports_boards_variants') as mock_connected:
-                mock_board = MOCK_MCUS["stm32wb55"]
-                mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-                mock_flash.return_value = [mock_board]
-                
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd",
-                    "--version", "stable"
-                    # No explicit --auto-install-packs flag
-                ])
-                
-                assert result.exit_code == 0
-                
-                call_args = mock_flash.call_args
-                assert call_args[1]["auto_install_packs"] is True  # Default value
-    
+        with patch("mpflash.cli_flash.flash_tasks") as mock_flash:
+            with patch("mpflash.cli_flash.create_worklist") as mock_worklist:
+                with patch("mpflash.cli_flash.connected_ports_boards_variants") as mock_connected:
+                    mock_board = MOCK_MCUS["stm32wb55"]
+                    mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
+                    mock_worklist.return_value = []
+                    mock_flash.return_value = [mock_board]
+
+                    result = self.runner.invoke(
+                        cli_flash_board,
+                        [
+                            "--method",
+                            "pyocd",
+                            "--version",
+                            "stable",
+                            # No explicit --auto-install-packs flag
+                        ],
+                    )
+
+                    assert result.exit_code == 0
+
+                    call_args = mock_flash.call_args
+                    assert call_args[1]["auto_install_packs"] is True  # Default value
+
     def test_multiple_versions_error(self):
         """Test error when multiple versions specified."""
-        result = self.runner.invoke(cli_flash_board, [
-            "--version", "stable",
-            "--version", "1.20.0",  # Multiple versions not allowed
-            "--method", "pyocd"
-        ])
-        
+        result = self.runner.invoke(
+            cli_flash_board,
+            [
+                "--version",
+                "stable",
+                "--version",
+                "1.20.0",  # Multiple versions not allowed
+                "--method",
+                "pyocd",
+            ],
+        )
+
         # Should fail during parameter processing
         assert result.exit_code != 0
 
 
 class TestCLIWorkflowIntegration:
     """Test complete CLI workflows with pyOCD."""
-    
+
     def setup_method(self):
         self.runner = CliRunner()
-    
-    @patch('mpflash.cli_flash.flash_list')
+        self._ask_patcher = patch("mpflash.cli_flash.ask_missing_params", side_effect=lambda p: p)
+        self._ask_patcher.start()
+
+    def teardown_method(self):
+        self._ask_patcher.stop()
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
     @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    @patch('mpflash.cli_flash.jid.ensure_firmware_downloaded')
+    @patch("mpflash.cli_flash.jid.ensure_firmware_downloaded_tasks")
     @patch('mpflash.cli_flash.show_mcus')
-    def test_complete_pyocd_workflow_success(self, mock_show, mock_download, mock_connected, mock_flash_list):
+    def test_complete_pyocd_workflow_success(self, mock_show, mock_download, mock_connected, mock_create_worklist, mock_flash_tasks):
         """Test complete successful pyOCD flash workflow."""
         # Setup mocks
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        mock_flash_list.return_value = [mock_board]  # Successful flash
-        
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = [mock_board]  # Successful flash
+
         result = self.runner.invoke(cli_flash_board, [
             "--method", "pyocd",
             "--version", "stable",
@@ -235,33 +265,36 @@ class TestCLIWorkflowIntegration:
         ])
         
         assert result.exit_code == 0
-        assert "Flashed 1 boards" in result.output
-        
+        # note: log.info message goes to loguru, not result.output
+
         # Verify all steps were called
         mock_download.assert_called_once()  # Firmware downloaded
-        mock_flash_list.assert_called_once()  # Flash operation
+        mock_flash_tasks.assert_called_once()  # Flash operation
         mock_show.assert_called_once()  # Results displayed
-    
-    @patch('mpflash.cli_flash.flash_list')
+
+    @patch("mpflash.cli_flash.flash_tasks")
+    @patch("mpflash.cli_flash.create_worklist")
+    @patch("mpflash.cli_flash.show_mcus")
     @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    @patch('mpflash.cli_flash.jid.ensure_firmware_downloaded')
-    def test_custom_firmware_pyocd_workflow(self, mock_download, mock_connected, mock_flash_list):
+    @patch("mpflash.cli_flash.jid.ensure_firmware_downloaded_tasks")
+    def test_custom_firmware_pyocd_workflow(self, mock_download, mock_connected, mock_show, mock_create_worklist, mock_flash_tasks):
         """Test pyOCD workflow with custom firmware."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
-        mock_flash_list.return_value = [mock_board]
-        
+        mock_create_worklist.return_value = []
+        mock_flash_tasks.return_value = [mock_board]
+
         result = self.runner.invoke(cli_flash_board, [
             "--method", "pyocd",
             "--version", "stable",
             "--custom"  # Custom firmware flag
         ])
-        
+
         assert result.exit_code == 0
-        
+
         # Custom firmware should skip download
         mock_download.assert_not_called()
-        mock_flash_list.assert_called_once()
+        mock_flash_tasks.assert_called_once()
     
     @patch('mpflash.cli_flash.connected_ports_boards_variants')
     @patch('mpflash.cli_flash.ask_missing_params')
@@ -287,16 +320,16 @@ class TestCLIErrorScenarios:
     
     def setup_method(self):
         self.runner = CliRunner()
-    
-    @patch('mpflash.cli_flash.flash_list')
+
+    @patch("mpflash.cli_flash.flash_tasks")
     @patch('mpflash.cli_flash.connected_ports_boards_variants')
-    def test_flash_method_error_propagation(self, mock_connected, mock_flash_list):
+    def test_flash_method_error_propagation(self, mock_connected, mock_flash_tasks):
         """Test that flash method errors are properly propagated."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
         
         # Mock flash_list raising an exception
-        mock_flash_list.side_effect = MPFlashError("pyOCD programming failed")
+        mock_flash_tasks.side_effect = MPFlashError("pyOCD programming failed")
         
         result = self.runner.invoke(cli_flash_board, [
             "--method", "pyocd",
@@ -320,8 +353,8 @@ class TestCLIErrorScenarios:
             mock_params.serial = ["COM1"]
             mock_params.bootloader = BootloaderMethod.MANUAL
             mock_ask.return_value = mock_params
-            
-            with patch('mpflash.cli_flash.flash_list') as mock_flash:
+
+            with patch("mpflash.cli_flash.flash_tasks") as mock_flash:
                 mock_flash.return_value = []
                 
                 result = self.runner.invoke(cli_flash_board, [
