@@ -7,15 +7,15 @@ target detection, fuzzy matching, and CMSIS pack management.
 
 import re
 import subprocess
-from typing import Optional, Dict, List, Tuple
-from functools import lru_cache
+import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-from mpflash.logger import log
 from mpflash.errors import MPFlashError
+from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
-
 
 # =============================================================================
 # Secure Subprocess Utilities
@@ -67,6 +67,33 @@ def _run_pyocd_command(args: List[str], timeout: int = 30) -> subprocess.Complet
         raise MPFlashError(f"Command execution failed: {e}")
 
 
+def _check_libusb_windows() -> None:
+    """Warn if pyusb cannot load a libusb backend on Windows.
+
+    libusb-package (pyocd's official solution) only ships pre-built wheels up
+    to Python 3.13. On newer Python versions the source build silently produces
+    an empty package, so pyocd finds no probes.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import libusb_package  # type: ignore
+
+        if libusb_package.get_libusb1_backend() is None:
+            log.warning(
+                "pyocd: no libusb backend available on Windows — debug probes will not be detected.\n"
+                f"  Current Python: {sys.version.split()[0]}\n"
+                "  libusb-package only bundles a pre-built DLL for Python ≤ 3.13.\n"
+                "  Workaround: recreate your venv with Python 3.13 (e.g. `uv venv --python 3.13 --clear`).\n"
+                "  See: https://github.com/pyocd/libusb-package/issues/28"
+            )
+    except ImportError:
+        log.warning(
+            "pyocd: libusb-package is not installed — debug probes may not be detected on Windows.\n"
+            "  Fix: install it with `uv sync --extra pyocd`."
+        )
+
+
 # Lazy import for pyOCD to handle optional dependency
 _pyocd_available = None
 _pyocd_modules = {}
@@ -77,6 +104,7 @@ def _ensure_pyocd():
     global _pyocd_available, _pyocd_modules
     
     if _pyocd_available is None:
+        _check_libusb_windows()
         try:
             import pyocd
             _pyocd_modules['pyocd_version'] = pyocd.__version__
