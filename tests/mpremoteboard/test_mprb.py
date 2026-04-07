@@ -196,6 +196,9 @@ def test_mpremoteboard_info_unknown_board_id(mocker: MockerFixture, session_mem)
     find_board_id_by_description raises MPFlashError for custom/unknown boards.
     The old code let that exception escape; the fix catches it and sets the
     board_id to UNKNOWN_BOARD so all other fields are still shown.
+
+    session_mem provides an empty in-memory DB so find_board_id_by_description
+    raises MPFlashError (no boards to match against), exercising the catch path.
     """
     info_dict = (
         "{'port': 'esp32', 'build': '', 'arch': 'rv32imc', 'family': 'micropython',"

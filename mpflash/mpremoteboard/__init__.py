@@ -192,10 +192,12 @@ class MPRemoteBoard:
             for line in result:
                 log.debug(f"  {line.rstrip()}")
         # Ok we have the info, now parse it — search all lines for the dict
-        raw_info = next(
-            (line.strip() for line in result if line.strip().startswith("{") and line.strip().endswith("}")),
-            "",
-        ) if result else ""
+        raw_info = ""
+        for line in result:
+            stripped = line.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                raw_info = stripped
+                break
         if raw_info.startswith("{") and raw_info.endswith("}"):
             info = eval(raw_info)
             self.family = info["family"]
