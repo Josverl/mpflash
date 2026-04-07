@@ -227,6 +227,38 @@ def test_mpremoteboard_info_unknown_board_id(mocker: MockerFixture, session_mem)
     assert mprb.board_id != ""
 
 
+def test_mpremoteboard_info_board_id_from_toml(mocker: MockerFixture, session_mem):
+    """board_id from board_info.toml overrides the UNKNOWN_BOARD fallback.
+
+    When the device has a board_info.toml with [mpflash].board_id set (written
+    there by a previous custom-firmware flash), that value should be used so
+    the board is identified correctly even without a DB match.
+    """
+    info_dict = (
+        "{'port': 'esp32', 'build': '', 'arch': 'rv32imc', 'family': 'micropython',"
+        " 'board': '', 'board_id': '', 'variant': '', 'cpu': 'ESP32-C6',"
+        " 'version': '1.27.0', 'mpy': 'v6.3', 'ver': '1.27.0',"
+        " 'description': 'Custom ESP32-C6 board with ESP32-C6'}"
+    )
+    output = [
+        "WARN  : BOARD_ID not found\n",
+        info_dict + "\n",
+    ]
+
+    mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
+
+    def _set_toml(self, timeout=1):
+        self.toml = {"mpflash": {"board_id": "MY_CUSTOM_C6"}}
+
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml", _set_toml)
+
+    mprb = MPRemoteBoard("COM15")
+    mprb.get_mcu_info()
+
+    assert mprb.board_id == "MY_CUSTOM_C6"
+    assert mprb.connected is True
+
+
 def test_mpy_fw_info_keeps_description(monkeypatch):
     from mpflash.mpremoteboard import mpy_fw_info as mpy_info
 

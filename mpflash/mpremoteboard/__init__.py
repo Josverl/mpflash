@@ -225,7 +225,11 @@ class MPRemoteBoard:
                     self.board_id = self.board_id or "UNKNOWN_BOARD"
             # get the board_info.toml
             self.get_board_info_toml()
-            # TODO: get board_id from the toml file if it exists
+            # use board_id from the toml file if available (overrides UNKNOWN_BOARD fallback)
+            toml_board_id = self.toml.get("mpflash", {}).get("board_id", "")
+            if toml_board_id:
+                log.debug(f"Using board_id from board_info.toml: {toml_board_id!r}")
+                self.board_id = toml_board_id
         # now we know the board is connected
         self.connected = True
 
@@ -259,7 +263,8 @@ class MPRemoteBoard:
                 log.trace(result)
                 # Ok we have the info, now parse it
                 self.toml = tomllib.loads("".join(result))
-                log.debug(f"board_info.toml: {self.toml['description']}")
+                with contextlib.suppress(Exception):
+                    log.debug(f"board_info.toml: {self.toml['description']}")
             except Exception as e:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
