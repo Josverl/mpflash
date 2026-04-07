@@ -154,6 +154,76 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.variant == ""
 
 
+def test_mpremoteboard_info_with_warning_prefix(mocker: MockerFixture, session_fx):
+    """Board info dict is correctly parsed when a WARN line precedes it (Bug fix).
+
+    mpy_fw_info.py emits 'WARN  : BOARD_ID not found' before the dict when
+    the boardname.py file is absent.  The old code only checked result[0] and
+    therefore missed the dict entirely.
+    """
+    info_dict = (
+        "{'port': 'esp32', 'build': '', 'arch': 'rv32imc', 'family': 'micropython',"
+        " 'board': '', 'board_id': '', 'variant': '', 'cpu': 'ESP32-C6',"
+        " 'version': '1.27.0', 'mpy': 'v6.3', 'ver': '1.27.0',"
+        " 'description': 'Custom ESP32-C6 board with ESP32-C6'}"
+    )
+    output = [
+        "WARN  : BOARD_ID not found\n",
+        info_dict + "\n",
+    ]
+
+    mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
+    # get_board_info_toml is a separate method; stub it out
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml")
+
+    mprb = MPRemoteBoard("COM15")
+    mprb.get_mcu_info()
+
+    # Core fields that were previously empty must now be populated
+    assert mprb.family == "micropython"
+    assert mprb.version == "1.27.0"
+    assert mprb.port == "esp32"
+    assert mprb.cpu == "ESP32-C6"
+    assert mprb.description == "Custom ESP32-C6 board with ESP32-C6"
+    assert mprb.connected is True
+    # board_id should be a non-empty fallback, not blank
+    assert mprb.board_id != ""
+
+
+def test_mpremoteboard_info_unknown_board_id(mocker: MockerFixture, session_mem):
+    """When board_id is empty and description has no DB match, fall back to UNKNOWN_BOARD.
+
+    find_board_id_by_description raises MPFlashError for custom/unknown boards.
+    The old code let that exception escape; the fix catches it and sets the
+    board_id to UNKNOWN_BOARD so all other fields are still shown.
+    """
+    info_dict = (
+        "{'port': 'esp32', 'build': '', 'arch': 'rv32imc', 'family': 'micropython',"
+        " 'board': '', 'board_id': '', 'variant': '', 'cpu': 'ESP32-C6',"
+        " 'version': '1.27.0', 'mpy': 'v6.3', 'ver': '1.27.0',"
+        " 'description': 'Custom ESP32-C6 board with ESP32-C6'}"
+    )
+    output = [
+        "WARN  : BOARD_ID not found\n",
+        info_dict + "\n",
+    ]
+
+    mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml")
+
+    mprb = MPRemoteBoard("COM15")
+    mprb.get_mcu_info()
+
+    # Should not raise; all readable fields must be populated
+    assert mprb.family == "micropython"
+    assert mprb.version == "1.27.0"
+    assert mprb.port == "esp32"
+    assert mprb.cpu == "ESP32-C6"
+    assert mprb.connected is True
+    # board_id must be a non-empty fallback
+    assert mprb.board_id != ""
+
+
 def test_mpy_fw_info_keeps_description(monkeypatch):
     from mpflash.mpremoteboard import mpy_fw_info as mpy_info
 
