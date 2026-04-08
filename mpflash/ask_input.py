@@ -22,6 +22,42 @@ from .mpremoteboard import MPRemoteBoard
 from .versions import clean_version, micropython_versions
 
 # ---------------------------------------------------------------------------
+# High-contrast questionary style
+# Works on dark terminals (Windows Terminal, most Linux defaults) and
+# light-background terminals.  Uses standard ANSI colours only — no
+# 256-colour codes — so contrast is handled by the terminal theme itself.
+# ---------------------------------------------------------------------------
+
+
+def _mpflash_style():
+    """Return a high-contrast questionary Style for all interactive prompts."""
+    from questionary import Style
+
+    return Style(
+        [
+            ("qmark", "bold"),  # "?" prefix — bold, inherits fg
+            ("question", "bold"),  # question text
+            ("answer", "fg:cyan bold"),  # confirmed answer — cyan is readable on dark AND light
+            ("pointer", "fg:cyan bold"),  # selection cursor
+            ("selected", "fg:cyan"),  # ticked checkbox item
+            ("search_success", "bold fg:green"),
+            ("search_none", "bold fg:red"),
+            ("highlighted", "fg:cyan bold"),  # currently highlighted autocomplete match
+            ("separator", "fg:default"),
+            ("instruction", "fg:default italic"),
+            ("text", ""),
+            # Autocomplete dropdown — dark background, dim text, no glare
+            ("completion-menu", "bg:ansiblack fg:ansiwhite"),
+            ("completion-menu.completion", "bg:ansiblack fg:ansiwhite"),
+            ("completion-menu.completion.current", "bg:ansidarkgray fg:ansicyan bold"),
+            ("completion-menu.meta", "bg:ansiblack fg:ansidarkgray"),
+            ("completion-menu.meta.completion", "bg:ansiblack fg:ansidarkgray"),
+            ("completion-menu.meta.completion.current", "bg:ansidarkgray fg:ansigray"),
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
 # Questionary-based input helpers (cross-platform replacement for richui)
 # ---------------------------------------------------------------------------
 
@@ -43,6 +79,7 @@ def _ask_with_completion(
         complete_while_typing=True,
         meta_information=meta,
         validate=lambda val: bool(val) or "Please select an option (Ctrl-C to abort).",
+        style=_mpflash_style(),
     )
 
     def _open_completions() -> None:
@@ -63,9 +100,10 @@ def _ask_select(
     """Select from a list using questionary (single or multi-select)."""
     import questionary
 
+    style = _mpflash_style()
     if multi_select:
-        return questionary.checkbox(prompt, choices=options).ask()
-    return questionary.select(prompt, choices=options).ask()
+        return questionary.checkbox(prompt, choices=options, style=style).ask()
+    return questionary.select(prompt, choices=options, style=style).ask()
 
 
 # ---------------------------------------------------------------------------
