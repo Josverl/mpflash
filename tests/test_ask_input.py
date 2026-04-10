@@ -11,7 +11,8 @@ pytestmark = [pytest.mark.mpflash]
 def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
     # Make sure that no prompts are called when interactive is False
 
-    mocker.patch("mpflash.ask_input.config.interactive", False)
+    # mocker.patch.dict("os.environ", {"GITHUB_ACTIONS": "false"})
+    mocker.patch("mpflash.ask_input.config._interactive", False)
 
     input = {
         "versions": ["?"],
@@ -192,7 +193,8 @@ def test_ask_missing_params_with_interactivity(
         params = FlashParams(**input)
 
     # make sure we can be interactive during testing, even in CI
-    mocker.patch("mpflash.ask_input.config.interactive", True)
+    mocker.patch.dict("os.environ", {"GITHUB_ACTIONS": "false"})
+    mocker.patch("mpflash.ask_input.config._interactive", True)
 
     # Mock each helper function individually
     m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)

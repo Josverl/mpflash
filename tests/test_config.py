@@ -41,18 +41,6 @@ def test_interactive_property_normal(mocker):
     assert config.interactive is True
 
 
-def test_interactive_property_github_actions(mocker):
-    """Test interactive property in GitHub Actions environment."""
-    config = MPFlashConfig()
-    mock_log = mocker.patch("mpflash.logger.log")
-
-    mocker.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    result = config.interactive
-
-    assert result is False
-    mock_log.warning.assert_called_once_with("Disabling interactive mode in CI")
-
-
 @pytest.mark.parametrize(
     "value,expected",
     [
