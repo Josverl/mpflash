@@ -1,10 +1,11 @@
+from pathlib import Path
 from typing import List
 
 import rich_click as click
 from loguru import logger as log
 
 from mpflash.cli_group import cli
-from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
+from mpflash.common import BootloaderMethod, FlashParams, UF2_PORTS, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
 
@@ -37,6 +38,15 @@ from mpflash.versions import clean_version
     show_default=True,
     help="Which serial port(s) (or globs) to flash",
     metavar="SERIALPORT",
+)
+@click.option(
+    "--volume",
+    "volumes",
+    multiple=True,
+    default=[],
+    show_default=True,
+    help="Mounted UF2 boot volume path(s), e.g. D:\\, d:\\, or /Volumes/RPI-RP2 (Windows backslashes accepted)",
+    metavar="PATH",
 )
 @click.option(
     "--ignore",
@@ -163,6 +173,7 @@ def cli_flash_board(**kwargs) -> int:
     params.boards = list(params.boards)
     params.serial = list(params.serial)
     params.ignore = list(params.ignore)
+    params.volumes = list(params.volumes)
     params.bootloader = BootloaderMethod(params.bootloader)
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
@@ -209,7 +220,28 @@ def cli_flash_board(**kwargs) -> int:
     params.versions = [clean_version(v) for v in params.versions]
     tasks = []
 
-    if len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
+    # Normalize volume paths: accept both Windows backslashes and POSIX forward slashes
+    if params.volumes:
+        params.volumes = [str(Path(v)) for v in params.volumes]
+
+    if params.volumes:
+        # Explicit UF2 mount path(s) for boards already in bootloader mode.
+        if not params.boards:
+            raise click.UsageError("--volume requires --board so firmware can be selected")
+        board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
+        tasks = _create_worklist_or_fail(
+            params.versions[0],
+            serial_ports=params.volumes,
+            board_id=board_id,
+            custom_firmware=params.custom,
+            port=params.ports[0] if params.ports else None,
+        )
+        if any(task.board.port not in UF2_PORTS for task in tasks):
+            raise click.UsageError(
+                "--volume is only supported for UF2-capable ports "
+                f"({', '.join(sorted(UF2_PORTS))})"
+            )
+    elif len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
         # One or more serial ports including the board / variant (auto-detect ports)
         comports = filtered_comports(
             ignore=params.ignore,

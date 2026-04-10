@@ -8,6 +8,8 @@ from pytest_mock import MockerFixture
 # # module under test :
 from mpflash import cli_main
 from mpflash.common import DownloadParams
+from mpflash.db.models import Firmware
+from mpflash.flash.worklist import FlashTask
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # mark all tests
@@ -137,7 +139,10 @@ def test_mpflash_connected_comports(
 
     # test exit code (standalone mode)
     assert result
-    assert result.exit_code == 0
+    if serialports:
+        assert result.exit_code == 0
+    else:
+        assert result.exit_code == 2
 
 
 ## if no boards are connected , but there are serial port , then set serial --> ? and board to ? if not set
@@ -183,6 +188,78 @@ def test_mpflash_no_detected_boards(
         ## if no boards are responding , but there are serial port , then set serial --> ? and board to ? if not set
         assert m_ask_missing_params.call_args.args[0].serial == ["?"]
         assert m_ask_missing_params.call_args.args[0].boards == ["?"]
+
+
+def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: MockerFixture):
+    """Show a user-friendly CLI error when no serial port matches the filter."""
+    args = ["flash", "--board", "RPI_PICO2", "--bootloader", "none", "--serial", "COM8"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+    mocker.patch("mpflash.common.filtered_comports", return_value=[])
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 2
+    assert "No serial ports matched" in result.output
+
+
+def test_mpflash_flash_with_explicit_uf2_volume(mocker: MockerFixture):
+    """Use --volume path for UF2 board already in boot mode."""
+    from pathlib import Path
+    args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--volume", "D:\\"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+
+    board = MPRemoteBoard("COM99")
+    board.port = "rp2"
+    board.board_id = "RPI_PICO2"
+    fw = Firmware(board_id="RPI_PICO2", version="1.27.0", port="rp2", firmware_file="fw.uf2")
+    task = FlashTask(board=board, firmware=fw)
+
+    m_create_worklist = mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    m_create_worklist.assert_called_once()
+    # Paths are normalized to platform-native format via Path()
+    expected_path = str(Path("D:\\"))
+    assert m_create_worklist.call_args.kwargs["serial_ports"] == [expected_path]
+    m_flash_tasks.assert_called_once()
+
+
+def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):
+    """Reject --volume when the selected board does not support UF2 flashing."""
+    args = ["flash", "--board", "ESP32_GENERIC", "--volume", "D:\\"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+
+    board = MPRemoteBoard("COM99")
+    board.port = "esp32"
+    board.board_id = "ESP32_GENERIC"
+    fw = Firmware(board_id="ESP32_GENERIC", version="1.27.0", port="esp32", firmware_file="fw.bin")
+    task = FlashTask(board=board, firmware=fw)
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 2
+    assert "--volume is only supported for UF2-capable ports" in result.output
 
 
 @pytest.mark.skip("TODO: Test Broken")

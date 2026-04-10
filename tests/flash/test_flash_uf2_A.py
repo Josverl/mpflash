@@ -132,3 +132,46 @@ def test_flash_uf2_no_erase_command_when_erase_false(mock_mcu, mock_fw_file, moc
         # Verify that run_command was NOT called
         mock_mcu.run_command.assert_not_called()
         assert result == mock_mcu
+
+
+def test_flash_uf2_uses_explicit_volume_path(tmp_path, mock_mcu, mock_fw_file):
+    """Use mounted UF2 volume directly when serialport points to a valid UF2 drive.
+
+    This also checks the explicit-path wait path via _waitfor_uf2_at_path by
+    patching _is_volume_pattern to accept tmp_path.
+    """
+    info = tmp_path / "INFO_UF2.TXT"
+    info.write_text("Board-ID: RPI-RP2\n")
+    mock_mcu.serialport = str(tmp_path)
+
+    with (
+        mock.patch("mpflash.flash.uf2._is_volume_pattern", return_value=True),
+        mock.patch("mpflash.flash.uf2.waitfor_uf2") as m_waitfor,
+        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2") as m_copy,
+        mock.patch("mpflash.flash.uf2.get_board_id", return_value="RPI-RP2"),
+    ):
+        result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
+
+    assert result == mock_mcu
+    m_waitfor.assert_not_called()
+    m_copy.assert_called_once()
+    # serialport must be switched to 'auto' so reconnection uses mpremote auto-detect
+    assert mock_mcu.serialport == "auto"
+
+
+def test_flash_uf2_explicit_volume_not_found_falls_back_to_autodetect(tmp_path, mock_mcu, mock_fw_file, mock_destination):
+    """When --volume points to a path with no INFO_UF2.TXT, log a warning and
+    fall back to auto-detection so the board is still found if mounted elsewhere."""
+    # tmp_path is a real directory but has no INFO_UF2.TXT
+    mock_mcu.serialport = str(tmp_path)
+
+    with (
+        mock.patch("mpflash.flash.uf2._is_volume_pattern", return_value=True),
+        mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination) as m_waitfor,
+        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"),
+        mock.patch("mpflash.flash.uf2.get_board_id", return_value="RPI-RP2"),
+    ):
+        result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
+
+    assert result == mock_mcu
+    m_waitfor.assert_called_once()  # fell back to scanning all drives

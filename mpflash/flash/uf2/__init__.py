@@ -21,6 +21,55 @@ from .macos import wait_for_UF2_macos
 from .windows import wait_for_UF2_windows
 
 
+def _is_volume_pattern(s: str) -> bool:
+    """Return True when s looks like a drive/mount path by string pattern alone."""
+    if not s:
+        return False
+    if sys.platform == "win32":
+        # Drive root: D:\ D:/ D: — drive letter + colon, optional slash
+        p = Path(s)
+        return bool(p.drive) and len(s.rstrip("/\\")) <= 2
+    else:
+        return s.startswith("/Volumes/") or s.startswith("/media/")
+
+
+def _is_volume_path(serialport: str) -> bool:
+    """Return True when serialport is a filesystem path rather than a real serial port."""
+    if not serialport:
+        return False
+    # Use pattern first (works even after board reboots and drive disappears)
+    if _is_volume_pattern(serialport):
+        return True
+    p = Path(serialport)
+    return p.is_dir()
+
+
+def _resolve_uf2_destination(mcu: MPRemoteBoard) -> Optional[Path]:
+    """Use explicit mount path when provided, otherwise auto-detect UF2 mount.
+
+    If a volume path is given (e.g. D:\\ or /Volumes/RPI-RP2) and INFO_UF2.TXT
+    is already present there, use it directly. Otherwise log a warning and fall
+    back to auto-detection so the board is still found even if mounted elsewhere.
+    """
+    serialport = getattr(mcu, "serialport", "")
+    mcu_path = getattr(mcu, "path", None)
+
+    for candidate_str in filter(None, [str(mcu_path) if mcu_path else None, serialport]):
+        if _is_volume_pattern(candidate_str):
+            explicit = Path(candidate_str)
+            if explicit.exists() and explicit.is_dir() and (explicit / "INFO_UF2.TXT").exists():
+                log.info(f"Using UF2 volume at {explicit}")
+                return explicit
+            log.warning(
+                f"No UF2 board detected at {explicit} — "
+                "falling back to auto-detection across all drives"
+            )
+            break  # fall through to auto-detect below
+
+    # No explicit volume found (or not specified) — auto-detect by board_id
+    return waitfor_uf2(board_id=mcu.port.upper())
+
+
 def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemoteBoard]:
     """
     Flash .UF2 devices via bootloader and filecopy
@@ -35,7 +84,8 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
         as this is not done automatically by the OS in headless mode.
     """
     if ".uf2" not in PORT_FWTYPES[mcu.port]:
-        log.error(f"UF2 not supported on {mcu.board} on {mcu.serialport}")
+        display_port = Path(mcu.serialport).as_posix() if Path(mcu.serialport).is_absolute() or Path(mcu.serialport).drive else mcu.serialport
+        log.error(f"UF2 not supported on {mcu.board} on {display_port}")
         return None
     
     # For non-rp2 ports, remember if we need to erase filesystem after flashing
@@ -46,7 +96,7 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
             rp2_erase =Path(__file__).parent.joinpath("../../vendor/pico-universal-flash-nuke/universal_flash_nuke.uf2").resolve()
             log.info(f"Erasing {mcu.port} with {rp2_erase.name}")
             # optimistic 
-            destination = waitfor_uf2(board_id=mcu.port.upper())
+            destination = _resolve_uf2_destination(mcu)
             if not destination :
                 log.error("Board is not in bootloader mode")
                 return None
@@ -56,7 +106,7 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
             # allow for MCU restart after erase
             time.sleep(0.5)
 
-    destination = waitfor_uf2(board_id=mcu.port.upper())
+    destination = _resolve_uf2_destination(mcu)
 
     if not destination or not destination.exists() or not (destination / "INFO_UF2.TXT").exists():
         log.error("Board is not in bootloader mode")
@@ -74,6 +124,15 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
 
     if sys.platform in ["linux"]:
         dismount_uf2_linux()
+
+    # If the board was flashed via a volume path (boot mode), switch to 'auto'
+    # so that wait_for_restart and subsequent mpremote calls reach the real serial port.
+    serialport = getattr(mcu, "serialport", "")
+    if _is_volume_path(serialport):
+        # Display path with forward slashes for cleaner logs
+        display_path = Path(serialport).as_posix()
+        log.debug(f"Switching serialport from volume path {Path(display_path)} to 'auto' for reconnection")
+        mcu.serialport = "auto"
 
     mcu.wait_for_restart()
     

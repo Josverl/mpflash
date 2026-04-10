@@ -65,6 +65,7 @@ class FlashParams(Params):
     cpu: str = ""
     flash_mode: str = "keep"  # keep, qio, qout, dio, dout
     custom: bool = False
+    volumes: List[str] = field(default_factory=list)
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):
