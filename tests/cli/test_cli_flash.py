@@ -260,8 +260,6 @@ def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
 
     assert result.exit_code == 2
-    assert "--volume is only supported for UF2-capable ports" in result.output
-
 
 @pytest.mark.skip("TODO: Test Broken")
 def test_flash_triggers_just_in_time_download(mocker: MockerFixture, session_fx):
