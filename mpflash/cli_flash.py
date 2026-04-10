@@ -138,6 +138,17 @@ def cli_flash_board(**kwargs) -> int:
     from mpflash.flash.worklist import FlashTaskList, create_worklist
     from mpflash.mpremoteboard import MPRemoteBoard
 
+    def _create_worklist_or_fail(*create_args, **create_kwargs) -> FlashTaskList:
+        """Create a worklist and raise a user-friendly CLI error on invalid input."""
+        try:
+            return create_worklist(*create_args, **create_kwargs)
+        except ValueError as exc:
+            raise click.UsageError(
+                "Invalid flash option combination. "
+                f"{exc}. "
+                "Try specifying both --board and --serial, or use '--serial *' to auto-detect ports."
+            ) from None
+
     # version to versions, board to boards
     kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
     if kwargs["board"] is None:
@@ -208,7 +219,7 @@ def cli_flash_board(**kwargs) -> int:
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
         log.info(f"Flashing {board_id} {params.versions[0]} to {len(comports)} serial ports")
         log.info(f"Target ports: {', '.join(comports)}")
-        tasks = create_worklist(
+        tasks = _create_worklist_or_fail(
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
@@ -223,7 +234,7 @@ def cli_flash_board(**kwargs) -> int:
         if params.variant:
             for b in all_boards:
                 b.variant = params.variant if (params.variant.lower() not in {"-", "none"}) else ""
-        tasks = create_worklist(
+        tasks = _create_worklist_or_fail(
             params.versions[0],
             connected_comports=all_boards,
             include_ports=params.serial,
@@ -236,8 +247,14 @@ def cli_flash_board(**kwargs) -> int:
             include=params.serial,
             bluetooth=params.bluetooth,
         )
+        if not comports:
+            serial_filter = ", ".join(params.serial)
+            raise click.UsageError(
+                f"No serial ports matched: {serial_filter}. "
+                "Check the port name, or use '--serial *' to auto-detect."
+            )
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
-        tasks = create_worklist(
+        tasks = _create_worklist_or_fail(
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
@@ -246,7 +263,7 @@ def cli_flash_board(**kwargs) -> int:
     else:
         # Single serial port auto-detection
         connected_comports = [MPRemoteBoard(params.serial[0])]
-        tasks = create_worklist(
+        tasks = _create_worklist_or_fail(
             params.versions[0],
             connected_comports=connected_comports,
         )
