@@ -1,8 +1,8 @@
+"""Query known ports and boards from the bundled SQLite board database.
+
+Board records are sourced from the MicroPython repository and imported into the
+``boards`` table, which is used for board/port resolution during flashing.
 """
-KNOWN ports and boards are sourced from the micropython repo,
-this info is stored in the board_info.json file
-and is used to identify the board and port for flashing.
-This module provides access to the board info and the known ports and boards."""
 
 from typing import List, Optional, Tuple
 

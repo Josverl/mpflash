@@ -1,7 +1,6 @@
-"""
-Access to the micropython port and board information that is stored in the board_info.json file 
-that is included in the module.
+"""Access to MicroPython board metadata stored in the SQLite database.
 
+This package exposes helpers to query known ports, boards, and variants.
 """
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
