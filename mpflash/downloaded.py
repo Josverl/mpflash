@@ -76,24 +76,6 @@ def find_downloaded_firmware(
     more_board_ids = alternate_board_names(board_id, port)
     #
     log.debug(f"2nd search with renamed board_id :{board_id}")
-    # <<<<<<< HEAD
-    #     with Session() as session:
-    #         if "preview" in version:
-    #             query = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids))
-    #             if port:
-    #                 query = query.filter(Firmware.port == port)
-    #             query = query.filter(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
-    #             fw_list = query.all()
-    #             if fw_list:
-    #                 return [fw_list[0]]
-    #         else:
-    #             query = session.query(Firmware).filter(Firmware.board_id.in_(more_board_ids), Firmware.version == version)
-    #             if port:
-    #                 query = query.filter(Firmware.port == port)
-    #             fw_list = query.all()
-    #             if fw_list:
-    #                 return fw_list
-    # =======
     if "preview" in version:
         qry = Firmware.select().where(Firmware.board_id.in_(more_board_ids))
         if port:

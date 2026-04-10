@@ -109,14 +109,11 @@ class BaseModel(peewee.Model):
 ```python
 from mpflash.db.core import database  # SqliteDatabase instance
 
-# Use the session context manager for transactions:
-from mpflash.db.core import Session
-
-with Session() as session:
+with database.atomic():
     boards = Board.select().where(Board.port == "rp2")
 ```
 
-The context manager opens the connection (if closed), wraps the block in an atomic transaction and commits on exit (or rolls back on exception).
+Use `database.atomic()` for transactions; it commits on success and rolls back on exceptions.
 
 ## Development Setup
 

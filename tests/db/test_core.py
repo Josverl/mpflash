@@ -3,14 +3,11 @@ from pathlib import Path
 
 import peewee
 import pytest
-from mock import MagicMock, PropertyMock, patch
-from mpflash.config import MPFlashConfig, config
+from mock import MagicMock, PropertyMock
+from mpflash.config import MPFlashConfig
 
 from mpflash.db.core import (
-    Session,
     _init_database,
-    _SessionContext,
-    _SessionProxy,
     create_database,
     get_schema_version,
     migrate_database,
@@ -18,29 +15,6 @@ from mpflash.db.core import (
     run_schema_migrations,
     set_schema_version,
 )
-from mpflash.db.models import Board, Firmware, Metadata, database
-
-
-def test_session_factory(session_mem, mocker):
-    """Test the session context and factory."""
-    with Session() as session:
-        assert isinstance(session, _SessionProxy)
-        # Test execute
-        result = session.execute("SELECT 1")
-        assert result.fetchone()[0] == 1
-
-        # Test no-op commit
-        session.commit()
-
-        # Test mock bind
-        bind = session.get_bind()
-        assert hasattr(bind, "url")
-        assert hasattr(bind.url, "database")
-
-    with Session() as session:
-        mock_rollback = mocker.patch.object(session._db, "rollback")
-        session.rollback()
-        mock_rollback.assert_called_once()
 
 
 def test_schema_versions(session_mem, mocker):
