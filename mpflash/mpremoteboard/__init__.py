@@ -63,17 +63,26 @@ class MPRemoteBoard:
         self.build = ""
         self.location = location  # USB location
         self.toml = {}
-        portinfo = list(serial.tools.list_ports.grep(serialport)) 
-        if not portinfo or len(portinfo) != 1:
+        
+        # For filesystem paths (UF2 volume paths), skip serial port lookup
+        path_obj = Path(serialport)
+        if path_obj.is_absolute() or path_obj.drive:
+            # This is a filesystem path, not a serial port
             self.vid = 0x00
             self.pid = 0x00
         else:
-            try:
-                self.vid = portinfo[0].vid  # type: ignore
-                self.pid = portinfo[0].pid  # type: ignore
-            except Exception:
+            # Normal serial port - use grep to find port info
+            portinfo = list(serial.tools.list_ports.grep(serialport))
+            if not portinfo or len(portinfo) != 1:
                 self.vid = 0x00
                 self.pid = 0x00
+            else:
+                try:
+                    self.vid = portinfo[0].vid  # type: ignore
+                    self.pid = portinfo[0].pid  # type: ignore
+                except Exception:
+                    self.vid = 0x00
+                    self.pid = 0x00
         if update:
             self.get_mcu_info()
 
