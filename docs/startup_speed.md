@@ -72,6 +72,12 @@ python -m pyinstrument -r html -o profile_help.html -c "from mpflash.cli_main im
 
 # Save list command profile as HTML
 python -m pyinstrument -r html -o profile_list.html -c "from mpflash.cli_main import mpflash; mpflash()" -- list --no-progress
+
+# Profile --help (text output to terminal)
+python -X importtime -c "from mpremote import main; main.main()" 2> mpremote_import_time.log
+
+# mpremote run mpflash\mpremoteboard\mpy_fw_info.py
+python -m pyinstrument -r html -o mpremote.html -m mpremote run mpflash\mpremoteboard\mpy_fw_info.py
 ```
 
 ### 4 — Sorted importtime table (no extra tools)
