@@ -46,13 +46,13 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
         return params
 
     m_connected_ports_boards = mocker.patch(
-        "mpflash.cli_download.connected_ports_boards_variants",
+        "mpflash.connected.connected_ports_boards_variants",
         return_value=(["esp32"], ["ESP32_GENERIC"], [], [MPRemoteBoard("COM99")]),
         autospec=True,
     )
-    m_download = mocker.patch("mpflash.cli_download.download", return_value=None, autospec=True)
+    m_download = mocker.patch("mpflash.download.download", return_value=None, autospec=True)
     m_ask_missing_params = mocker.patch(
-        "mpflash.cli_download.ask_missing_params",
+        "mpflash.ask_input.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
     runner = CliRunner()
@@ -76,3 +76,4 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
         assert m_download.call_args.args[3] == True, "force should be True"
     else:
         assert m_download.call_args.args[3] == False, "force should be False"
+
