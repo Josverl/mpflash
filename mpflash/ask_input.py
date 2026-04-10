@@ -37,22 +37,22 @@ def _mpflash_style():
         [
             ("qmark", "bold"),  # "?" prefix — bold, inherits fg
             ("question", "bold"),  # question text
-            ("answer", "fg:cyan bold"),  # confirmed answer — cyan is readable on dark AND light
-            ("pointer", "fg:cyan bold"),  # selection cursor
-            ("selected", "fg:cyan"),  # ticked checkbox item
+            ("answer", "fg:magenta bold"),  # confirmed answer
+            ("pointer", "fg:magenta bold"),  # selection cursor
+            ("selected", "fg:magenta"),  # ticked checkbox item
             ("search_success", "bold fg:green"),
             ("search_none", "bold fg:red"),
-            ("highlighted", "fg:cyan bold"),  # currently highlighted autocomplete match
+            ("highlighted", "fg:magenta bold"),  # currently highlighted autocomplete match
             ("separator", "fg:default"),
             ("instruction", "fg:default italic"),
             ("text", ""),
             # Autocomplete dropdown — dark background, dim text, no glare
             ("completion-menu", "bg:ansiblack fg:ansiwhite"),
             ("completion-menu.completion", "bg:ansiblack fg:ansiwhite"),
-            ("completion-menu.completion.current", "bg:ansidarkgray fg:ansicyan bold"),
+            ("completion-menu.completion.current", "bg:ansidarkgray fg:ansimagenta bold"),
             ("completion-menu.meta", "bg:ansiblack fg:ansidarkgray"),
             ("completion-menu.meta.completion", "bg:ansiblack fg:ansidarkgray"),
-            ("completion-menu.meta.completion.current", "bg:ansidarkgray fg:ansigray"),
+            ("completion-menu.meta.completion.current", "bg:ansiyellow fg:ansigray"),
         ]
     )
 
