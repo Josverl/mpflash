@@ -186,8 +186,18 @@ class MPRemoteBoard:
         if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
             log.debug(f"rc: {rc}, result: {result}")
             raise ConnectionError(f"Failed to get mcu_info for {self.serialport}")
-        # Ok we have the info, now parse it
-        raw_info = result[0].strip() if result else ""
+        # log raw output for debugging
+        if result:
+            log.debug(f"mpy_fw_info output for {self.serialport}:")
+            for line in result:
+                log.debug(f"  {line.rstrip()}")
+        # Ok we have the info, now parse it — search all lines for the dict
+        raw_info = ""
+        for line in result:
+            stripped = line.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                raw_info = stripped
+                break
         if raw_info.startswith("{") and raw_info.endswith("}"):
             info = eval(raw_info)
             self.family = info["family"]
@@ -205,13 +215,21 @@ class MPRemoteBoard:
                 self.board_id = info["board_id"]
             else:
                 self.board_id = f"{info['board']}-{info.get('variant', '')}"
-                board_name = find_board_id_by_description(
-                    descr, short_descr, version=self.version
-                )
-                self.board_id = board_name or "UNKNOWN_BOARD"
+                try:
+                    board_name = find_board_id_by_description(
+                        descr, short_descr, version=self.version
+                    )
+                    self.board_id = board_name or "UNKNOWN_BOARD"
+                except MPFlashError:
+                    log.warning(f"Could not resolve board_id for description: {descr!r}")
+                    self.board_id = self.board_id or "UNKNOWN_BOARD"
             # get the board_info.toml
             self.get_board_info_toml()
-            # TODO: get board_id from the toml file if it exists
+            # use board_id from the toml file if available (overrides UNKNOWN_BOARD fallback)
+            toml_board_id = self.toml.get("mpflash", {}).get("board_id", "")
+            if toml_board_id:
+                log.debug(f"Using board_id from board_info.toml: {toml_board_id!r}")
+                self.board_id = toml_board_id
         # now we know the board is connected
         self.connected = True
 
@@ -245,7 +263,8 @@ class MPRemoteBoard:
                 log.trace(result)
                 # Ok we have the info, now parse it
                 self.toml = tomllib.loads("".join(result))
-                log.debug(f"board_info.toml: {self.toml['description']}")
+                with contextlib.suppress(Exception):
+                    log.debug(f"board_info.toml: {self.toml['description']}")
             except Exception as e:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
