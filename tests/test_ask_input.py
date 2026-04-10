@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -195,6 +196,7 @@ def test_ask_missing_params_with_interactivity(
         params = FlashParams(**input)
 
     # make sure we can be interactive during testing, even in CI
+    mocker.patch.dict(os.environ, {"GITHUB_ACTIONS": ""})
     _config = MPFlashConfig()
     _config.interactive = True
     mocker.patch("mpflash.ask_input.config", _config)

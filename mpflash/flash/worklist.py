@@ -28,16 +28,15 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from loguru import logger as log
-from serial.tools.list_ports_common import ListPortInfo
-from typing_extensions import TypeAlias
-
-from mpflash.common import filtered_portinfos
-from mpflash.db.models import Firmware
+from mpflash.common import FlashMethod, filtered_portinfos
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
 from mpflash.list import show_mcus
 from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
+from typing_extensions import TypeAlias
+
+from mpflash.db.models import Firmware
 
 # #########################################################################################################
 
@@ -62,7 +61,7 @@ class FlashTask:
     @property
     def firmware_version(self) -> str:
         """Get the firmware version for this task."""
-        return self.firmware.version if self.firmware else "unknown"
+        return str(self.firmware.version) if self.firmware else "unknown"
 
 
 @dataclass
@@ -101,6 +100,8 @@ class WorklistConfig:
 
 
 FlashTaskList: TypeAlias = List[FlashTask]
+FlashItem: TypeAlias = Tuple[MPRemoteBoard, Optional[Firmware]]
+WorkList: TypeAlias = List[FlashItem]
 
 # #########################################################################################################
 
@@ -131,12 +132,140 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
 def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False, port: str = "") -> FlashTask:
     """Create a FlashTask for manually specified board parameters."""
     log.debug(f"Creating manual board task: {serial_port} {board_id} {version}")
-
     board = MPRemoteBoard(serial_port)
+
+    try:
+        info = find_known_board(board_id, port=port)
+        board.port = info.port
+        board.cpu = info.mcu  # Need CPU type for esptool
+    except (LookupError, MPFlashError) as e:
+        log.error(f"Board {board_id} not found in board database")
+        log.exception(e)
+        return _create_flash_task(board, None)
+
+    board.board = board_id
+    firmware = _find_firmware_for_board(board, version, custom)
+    return _create_flash_task(board, firmware)
+
+
+def select_firmware_for_method(firmwares: List[Firmware], method: FlashMethod) -> Firmware:
+    """
+    Select the best firmware file based on the flash method.
+    
+    Args:
+        firmwares: List of available firmware files for the board
+        method: Flash method to be used
+        
+    Returns:
+        Best firmware file for the specified method
+    """
+    if not firmwares:
+        raise MPFlashError("No firmware files available")
+    
+    if len(firmwares) == 1:
+        return firmwares[0]
+    
+    # Define preferred file extensions for each method
+    method_preferences = {
+        FlashMethod.PYOCD: ['.hex', '.bin', '.elf'],
+        FlashMethod.DFU: ['.dfu'],
+        FlashMethod.UF2: ['.uf2'],
+        FlashMethod.ESPTOOL: ['.bin'],
+        FlashMethod.SERIAL: ['.dfu', '.hex', '.bin', '.uf2'],  # Allow any for serial methods
+        FlashMethod.AUTO: ['.dfu', '.hex', '.bin', '.uf2', '.elf']  # Default order
+    }
+    
+    preferred_extensions = method_preferences.get(method, method_preferences[FlashMethod.AUTO])
+    
+    # Try to find firmware with preferred extensions in order
+    for ext in preferred_extensions:
+        for fw in firmwares:
+            if fw.firmware_file.lower().endswith(ext):
+                log.debug(f"Selected {fw.firmware_file} for method {method.value} (preferred extension: {ext})")
+                return fw
+    
+    # If no preferred format found, use the last one (original behavior)
+    log.debug(f"No preferred format found for method {method.value}, using default: {firmwares[-1].firmware_file}")
+    return firmwares[-1]
+
+
+# #########################################################################################################
+
+
+def auto_update_worklist(
+    conn_boards: List[MPRemoteBoard],
+    target_version: str,
+    method: FlashMethod = FlashMethod.AUTO,
+) -> WorkList:
+    """Builds a list of boards to update based on the connected boards and the firmwares available locally in the firmware folder.
+
+    Args:
+        conn_boards (List[MPRemoteBoard]): List of connected boards
+        target_version (str): Target firmware version
+        selector (Optional[Dict[str, str]], optional): Selector for filtering firmware. Defaults to None.
+
+    Returns:
+        WorkList: List of boards and firmware information to update
+    """
+    log.debug(f"auto_update_worklist: {len(conn_boards)} boards, target version: {target_version}")
+    wl: WorkList = []
+    for mcu in conn_boards:
+        if mcu.family not in ("micropython", "unknown"):
+            log.warning(f"Skipping flashing {mcu.family} {mcu.port} {mcu.board} on {mcu.serialport} as it is not a MicroPython firmware")
+            continue
+        board_firmwares = find_downloaded_firmware(
+            board_id=f"{mcu.board}-{mcu.variant}" if mcu.variant else mcu.board,
+            version=target_version,
+            port=mcu.port,
+        )
+
+        if not board_firmwares:
+            log.warning(f"No {target_version} firmware found for {mcu.board} on {mcu.serialport}.")
+            wl.append((mcu, None))
+            continue
+
+        if len(board_firmwares) > 1:
+            log.warning(f"Multiple {target_version} firmwares found for {mcu.board} on {mcu.serialport}.")
+
+        # Select firmware based on flash method
+        fw_info = select_firmware_for_method(board_firmwares, method)
+        log.info(f"Found {target_version} firmware {fw_info.firmware_file} for {mcu.board} on {mcu.serialport}.")
+        wl.append((mcu, fw_info))
+    return wl
+
+
+def manual_worklist(
+    serial: List[str],
+    *,
+    board_id: str,
+    version: str,
+    custom: bool = False,
+    method: FlashMethod = FlashMethod.AUTO,
+) -> WorkList:
+    """Create a worklist for manually specified boards."""
+    log.debug(f"manual_worklist: {len(serial)} serial ports, board_id: {board_id}, version: {version}")
+    wl: WorkList = []
+    for comport in serial:
+        log.trace(f"Manual updating {comport} to {board_id} {version}")
+        wl.append(manual_board(comport, board_id=board_id, version=version, custom=custom, method=method))
+    return wl
+
+
+def manual_board(
+    serial: str,
+    *,
+    board_id: str,
+    version: str,
+    custom: bool = False,
+    method: FlashMethod = FlashMethod.AUTO,
+) -> FlashItem:
+    """Create a Flash work item for a single board specified manually."""
+
+    board = MPRemoteBoard(serial)
 
     # Look up board information, preferring the user-specified port
     try:
-        info = find_known_board(board_id, port=port)
+        info = find_known_board(board_id)
         board.port = info.port
         board.cpu = info.mcu  # Need CPU type for esptool
     except (LookupError, MPFlashError) as e:
@@ -155,6 +284,17 @@ def _filter_connected_comports(
     ignore: List[str],
 ) -> List[MPRemoteBoard]:
     """Filter connected boards based on include/ignore patterns."""
+
+    log.debug(f"_filter_connected_comports: {len(all_boards)} boards, include: {include}, ignore: {ignore}")
+    return filter_boards(all_boards, include=include, ignore=ignore) or []
+
+
+def filter_boards(
+    all_boards: List[MPRemoteBoard],
+    *,
+    include: List[str],
+    ignore: List[str],
+):
     try:
         allowed_ports = [
             p.device

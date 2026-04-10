@@ -1,15 +1,15 @@
+import sys
 from typing import List
-
-import rich_click as click
-from loguru import logger as log
 
 import mpflash.download.jid as jid
 import mpflash.mpboard_id as mpboard_id
+import rich_click as click
+from loguru import logger as log
 from mpflash.ask_input import ask_missing_params
 from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
 from mpflash.cli_list import show_mcus
-from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
+from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.flash import flash_tasks
 from mpflash.flash.worklist import FlashTaskList, create_worklist
@@ -113,6 +113,27 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--method",
+    "--flash-method",
+    "flash_method",
+    type=click.Choice([e.value for e in FlashMethod]),
+    default="auto",
+    show_default=True,
+    help="""Flash programming method. 'auto' uses serial bootloader methods (existing behavior). Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+)
+@click.option(
+    "--probe",
+    "--probe-id",  # Keep as alias for backwards compatibility
+    "probe_id", 
+    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    metavar="PROBE_ID",
+)
+@click.option(
+    "--auto-install-packs/--no-auto-install-packs",
+    default=True,
+    help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
@@ -144,6 +165,14 @@ def cli_flash_board(**kwargs) -> int:
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
+        
+    # Convert flash_method to method and convert to enum
+    flash_method_str = kwargs.pop("flash_method", "auto")
+    flash_method = FlashMethod(flash_method_str)
+    
+    # Extract pyOCD options
+    probe_id = kwargs.pop("probe_id", None)
+    auto_install_packs = kwargs.pop("auto_install_packs", True)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -187,7 +216,7 @@ def cli_flash_board(**kwargs) -> int:
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
-        return 2
+        sys.exit(2)
     assert isinstance(params, FlashParams)
 
     if len(params.versions) > 1:
@@ -240,6 +269,7 @@ def cli_flash_board(**kwargs) -> int:
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
+            custom_firmware=params.custom,
             port=params.ports[0] if params.ports else None,
         )
     else:
@@ -251,10 +281,14 @@ def cli_flash_board(**kwargs) -> int:
         )
     if not params.custom:
         jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
+    # TODO: CHECK MERGE
     if flashed := flash_tasks(
         tasks,
         params.erase,
         params.bootloader,
+        method=flash_method,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
         flash_mode=params.flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
@@ -262,4 +296,4 @@ def cli_flash_board(**kwargs) -> int:
         return 0
     else:
         log.error("No boards were flashed")
-        return 1
+        sys.exit(1)
