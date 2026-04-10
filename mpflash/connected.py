@@ -68,6 +68,7 @@ def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False)
         rp_bar,
         TimeElapsedColumn(),
         refresh_per_second=1,
+        transient=True,
     ) as progress:
         tsk_scan = progress.add_task("[green]Scanning", visible=False, total=None)
         progress.tasks[tsk_scan].fields["device"] = "..."
