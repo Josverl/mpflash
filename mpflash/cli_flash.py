@@ -3,17 +3,9 @@ from typing import List
 import rich_click as click
 from loguru import logger as log
 
-import mpflash.download.jid as jid
-import mpflash.mpboard_id as mpboard_id
-from mpflash.ask_input import ask_missing_params
-from mpflash.cli_download import connected_ports_boards_variants
 from mpflash.cli_group import cli
-from mpflash.cli_list import show_mcus
 from mpflash.common import BootloaderMethod, FlashParams, filtered_comports
 from mpflash.errors import MPFlashError
-from mpflash.flash import flash_tasks
-from mpflash.flash.worklist import FlashTaskList, create_worklist
-from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
 # #########################################################################################################
@@ -137,6 +129,15 @@ from mpflash.versions import clean_version
     help="""Flash a custom firmware""",
 )
 def cli_flash_board(**kwargs) -> int:
+    import mpflash.download.jid as jid
+    import mpflash.mpboard_id as mpboard_id
+    from mpflash.ask_input import ask_missing_params
+    from mpflash.connected import connected_ports_boards_variants
+    from mpflash.list import show_mcus
+    from mpflash.flash import flash_tasks
+    from mpflash.flash.worklist import FlashTaskList, create_worklist
+    from mpflash.mpremoteboard import MPRemoteBoard
+
     # version to versions, board to boards
     kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
     if kwargs["board"] is None:
@@ -164,7 +165,7 @@ def cli_flash_board(**kwargs) -> int:
 
     # Detect connected boards if not specified,
     # and ask for input if boards cannot be detected
-    all_boards: List[MPRemoteBoard] = []
+    all_boards = []
     if not params.boards:
         # nothing specified - detect connected boards
         params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
@@ -195,7 +196,7 @@ def cli_flash_board(**kwargs) -> int:
         raise MPFlashError("Only one version can be flashed at a time")
 
     params.versions = [clean_version(v) for v in params.versions]
-    tasks: FlashTaskList = []
+    tasks = []
 
     if len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
         # One or more serial ports including the board / variant (auto-detect ports)

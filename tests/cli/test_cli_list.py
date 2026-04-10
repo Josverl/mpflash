@@ -25,8 +25,8 @@ pytestmark = pytest.mark.mpflash
     ],
 )
 def test_mpflash_list(id, ex_code, args: List[str], mocker: MockerFixture):
-    m_list_mcus = mocker.patch("mpflash.cli_list.list_mcus", return_value=[], autospec=True)
-    m_show_mcus = mocker.patch("mpflash.cli_list.show_mcus", return_value=None, autospec=True)
+    m_list_mcus = mocker.patch("mpflash.connected.list_mcus", return_value=[], autospec=True)
+    m_show_mcus = mocker.patch("mpflash.list.show_mcus", return_value=None, autospec=True)
     m_print = mocker.patch("mpflash.cli_list.print", return_value=None, autospec=True)
 
     runner = CliRunner()

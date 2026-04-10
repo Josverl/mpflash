@@ -6,8 +6,6 @@ import rich_click as click
 from rich import print
 
 from .cli_group import cli
-from .connected import list_mcus
-from .list import show_mcus
 from .logger import make_quiet
 
 
@@ -66,6 +64,9 @@ from .logger import make_quiet
 )
 def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json: bool, progress: bool = True) -> int:
     """List the connected MCU boards, and output in a nice table or json."""
+    from .connected import list_mcus
+    from .list import show_mcus
+
     serial = list(serial)
     ignore = list(ignore)
     if as_json:

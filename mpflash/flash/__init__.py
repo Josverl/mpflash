@@ -5,9 +5,6 @@ from mpflash.common import PORT_FWTYPES, UF2_PORTS, BootloaderMethod
 from mpflash.config import config
 from mpflash.errors import MPFlashError
 
-from .esp import flash_esp
-from .stm32 import flash_stm32
-from .uf2 import flash_uf2
 from .worklist import FlashTaskList
 
 # #########################################################################################################
@@ -62,6 +59,9 @@ def flash_mcu(
     ):
         """Flash a single MCU with the specified firmware."""
         from mpflash.bootloader.activate import enter_bootloader
+        from .esp import flash_esp
+        from .stm32 import flash_stm32
+        from .uf2 import flash_uf2
         
         updated = None
         try:
