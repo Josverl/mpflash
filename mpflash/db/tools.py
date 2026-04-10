@@ -18,10 +18,13 @@ def backup_db(source_db: Path, backup_path: Path):
 
     # Ensure the backup directory exists
     backup_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(source_db) as conn:
+    conn = sqlite3.connect(source_db)
+    try:
         # Perform the backup
         with open(backup_path, "wb") as f:
             for line in conn.iterdump():
                 f.write(f"{line}\n".encode("utf-8"))
+    finally:
+        conn.close()
 
     log.info(f"Backup created at {backup_path}")

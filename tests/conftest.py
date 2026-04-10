@@ -31,6 +31,14 @@ def pytest_runtest_setup(item):
         pytest.skip("cannot run on platform {}".format(platform))
 
 
+def pytest_sessionfinish(session, exitstatus):
+    """Close any lingering shared Peewee connection at end of test session."""
+    from mpflash.db.models import database
+
+    if not database.is_closed():
+        database.close()
+
+
 #############################################################
 # Fixtures for database testing
 #############################################################
@@ -59,13 +67,18 @@ def db_fx(_test_db_path):
     from mpflash.db.models import Board, Firmware, Metadata, database
 
     # Re-initialise the shared database object to an in-memory instance.
+    if not database.is_closed():
+        database.close()
     database.init(":memory:")
     database.connect()
 
     # Populate from the reference file using SQLite's fast backup API.
+    # Note: sqlite3 connection context manager does not close the connection.
     src = sqlite3.connect(str(_test_db_path))
-    src.backup(database.connection())
-    src.close()
+    try:
+        src.backup(database.connection())
+    finally:
+        src.close()
 
     yield database
 
