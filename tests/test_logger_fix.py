@@ -43,4 +43,3 @@ def test_angle_bracket_logging():
             print(f"Error logging message {i}: {e}")
 
     assert success_count == len(test_messages)
-

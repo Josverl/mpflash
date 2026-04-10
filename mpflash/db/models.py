@@ -55,9 +55,7 @@ class Board(BaseModel):
     @property
     def firmwares(self):
         """Return all firmware records for this board."""
-        return Firmware.select().where(
-            (Firmware.board_id == self.board_id) & (Firmware.version == self.version)
-        )
+        return Firmware.select().where((Firmware.board_id == self.board_id) & (Firmware.version == self.version))
 
     def __repr__(self) -> str:
         return f"Board(board_id={self.board_id!r}, version={self.version!r}, board_name={self.board_name!r})"
@@ -83,9 +81,7 @@ class Firmware(BaseModel):
     @property
     def board(self):
         """Return the parent Board record."""
-        return Board.get_or_none(
-            (Board.board_id == self.board_id) & (Board.version == self.version)
-        )
+        return Board.get_or_none((Board.board_id == self.board_id) & (Board.version == self.version))
 
     @property
     def preview(self) -> bool:

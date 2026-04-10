@@ -86,9 +86,7 @@ class TestAddFirmware:
 
         assert result is False
 
-    def test_add_firmware_missing_board_id(
-        self, temp_source_file, mock_config, mock_db, mocker: MockerFixture
-    ):
+    def test_add_firmware_missing_board_id(self, temp_source_file, mock_config, mock_db, mocker: MockerFixture):
         """Test add_firmware with missing board_id."""
         mocker.patch("mpflash.custom.copy_firmware", return_value=True)
         fw_info = {
@@ -174,9 +172,7 @@ class TestAddFirmware:
         assert result is True
         mock_save.assert_called_once()
 
-    def test_add_firmware_database_error(
-        self, temp_source_file, sample_fw_info, mock_config, mocker: MockerFixture
-    ):
+    def test_add_firmware_database_error(self, temp_source_file, sample_fw_info, mock_config, mocker: MockerFixture):
         """Test add_firmware with database error."""
         mocker.patch("mpflash.custom.copy_firmware", return_value=True)
         mocker.patch.object(
@@ -207,9 +203,7 @@ class TestAddFirmware:
         assert result is True
         Firmware.select.assert_called()
 
-    def test_add_firmware_expanduser_path(
-        self, sample_fw_info, mock_config, mock_db, mocker: MockerFixture, tmp_path
-    ):
+    def test_add_firmware_expanduser_path(self, sample_fw_info, mock_config, mock_db, mocker: MockerFixture, tmp_path):
         """Test add_firmware with path containing ~ (user home)."""
         source_file = tmp_path / "firmware.bin"
         source_file.write_bytes(b"test firmware")
@@ -233,10 +227,13 @@ class TestAddFirmware:
         mock_select = MagicMock()
         mock_select.where.return_value = mock_select
         mock_select.first.return_value = None
-        mocker.patch("mpflash.custom.add.database.atomic", return_value=MagicMock(
-            __enter__=MagicMock(return_value=None),
-            __exit__=MagicMock(return_value=False),
-        ))
+        mocker.patch(
+            "mpflash.custom.add.database.atomic",
+            return_value=MagicMock(
+                __enter__=MagicMock(return_value=None),
+                __exit__=MagicMock(return_value=False),
+            ),
+        )
         invalid_fw_info = {
             "board_id": "test_board",
             "invalid_field": "invalid_value",

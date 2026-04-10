@@ -78,10 +78,11 @@ def test_ask_missing_params_no_questions_needed():
     with patch("mpflash.ask_input.config") as mock_config:
         mock_config.interactive = True
 
-        with patch("mpflash.ask_input.ask_serialport") as mock_serial, \
-             patch("mpflash.ask_input.ask_mp_version") as mock_version, \
-             patch("mpflash.ask_input.ask_port_board_variant") as mock_port_board_variant:
-
+        with (
+            patch("mpflash.ask_input.ask_serialport") as mock_serial,
+            patch("mpflash.ask_input.ask_mp_version") as mock_version,
+            patch("mpflash.ask_input.ask_port_board_variant") as mock_port_board_variant,
+        ):
             result = ask_missing_params(params)
 
             mock_serial.assert_not_called()
@@ -116,4 +117,3 @@ def test_ask_missing_params_merge_preserves_all_pre_existing_values():
             assert result.serial == ["COM3"], "Serial port should be preserved"
             assert set(result.boards) == {"ESP32_GENERIC", "RPI_PICO"}, "Interactive board selection should be included"
             assert result.variant == "", "Empty variant should be preserved"
-

@@ -145,6 +145,7 @@ def ask_missing_params(
         return params
 
     from rich.console import Console
+
     Console().print("[dim]Type to filter, Tab to complete, Enter confirms[/dim]")
 
     answers: Dict[str, Union[str, List]] = {"action": action}
@@ -203,9 +204,7 @@ def ask_missing_params(
 
     if "boards" in answers:
         params.boards = [b for b in params.boards if b != "?"]
-        params.boards.extend(
-            answers["boards"] if isinstance(answers["boards"], list) else [answers["boards"]]
-        )
+        params.boards.extend(answers["boards"] if isinstance(answers["boards"], list) else [answers["boards"]])
 
     if "versions" in answers:
         params.versions = [v for v in params.versions if v != "?"]

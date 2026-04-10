@@ -71,9 +71,9 @@ def test_add_renamed_boards_extends_list():
     boards = ["ESP32_GENERIC", "RPI_PICO"]
     result = add_renamed_boards(boards)
     assert "ESP32_GENERIC" in result
-    assert "GENERIC" in result   # stripped ESP32_ prefix
+    assert "GENERIC" in result  # stripped ESP32_ prefix
     assert "RPI_PICO" in result
-    assert "PICO" in result      # stripped RPI_ prefix
+    assert "PICO" in result  # stripped RPI_ prefix
 
 
 def test_add_renamed_boards_handles_lowercase():

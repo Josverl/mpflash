@@ -210,6 +210,7 @@ def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: Mock
 def test_mpflash_flash_with_explicit_uf2_volume(mocker: MockerFixture):
     """Use --volume path for UF2 board already in boot mode."""
     from pathlib import Path
+
     args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--volume", "D:\\"]
 
     mocker.patch(

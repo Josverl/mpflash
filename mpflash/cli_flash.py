@@ -177,7 +177,7 @@ def cli_flash_board(**kwargs) -> int:
     params.bootloader = BootloaderMethod(params.bootloader)
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
-    if params.boards == ["?"] or params.serial == "?" :#  or params.variant == "?":
+    if params.boards == ["?"] or params.serial == "?":  #  or params.variant == "?":
         params.serial = ["?"]
         # if params.variant == "?":
         #     params.boards = ["?"]  # trigger full interactive board+variant flow
@@ -237,10 +237,7 @@ def cli_flash_board(**kwargs) -> int:
             port=params.ports[0] if params.ports else None,
         )
         if any(task.board.port not in UF2_PORTS for task in tasks):
-            raise click.UsageError(
-                "--volume is only supported for UF2-capable ports "
-                f"({', '.join(sorted(UF2_PORTS))})"
-            )
+            raise click.UsageError(f"--volume is only supported for UF2-capable ports ({', '.join(sorted(UF2_PORTS))})")
     elif len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
         # One or more serial ports including the board / variant (auto-detect ports)
         comports = filtered_comports(
@@ -281,10 +278,7 @@ def cli_flash_board(**kwargs) -> int:
         )
         if not comports:
             serial_filter = ", ".join(params.serial)
-            raise click.UsageError(
-                f"No serial ports matched: {serial_filter}. "
-                "Check the port name, or use '--serial *' to auto-detect."
-            )
+            raise click.UsageError(f"No serial ports matched: {serial_filter}. Check the port name, or use '--serial *' to auto-detect.")
         board_id = f"{params.boards[0]}-{params.variant}" if params.variant else params.boards[0]
         tasks = _create_worklist_or_fail(
             params.versions[0],

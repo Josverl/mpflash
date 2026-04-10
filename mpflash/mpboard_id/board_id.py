@@ -54,8 +54,8 @@ def _find_board_id_by_description(
 
     qry = Board.select().where(
         Board.description.in_(descriptions),
-        Board.version ** version,   # ** is LIKE in Peewee
-        Board.variant ** variant,
+        Board.version**version,  # ** is LIKE in Peewee
+        Board.variant**variant,
     )
     boards = list(qry)
     return boards

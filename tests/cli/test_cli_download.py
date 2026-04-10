@@ -76,4 +76,3 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
         assert m_download.call_args.args[3] == True, "force should be True"
     else:
         assert m_download.call_args.args[3] == False, "force should be False"
-
