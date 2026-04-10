@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from mpflash.ask_input import _split_board_variant, ask_missing_params, filter_matching_boards
 from mpflash.common import DownloadParams, FlashParams
-from mpflash.config import MPFlashConfig
 from pytest_mock import MockerFixture
 
 pytestmark = [pytest.mark.mpflash]
@@ -12,8 +11,7 @@ pytestmark = [pytest.mark.mpflash]
 def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
     # Make sure that no prompts are called when interactive is False
 
-    _config = MPFlashConfig()
-    _config.interactive = False
+    mocker.patch("mpflash.ask_input.config.interactive", False)
 
     input = {
         "versions": ["?"],
@@ -22,7 +20,6 @@ def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
         "force": False,
     }
     params = DownloadParams(**input)
-    mocker.patch("mpflash.ask_input.config", _config)
     result = ask_missing_params(params)
     # Should return original params without modification (no prompts called)
     assert result is params
@@ -195,9 +192,7 @@ def test_ask_missing_params_with_interactivity(
         params = FlashParams(**input)
 
     # make sure we can be interactive during testing, even in CI
-    _config = MPFlashConfig()
-    _config.interactive = True
-    mocker.patch("mpflash.ask_input.config", _config)
+    mocker.patch("mpflash.ask_input.config.interactive", True)
 
     # Mock each helper function individually
     m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)
