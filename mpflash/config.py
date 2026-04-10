@@ -28,10 +28,12 @@ class MPFlashConfig:
     _interactive: bool = True
     _gh_client = None
 
+    _interactive_set: bool = False
+
     @property
     def interactive(self):
-        # No interactions in CI
-        if os.getenv("GITHUB_ACTIONS") == "true":
+        # No interactions in CI unless explicitly enabled via .interactive = True
+        if os.getenv("GITHUB_ACTIONS") == "true" and not self._interactive_set:
             from mpflash.logger import log
 
             log.warning("Disabling interactive mode in CI")
@@ -41,6 +43,7 @@ class MPFlashConfig:
     @interactive.setter
     def interactive(self, value: bool):
         self._interactive = value
+        self._interactive_set = True
 
     @property
     def firmware_folder(self) -> Path:

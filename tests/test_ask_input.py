@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, Mock
 
+import mpflash.ask_input
 import pytest
 from mpflash.ask_input import _split_board_variant, ask_missing_params, filter_matching_boards
 from mpflash.common import DownloadParams, FlashParams
@@ -195,6 +196,7 @@ def test_ask_missing_params_with_interactivity(
     # make sure we can be interactive during testing, even in CI
     mocker.patch.dict("os.environ", {"GITHUB_ACTIONS": "false"})
     mocker.patch("mpflash.ask_input.config._interactive", True)
+    mocker.patch.object(type(mpflash.ask_input.config), "interactive", new_callable=lambda: property(lambda self: True))
 
     # Mock each helper function individually
     m_serialport: Mock = mocker.patch("mpflash.ask_input.ask_serialport", return_value=serial_return)
@@ -246,9 +248,9 @@ def test_ask_missing_params_with_interactivity(
     [
         ("ESP32_GENERIC-SPIRAM", "ESP32_GENERIC", "SPIRAM"),
         ("ESP32_GENERIC-OTA", "ESP32_GENERIC", "OTA"),
-        ("PYBV10-dp-thread", "PYBV10", "dp-thread"),     # variant with hyphen
-        ("ESP32_GENERIC", "ESP32_GENERIC", ""),            # no variant
-        ("PICO_W", "PICO_W", ""),                          # underscores only
+        ("PYBV10-dp-thread", "PYBV10", "dp-thread"),  # variant with hyphen
+        ("ESP32_GENERIC", "ESP32_GENERIC", ""),  # no variant
+        ("PICO_W", "PICO_W", ""),  # underscores only
         ("ESP32_GENERIC_S3-SPIRAM_OCT", "ESP32_GENERIC_S3", "SPIRAM_OCT"),
     ],
 )
@@ -257,6 +259,7 @@ def test_split_board_variant(board_id: str, expected_board: str, expected_varian
     board, variant = _split_board_variant(board_id)
     assert board == expected_board
     assert variant == expected_variant
+
 
 @pytest.mark.parametrize(
     "port, versions, expected_fallback",
