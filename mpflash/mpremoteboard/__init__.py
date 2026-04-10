@@ -64,9 +64,12 @@ class MPRemoteBoard:
         self.location = location  # USB location
         self.toml = {}
         
-        # For filesystem paths (UF2 volume paths), skip serial port lookup
+        # For filesystem paths (UF2 volume paths), skip serial port lookup.
+        # On POSIX, Windows-style drive roots like "D:\\" are not recognized
+        # as Path.drive, so detect them explicitly.
         path_obj = Path(serialport)
-        if path_obj.is_absolute() or path_obj.drive:
+        is_windows_drive_root = bool(re.match(r"^[A-Za-z]:[\\/]*$", serialport))
+        if path_obj.is_absolute() or path_obj.drive or is_windows_drive_root:
             # This is a filesystem path, not a serial port
             self.vid = 0x00
             self.pid = 0x00
