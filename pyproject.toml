@@ -105,7 +105,7 @@ reproducible = true
 [tool.pyright]
 include = ["mpflash", "tests"]
 exclude = [
-    "**/.venv",
+    "**/.venv", "**/node_modules", "**/__pycache__", "**/.*",
 ]
 ignore = [
 ]
@@ -133,9 +133,6 @@ addopts = "--capture=no --cov-branch --cov-report=xml -m 'not slow'"
 markers = [
     "mpflash: marks tests of the mpflash tool",
     "basicgit: rather slow tests for basicgit",
-    "snippets: test snippets to check the stubs",
-
-    "legacy: reeally old tests that need to be updated or removed",
 
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: Integration tests (slower)",
