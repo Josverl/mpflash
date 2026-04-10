@@ -153,7 +153,7 @@ def package_repo(mpy_path: Path):
     "mpy_path",
     type=click.Path(path_type=Path),
     default=None,
-    help="Path to local micropython repo (default: ../repos/micropython).",
+    help="Path to local micropython repo (default: ./repos/micropython).",
 )
 def cli(mpy_path: Optional[Path]):
     """Package board metadata into a compressed archive.
@@ -161,7 +161,7 @@ def cli(mpy_path: Optional[Path]):
     Enumerates boards and variants from a Micropython repo, builds CSV, and
     writes it into a zip archive for fast loading and distribution.
     """
-    package_repo(mpy_path if mpy_path else Path("../repos/micropython"))
+    package_repo(mpy_path if mpy_path else Path("./repos/micropython"))
 
 
 if __name__ == "__main__":

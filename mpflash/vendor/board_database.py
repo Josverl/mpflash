@@ -118,12 +118,12 @@ class Board:
         board = Board(
             name=filename_json.parent.name,
             variants=[],
-            url=board_json["url"] if "url" in board_json else "",  # fix missing url
-            mcu=board_json["mcu"],
-            product=board_json["product"],
-            vendor=board_json["vendor"],
-            images=board_json["images"],
-            deploy=board_json["deploy"],
+            url=board_json.get("url", ""),
+            mcu=board_json.get("mcu", ""),
+            product=board_json.get("product", ""),
+            vendor=board_json.get("vendor", ""),
+            images=board_json.get("images", []),
+            deploy=board_json.get("deploy", []),
             path=filename_json.parent.as_posix(),
         )
         board.variants.extend(
