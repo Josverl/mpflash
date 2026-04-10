@@ -56,18 +56,14 @@ def migration_001_add_custom_id() -> None:
 
     if "custom_id" not in columns:
         database.execute_sql("ALTER TABLE firmwares ADD COLUMN custom_id VARCHAR(40)")
-        database.execute_sql(
-            "CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"
-        )
+        database.execute_sql("CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)")
         log.info("Added custom_id column and index to firmwares table")
     else:
         log.info("custom_id column already exists in firmwares table")
         result = database.execute_sql("PRAGMA index_list(firmwares)").fetchall()
         index_names = [row[1] for row in result]
         if "idx_firmwares_custom_id" not in index_names:
-            database.execute_sql(
-                "CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)"
-            )
+            database.execute_sql("CREATE INDEX IF NOT EXISTS idx_firmwares_custom_id ON firmwares(custom_id)")
             log.info("Added index to existing custom_id column")
 
 

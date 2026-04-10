@@ -72,7 +72,7 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
     mocker.patch("mpflash.flash.config._firmware_folder", test_fw_path)
     board = MPRemoteBoard("COM1")
     board.port = "esp32"
-    
+
     # Create FlashTask instead of WorkList tuple
     task = FlashTask(
         board=board,
@@ -82,10 +82,10 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
             version="1.22.2",
             build="0",
             firmware_file="rp2/RPI_PICO_W-v1.22.2.uf2",  # Bit of a Hack : uf2 test depend on a .uf2 file
-        )
+        ),
     )
     tasks: FlashTaskList = [task]
-    
+
     # test flash_tasks
     board.port = port
     result = flash_tasks(tasks, erase=False, bootloader=bootloader)
@@ -108,4 +108,3 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
         return
     # bootloader is always called - but not for esp32/esp8266
     m_bootloader.assert_called_once()
-

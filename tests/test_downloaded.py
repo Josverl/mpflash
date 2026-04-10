@@ -86,7 +86,6 @@ def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_
     --port esp32 --board GENERIC would incorrectly return ESP8266 firmware.
     """
 
-
     # Search using the new ESP32_GENERIC name with explicit esp32 port
     esp32_results = find_downloaded_firmware(version="v1.24.1", board_id="ESP32_GENERIC", port="esp32")
     # Search using the new ESP8266_GENERIC name with explicit esp8266 port
@@ -106,14 +105,11 @@ def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_
     # Verify that the port-specific searches do NOT overlap
     esp32_board_ids = {fw.board_id for fw in esp32_results}
     esp8266_board_ids = {fw.board_id for fw in esp8266_results}
-    assert not esp32_board_ids.intersection(esp8266_board_ids), (
-        f"ESP32 and ESP8266 results overlap: {esp32_board_ids & esp8266_board_ids}"
-    )
+    assert not esp32_board_ids.intersection(esp8266_board_ids), f"ESP32 and ESP8266 results overlap: {esp32_board_ids & esp8266_board_ids}"
 
 
 def test_find_downloaded_firmware_preview_exact_match(mocker: MockerFixture, session_fx):
     """Preview firmware is found by exact board_id match (covers lines 70-80)."""
-
 
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="ESP32_GENERIC", port="esp32")
     assert result, "Should find preview firmware"
@@ -126,7 +122,6 @@ def test_find_downloaded_firmware_preview_exact_match(mocker: MockerFixture, ses
 def test_find_downloaded_firmware_preview_with_alternate_name(mocker: MockerFixture, session_fx):
     """Preview firmware found via alternate board names with port (covers lines 91-97)."""
 
-
     # PICO → RPI_PICO alternate name path for preview, with port filter (line 92→93 True branch)
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="PICO", port="rp2")
     assert result, "Should find preview firmware via alternate name"
@@ -138,7 +133,6 @@ def test_find_downloaded_firmware_preview_with_alternate_name(mocker: MockerFixt
 def test_find_downloaded_firmware_preview_alternate_no_port(mocker: MockerFixture, session_fx):
     """Preview firmware via alternate names without port covers the line 92 False branch."""
 
-
     # No port provided → the 'if port:' on line 92 is False
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="PICO")
     assert result, "Should find preview firmware via alternate name without port"
@@ -148,7 +142,6 @@ def test_find_downloaded_firmware_preview_alternate_no_port(mocker: MockerFixtur
 
 def test_find_downloaded_firmware_preview_no_port(mocker: MockerFixture, session_fx):
     """Preview firmware search without port still returns results (covers port-filter branch)."""
-
 
     result = find_downloaded_firmware(version="v1.25.0-preview", board_id="ESP32_GENERIC")
     assert result, "Should find preview firmware even without port"

@@ -418,13 +418,16 @@ class TestCreateWorklistBranches:
         directly to keep coverage honest.
         """
         # Trigger it by monkeypatching to skip every earlier branch:
-        with patch("mpflash.flash.worklist.create_manual_worklist") as _manual, \
-             patch("mpflash.flash.worklist.create_filtered_worklist") as _filtered, \
-             patch("mpflash.flash.worklist.create_auto_worklist") as _auto:
+        with (
+            patch("mpflash.flash.worklist.create_manual_worklist") as _manual,
+            patch("mpflash.flash.worklist.create_filtered_worklist") as _filtered,
+            patch("mpflash.flash.worklist.create_auto_worklist") as _auto,
+        ):
             # Provide serial_ports + board_id so the first branch is taken normally;
             # the actual "invalid combination" raise is best verified by calling
             # the relevant code path through the import.
             from mpflash.flash.worklist import create_worklist as _cw
+
             # Pass connected_comports + ignore_ports so filtered branch fires – just
             # ensure the filtered branch IS tested here, keeping coverage happy.
             _filtered.return_value = []

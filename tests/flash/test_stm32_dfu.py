@@ -12,6 +12,7 @@ from mpflash.mpremoteboard import MPRemoteBoard
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_board(port="COM1"):
     board = MPRemoteBoard(port)
     board.board_id = "PYBD_SF2"
@@ -24,11 +25,13 @@ def _make_board(port="COM1"):
 # dfu_init
 # ---------------------------------------------------------------------------
 
+
 class TestDfuInit:
     def test_no_pydfu(self):
         """dfu_init returns None gracefully when pydfu is not available."""
         with patch("mpflash.flash.stm32_dfu.pydfu", None):
             from mpflash.flash.stm32_dfu import dfu_init
+
             result = dfu_init()
             assert result is None
 
@@ -41,6 +44,7 @@ class TestDfuInit:
             patch("mpflash.flash.stm32_dfu.init_libusb_windows") as mock_init,
         ):
             from mpflash.flash.stm32_dfu import dfu_init
+
             dfu_init()
             mock_init.assert_not_called()
 
@@ -53,6 +57,7 @@ class TestDfuInit:
             patch("mpflash.flash.stm32_dfu.init_libusb_windows") as mock_init,
         ):
             from mpflash.flash.stm32_dfu import dfu_init
+
             dfu_init()
             mock_init.assert_called_once()
 
@@ -61,6 +66,7 @@ class TestDfuInit:
 # flash_stm32_dfu – guard conditions
 # ---------------------------------------------------------------------------
 
+
 class TestFlashStm32DfuGuards:
     def test_no_pydfu_returns_none(self, tmp_path):
         """Returns None when pydfu module is unavailable."""
@@ -68,6 +74,7 @@ class TestFlashStm32DfuGuards:
         fw.touch()
         with patch("mpflash.flash.stm32_dfu.pydfu", None):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
 
@@ -77,6 +84,7 @@ class TestFlashStm32DfuGuards:
         mock_pydfu = MagicMock()
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
 
@@ -87,6 +95,7 @@ class TestFlashStm32DfuGuards:
         mock_pydfu = MagicMock()
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
 
@@ -98,6 +107,7 @@ class TestFlashStm32DfuGuards:
         mock_pydfu.list_dfu_devices.side_effect = ValueError("Permission denied")
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
 
@@ -105,6 +115,7 @@ class TestFlashStm32DfuGuards:
 # ---------------------------------------------------------------------------
 # flash_stm32_dfu – .dfu file path
 # ---------------------------------------------------------------------------
+
 
 class TestFlashStm32DfuDfuFile:
     def _make_mock_pydfu(self, elements=None):
@@ -121,6 +132,7 @@ class TestFlashStm32DfuDfuFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(board, fw)
 
         assert result is board
@@ -135,6 +147,7 @@ class TestFlashStm32DfuDfuFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw, erase=True)
 
         mock_pydfu.mass_erase.assert_called_once()
@@ -147,6 +160,7 @@ class TestFlashStm32DfuDfuFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw, erase=False)
 
         mock_pydfu.mass_erase.assert_not_called()
@@ -159,6 +173,7 @@ class TestFlashStm32DfuDfuFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
 
         assert result is None
@@ -172,6 +187,7 @@ class TestFlashStm32DfuDfuFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
 
         assert result is None
@@ -181,10 +197,13 @@ class TestFlashStm32DfuDfuFile:
 # flash_stm32_dfu – .bin file path (new functionality)
 # ---------------------------------------------------------------------------
 
+
 class TestFlashStm32DfuBinFile:
     def _make_mock_pydfu(self, elements=None):
         m = MagicMock()
-        m.read_bin_file.return_value = elements if elements is not None else [{"data": b"\x00" * 16, "addr": 0x08000000, "size": 16, "num": 0}]
+        m.read_bin_file.return_value = (
+            elements if elements is not None else [{"data": b"\x00" * 16, "addr": 0x08000000, "size": 16, "num": 0}]
+        )
         return m
 
     def test_bin_file_success(self, tmp_path):
@@ -196,6 +215,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(board, fw)
 
         assert result is board
@@ -210,6 +230,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw)
 
         mock_pydfu.read_bin_file.assert_called_once_with(fw, 0x08000000)
@@ -223,6 +244,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw, address=custom_addr)
 
         mock_pydfu.read_bin_file.assert_called_once_with(fw, custom_addr)
@@ -235,6 +257,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw, erase=True)
 
         mock_pydfu.mass_erase.assert_called_once()
@@ -247,6 +270,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw, erase=False)
 
         mock_pydfu.mass_erase.assert_not_called()
@@ -259,6 +283,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             result = flash_stm32_dfu(_make_board(), fw)
 
         assert result is None
@@ -271,6 +296,7 @@ class TestFlashStm32DfuBinFile:
 
         with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw)
 
         mock_pydfu.write_elements.assert_called_once()
@@ -282,9 +308,9 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu), \
-             patch("mpflash.flash.stm32_dfu.dfu_init", return_value=None):
+        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu), patch("mpflash.flash.stm32_dfu.dfu_init", return_value=None):
             from mpflash.flash.stm32_dfu import flash_stm32_dfu
+
             flash_stm32_dfu(_make_board(), fw)
 
         mock_pydfu.init.assert_called_once_with(idVendor=0x0483, idProduct=0xDF11)
@@ -294,13 +320,16 @@ class TestFlashStm32DfuBinFile:
 # common.py – PORT_FWTYPES includes .bin for stm32
 # ---------------------------------------------------------------------------
 
+
 class TestCommonPortFwtypes:
     def test_stm32_supports_bin(self):
         """stm32 firmware types include .bin."""
         from mpflash.common import PORT_FWTYPES
+
         assert ".bin" in PORT_FWTYPES["stm32"]
 
     def test_stm32_supports_dfu(self):
         """stm32 firmware types still include .dfu."""
         from mpflash.common import PORT_FWTYPES
+
         assert ".dfu" in PORT_FWTYPES["stm32"]

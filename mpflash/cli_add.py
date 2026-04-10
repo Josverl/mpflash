@@ -68,5 +68,3 @@ def cli_add_custom(
     except MPFlashError as e:
         log.error(e)
         return 1
-
-

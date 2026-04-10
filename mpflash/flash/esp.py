@@ -145,8 +145,15 @@ def flash_esp(
 
     # Always show the equivalent CLI commands for user reference
     _log_esptool_cmd(
-        chip, mcu.serialport, baud_rate, start_addr, fw_file,
-        flash_mode, flash_size, compress=True, erase=erase,
+        chip,
+        mcu.serialport,
+        baud_rate,
+        start_addr,
+        fw_file,
+        flash_mode,
+        flash_size,
+        compress=True,
+        erase=erase,
     )
 
     try:
@@ -167,8 +174,15 @@ def flash_esp(
             except FatalError as exc:
                 log.warning(f"Compressed write failed ({exc}), retrying without compression...")
                 _log_esptool_cmd(
-                    chip, mcu.serialport, baud_rate, start_addr, fw_file,
-                    flash_mode, flash_size, compress=False, erase=False,
+                    chip,
+                    mcu.serialport,
+                    baud_rate,
+                    start_addr,
+                    fw_file,
+                    flash_mode,
+                    flash_size,
+                    compress=False,
+                    erase=False,
                 )
                 espcmds.write_flash(esp, addr_data, **write_kwargs, no_compress=True)
     except Exception as e:

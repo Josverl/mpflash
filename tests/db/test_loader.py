@@ -17,6 +17,7 @@ def test_load_data_from_zip(session_fx, mocker, pytestconfig):
     assert c_loaded > 0
     # check if the database is not empty
     from mpflash.db.models import Board
+
     count = Board.select().count()
     assert count >= c_loaded
 
