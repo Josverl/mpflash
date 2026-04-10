@@ -10,7 +10,7 @@ on:
         # branches: [main]
 
     push:
-        branches: [main, dev/*, mpflash/*, feat/*, fix/*]
+        # branches: [main, dev/*, mpflash/*, feat/*, fix/*] # ALL
         paths:
             - .github/workflows/pytest_mpflash.yml
             - .github/workflows/codecov.yml
@@ -23,6 +23,8 @@ env:
     PYTHONIOENCODING: utf-8
     # fix:  DeprecationWarning: Jupyter is migrating its paths to use standard platformdirs
     JUPYTER_PLATFORM_DIRS: "1"
+    # Opt into Node.js 24 for all JavaScript actions ahead of runner default switch.
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -51,9 +53,9 @@ jobs:
             # uv is not in the default image
             #----------------------------------------------
             - name: Install the latest version of uv
-              uses: astral-sh/setup-uv@v7
+              uses: astral-sh/setup-uv@v8.0.0
               with:
-                version: "latest"
+                  version: "latest"
 
             - name: Set up Python ${{ matrix.python-version }}
               uses: actions/setup-python@v6
@@ -81,7 +83,7 @@ jobs:
             - name: Upload coverage-mpflash-*.xml to Codecov
               if: always() # ignore errors
               continue-on-error: true
-              uses: codecov/codecov-action@v5
+              uses: codecov/codecov-action@v6
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   # fail_ci_if_error: false
