@@ -1,5 +1,6 @@
 # no python virtual environment
 .venv*
+venv/
 
 # no compiled python or caches
 **/__pycache__
