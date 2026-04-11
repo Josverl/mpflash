@@ -5,7 +5,7 @@
 
 [project]
 name = "mpflash"
-version = "1.26.9"
+version = "1.28.0"
 description = "Flash and download tool for MicroPython firmwares"
 authors = [
     {name = "Jos Verlinde", email = "jos_verlinde@hotmail.com"}

@@ -13,7 +13,7 @@ pypi_token = keyring.get_password("pypi", "uv_publish")
 
 if not pypi_token:
     raise ValueError("PyPI token not found in keyring. Please add it using keyring.set_password('pypi', 'uv_publish', '<your_token>')")
-
+    # python -c "import keyring; keyring.set_password('pypi', 'uv_publish','pypi-yourtoken')"
 # uv build --wheel
 subprocess.run(["uv", "build", "--wheel"])
 
