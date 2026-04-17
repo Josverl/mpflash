@@ -46,6 +46,7 @@ _BAUD_FOR: dict = {
     "esp32c6": 460_800,
 }
 _DEFAULT_BAUD = 921_600
+_RETRY_BAUD = 115_200
 
 
 def _chip_params(cpu: str) -> Tuple[str, str, int]:
@@ -108,6 +109,58 @@ def _log_esptool_cmd(
     )
 
 
+def _attempt_flash(
+    mcu: MPRemoteBoard,
+    chip: str,
+    start_addr: str,
+    baud_rate: int,
+    fw_file: Path,
+    flash_mode: str,
+    flash_size: str,
+    *,
+    erase: bool,
+) -> None:
+    """Perform a single flash attempt over a fresh serial connection.
+
+    Opens a new connection, optionally erases flash, then writes the firmware
+    with compression.  If the compressed write raises ``FatalError`` the write
+    is retried without compression before propagating any remaining error.
+
+    Args:
+        mcu: Board to flash.
+        chip: esptool chip key (e.g. ``"esp32"``).
+        start_addr: Hex flash start address string.
+        baud_rate: Baud rate for the flash operation.
+        fw_file: Path to the firmware file.
+        flash_mode: SPI flash mode written into the image header.
+        flash_size: Flash size specifier.
+        erase: Whether to erase all flash before writing.
+
+    Raises:
+        Exception: Any esptool error that occurs during the flash operation.
+    """
+    _log_esptool_cmd(chip, mcu.serialport, baud_rate, start_addr, fw_file, flash_mode, flash_size, compress=True, erase=erase)
+
+    addr_data = [(int(start_addr, 16), str(fw_file))]
+    write_kwargs = {"flash_mode": flash_mode, "flash_size": flash_size, "force": True}
+
+    with espcmds.detect_chip(port=mcu.serialport) as esp:
+        esp = espcmds.run_stub(esp)
+        esp.change_baud(baud_rate)
+
+        if erase:
+            log.info("Erasing flash...")
+            espcmds.erase_flash(esp)
+
+        log.info("Writing flash (compressed)...")
+        try:
+            espcmds.write_flash(esp, addr_data, **write_kwargs, compress=True)
+        except FatalError as exc:
+            log.warning(f"Compressed write failed ({exc}), retrying without compression...")
+            _log_esptool_cmd(chip, mcu.serialport, baud_rate, start_addr, fw_file, flash_mode, flash_size, compress=False, erase=False)
+            espcmds.write_flash(esp, addr_data, **write_kwargs, no_compress=True)
+
+
 def flash_esp(
     mcu: MPRemoteBoard,
     fw_file: Path,
@@ -115,13 +168,17 @@ def flash_esp(
     erase: bool = True,
     flash_mode: FlashMode = "keep",
     flash_size: str = "detect",
+    retry_on_error: bool = True,
+    retry_baud: int = _RETRY_BAUD,
+    retry_flash_mode: FlashMode = "dio",
 ) -> Optional[MPRemoteBoard]:
     """Flash ESP32/ESP8266 firmware using the esptool Python API.
 
     Connects to the board, optionally erases flash, then writes the firmware
     with compression enabled for all chips.  If the compressed write raises a
     ``FatalError`` (e.g. stub not available), the write is retried without
-    compression so the flash always completes when possible.
+    compression.  If the entire flash attempt fails and ``retry_on_error`` is
+    ``True``, a second attempt is made at ``retry_baud`` with ``retry_flash_mode``.
 
     Args:
         mcu: Board to flash.
@@ -129,6 +186,9 @@ def flash_esp(
         erase: Erase all flash before writing (default ``True``).
         flash_mode: SPI flash mode written into the image header.
         flash_size: Flash size (``"detect"`` auto-detects on the device).
+        retry_on_error: Retry with lower baud / different flash mode on failure.
+        retry_baud: Baud rate to use for the retry attempt (default 115200).
+        retry_flash_mode: SPI flash mode for the retry attempt (default ``"dio"``).
 
     Returns:
         The updated ``MPRemoteBoard`` on success, ``None`` on failure.
@@ -143,51 +203,20 @@ def flash_esp(
 
     chip, start_addr, baud_rate = _chip_params(mcu.cpu)
 
-    # Always show the equivalent CLI commands for user reference
-    _log_esptool_cmd(
-        chip,
-        mcu.serialport,
-        baud_rate,
-        start_addr,
-        fw_file,
-        flash_mode,
-        flash_size,
-        compress=True,
-        erase=erase,
-    )
-
     try:
-        with espcmds.detect_chip(port=mcu.serialport) as esp:
-            esp = espcmds.run_stub(esp)
-            esp.change_baud(baud_rate)
-
-            if erase:
-                log.info("Erasing flash...")
-                espcmds.erase_flash(esp)
-
-            addr_data = [(int(start_addr, 16), str(fw_file))]
-            write_kwargs = {"flash_mode": flash_mode, "flash_size": flash_size, "force": True}
-
-            log.info("Writing flash (compressed)...")
-            try:
-                espcmds.write_flash(esp, addr_data, **write_kwargs, compress=True)
-            except FatalError as exc:
-                log.warning(f"Compressed write failed ({exc}), retrying without compression...")
-                _log_esptool_cmd(
-                    chip,
-                    mcu.serialport,
-                    baud_rate,
-                    start_addr,
-                    fw_file,
-                    flash_mode,
-                    flash_size,
-                    compress=False,
-                    erase=False,
-                )
-                espcmds.write_flash(esp, addr_data, **write_kwargs, no_compress=True)
-    except Exception as e:
-        log.error(f"Failed to flash {mcu.board} on {mcu.serialport}: {e}")
-        return None
+        _attempt_flash(mcu, chip, start_addr, baud_rate, fw_file, flash_mode, flash_size, erase=erase)
+    except Exception as first_exc:
+        log.error(f"Failed to flash {mcu.board} on {mcu.serialport}: {first_exc}")
+        if not retry_on_error:
+            return None
+        log.warning(
+            f"Retrying at {retry_baud} baud with flash_mode={retry_flash_mode!r}..."
+        )
+        try:
+            _attempt_flash(mcu, chip, start_addr, retry_baud, fw_file, retry_flash_mode, flash_size, erase=erase)
+        except Exception as retry_exc:
+            log.error(f"Retry also failed for {mcu.board} on {mcu.serialport}: {retry_exc}")
+            return None
 
     log.info("Done flashing, resetting the board...")
     mcu.wait_for_restart()

@@ -131,6 +131,30 @@ from mpflash.versions import clean_version
     help="""Flash mode for ESP boards. (default: keep)""",
 )
 @click.option(
+    "--retry/--no-retry",
+    "retry_on_error",
+    default=True,
+    show_default=True,
+    help="""Retry with lower baud rate and different flash mode on failure (ESP boards only).""",
+)
+@click.option(
+    "--retry-baud",
+    "retry_baud",
+    type=int,
+    default=115_200,
+    show_default=True,
+    help="""Baud rate used for the retry attempt (ESP boards only).""",
+)
+@click.option(
+    "--retry-flash-mode",
+    "--rfm",
+    "retry_flash_mode",
+    type=click.Choice(["qio", "qout", "dio", "dout"]),
+    default="dio",
+    show_default=True,
+    help="""Flash mode used for the retry attempt (ESP boards only).""",
+)
+@click.option(
     "--custom",
     "-c",
     default=False,
@@ -300,6 +324,9 @@ def cli_flash_board(**kwargs) -> int:
         params.erase,
         params.bootloader,
         flash_mode=params.flash_mode,
+        retry_on_error=params.retry_on_error,
+        retry_baud=params.retry_baud,
+        retry_flash_mode=params.retry_flash_mode,
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")
