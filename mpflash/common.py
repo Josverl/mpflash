@@ -68,6 +68,9 @@ class FlashParams(Params):
     flash_mode: str = "keep"  # keep, qio, qout, dio, dout
     custom: bool = False
     volumes: List[str] = field(default_factory=list)
+    retry_on_error: bool = True
+    retry_baud: int = 115_200
+    retry_flash_mode: str = "dio"  # qio, qout, dio, dout
 
     def __post_init__(self):
         if isinstance(self.bootloader, str):

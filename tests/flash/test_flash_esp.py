@@ -157,13 +157,13 @@ def test_flash_esp_compress_fallback(mock_mcu, mock_esptool):
 
 
 def test_flash_esp_compress_fallback_also_fails(mock_mcu, mock_esptool):
-    """If both compressed and uncompressed writes fail, return None."""
+    """If both compressed and uncompressed writes fail (no retry), return None."""
     mock_esptool["write"].side_effect = [
         FatalError("compressed failed"),
         FatalError("uncompressed also failed"),
     ]
 
-    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False)
+    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False, retry_on_error=False)
     assert result is None
 
 
@@ -175,3 +175,63 @@ def test_flash_esp_compress_fallback_also_fails(mock_mcu, mock_esptool):
 def test_flash_esp_exception(mock_mcu, mock_esptool):
     mock_esptool["write"].side_effect = Exception("Flashing error")
     assert flash_esp(mock_mcu, Path("/path/to/firmware.bin")) is None
+
+
+# ---------------------------------------------------------------------------
+# Retry on error
+# ---------------------------------------------------------------------------
+
+
+def test_flash_esp_retry_succeeds(mock_mcu, mock_esptool):
+    """First attempt fails; retry with lower baud and different mode succeeds."""
+    mock_esptool["write"].side_effect = [Exception("first attempt failed"), None]
+
+    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False)
+
+    assert result == mock_mcu
+    assert mock_esptool["write"].call_count == 2
+    # First attempt uses default baud, retry uses 115200
+    baud_calls = mock_esptool["loader"].change_baud.call_args_list
+    assert baud_calls[0].args[0] == 921_600
+    assert baud_calls[1].args[0] == 115_200
+
+
+def test_flash_esp_retry_uses_retry_flash_mode(mock_mcu, mock_esptool):
+    """Retry attempt must use the retry_flash_mode, not the original flash_mode."""
+    mock_esptool["write"].side_effect = [Exception("first attempt failed"), None]
+
+    flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False, flash_mode="keep", retry_flash_mode="dio")
+
+    first_call, second_call = mock_esptool["write"].call_args_list
+    assert first_call.kwargs["flash_mode"] == "keep"
+    assert second_call.kwargs["flash_mode"] == "dio"
+
+
+def test_flash_esp_retry_custom_baud(mock_mcu, mock_esptool):
+    """Retry uses the caller-supplied retry_baud."""
+    mock_esptool["write"].side_effect = [Exception("first attempt failed"), None]
+
+    flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False, retry_baud=9_600)
+
+    baud_calls = mock_esptool["loader"].change_baud.call_args_list
+    assert baud_calls[1].args[0] == 9_600
+
+
+def test_flash_esp_retry_also_fails(mock_mcu, mock_esptool):
+    """Both attempts fail → return None."""
+    mock_esptool["write"].side_effect = Exception("always fails")
+
+    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False)
+
+    assert result is None
+    assert mock_esptool["write"].call_count == 2
+
+
+def test_flash_esp_no_retry(mock_mcu, mock_esptool):
+    """With retry_on_error=False, a single failure returns None without retry."""
+    mock_esptool["write"].side_effect = Exception("Flashing error")
+
+    result = flash_esp(mock_mcu, Path("/path/to/firmware.bin"), erase=False, retry_on_error=False)
+
+    assert result is None
+    mock_esptool["write"].assert_called_once()
