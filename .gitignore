@@ -48,3 +48,4 @@ src/mpflash/coverag*
 # no profile data or logs
 profile*.*
 **/*.log
+firmware/

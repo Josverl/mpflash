@@ -233,6 +233,7 @@ def download(
     versions: List[str],
     force: bool = False,
     clean: bool = True,
+    destination: Optional[Path] = None,
 ) -> int:
     """
     Downloads firmware files based on the specified destination, ports, boards, versions, force flag, and clean flag.
@@ -254,7 +255,10 @@ def download(
     """
     # Just in time import
     import requests
-    destination = config.firmware_folder
+    if destination is not None:
+        destination = Path(destination).expanduser().resolve()
+    else:
+        destination = config.firmware_folder
     if not boards:
         log.critical("No boards found, please connect a board or specify boards to download firmware for.")
         raise MPFlashError("No boards found")

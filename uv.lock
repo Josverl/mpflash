@@ -1172,7 +1172,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.1.2,<10.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=6.0.0" },
-    { name = "pytest-github-actions-annotate-failures", marker = "extra == 'test'", specifier = ">=0.1.7,<0.4.0" },
+    { name = "pytest-github-actions-annotate-failures", marker = "extra == 'test'", specifier = ">=0.1.7,<0.5.0" },
     { name = "pytest-json-report", marker = "extra == 'test'", specifier = ">=1.5.0" },
     { name = "pytest-metadata", marker = "extra == 'test'", specifier = ">=2.0.2,<4.0.0" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.10.0" },
@@ -1181,7 +1181,7 @@ requires-dist = [
     { name = "questionary", specifier = ">=2.0.0" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rich-click", specifier = ">=1.8.1" },
-    { name = "tenacity", specifier = "==9.0.0" },
+    { name = "tenacity", specifier = "==9.1.4" },
     { name = "tomli", specifier = ">=2.2.1" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "tornado", marker = "extra == 'dev'", specifier = ">=6.5" },
@@ -1921,11 +1921,11 @@ wheels = [
 
 [[package]]
 name = "tenacity"
-version = "9.0.0"
+version = "9.1.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/cd/94/91fccdb4b8110642462e653d5dcb27e7b674742ad68efd146367da7bdb10/tenacity-9.0.0.tar.gz", hash = "sha256:807f37ca97d62aa361264d497b0e31e92b8027044942bfa756160d908320d73b", size = 47421, upload-time = "2024-07-29T12:12:27.547Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/cb/b86984bed139586d01532a587464b5805f12e397594f19f931c4c2fbfa61/tenacity-9.0.0-py3-none-any.whl", hash = "sha256:93de0c98785b27fcf659856aa9f54bfbd399e29969b0621bc7f762bd441b4539", size = 28169, upload-time = "2024-07-29T12:12:25.825Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
 ]
 
 [[package]]

@@ -1,7 +1,5 @@
 """CLI to Download MicroPython firmware for specific ports, boards and versions."""
 
-from pathlib import Path
-
 import rich_click as click
 from loguru import logger as log
 
@@ -10,7 +8,6 @@ from mpflash.versions import clean_version
 
 from .cli_group import cli
 from .common import DownloadParams
-from .config import config
 
 
 @cli.command(
@@ -111,8 +108,9 @@ def cli_download(**kwargs) -> int:
             params.ports,
             add_renamed_boards(params.boards),
             params.versions,
-            params.force,
-            params.clean,
+            force=params.force,
+            clean=params.clean,
+            destination=params.destination,
         )
         clean_downloaded_firmwares()
         return 0

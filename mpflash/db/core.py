@@ -14,6 +14,8 @@ TRACE = False
 
 def _init_database(db_path: Path = config.db_path) -> None:
     """Initialise the module-level Peewee database with the given path."""
+    if not database.is_closed():
+        database.close()
     if TRACE:
         log.debug(f"Connecting to database at {db_path}")
     database.init(str(db_path))

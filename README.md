@@ -101,6 +101,14 @@ export MPFLASH_FIRMWARE="/path/to/custom/firmware"
 
 When this variable is set, `mpflash` will use that location to store firmware files and estabish it's database.
 
+You can also override the download location for a single invocation using the `--dir` option:
+
+```bash
+mpflash download --dir "/path/to/custom/firmware"
+```
+
+The `--dir` option takes precedence over the `MPFLASH_FIRMWARE` environment variable.
+
 ## Selecting or ignoring specific serial ports
 
 You can use the `--serial` option to select a specific serial port(s) to flash,  
@@ -190,7 +198,12 @@ These will try to download the prebuilt MicroPython firmware for the boards from
 The stable version (default) is determined based on the most recent published release,
 other options are `--version stable`, `--version preview` and `--version x.y.z` to download the latest stable, preview or version x.y.z respectively.
 
-By default the firmware will be downloaded to your OS's preferred `Downloads/firmware` folder, but you can speciy a different directory using the `--dir` option.
+By default the firmware will be downloaded to your OS's preferred `Downloads/firmware` folder.
+You can specify a different directory using:
+ - the `--dir` option on the command line: `mpflash download --dir /path/to/firmware`
+ - the `MPFLASH_FIRMWARE` environment variable (applies to all commands): `export MPFLASH_FIRMWARE="/path/to/firmware"`
+
+The `--dir` option takes precedence over the `MPFLASH_FIRMWARE` environment variable.
 
 The directory structure will be something like this:
 
