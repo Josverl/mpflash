@@ -4,6 +4,7 @@ import os
 import platform
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import List, Optional, Union
 
 from serial.tools import list_ports
@@ -48,6 +49,7 @@ class DownloadParams(Params):
     """Parameters for downloading firmware"""
 
     clean: bool = False
+    destination: Optional[Path] = None
 
 
 class BootloaderMethod(Enum):

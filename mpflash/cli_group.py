@@ -3,6 +3,8 @@ Main entry point for the CLI group.
 Additional comands are added in the submodules.
 """
 
+from pathlib import Path
+
 import rich_click as click
 
 from mpflash.vendor.click_aliases import ClickAliasedGroup
@@ -56,6 +58,21 @@ def cb_quiet(ctx, param, value):
     return value
 
 
+def cb_firmware_dir(ctx, param, value: Path | None):
+    if value is None:
+        return value
+    firmware_path = value.expanduser().resolve()
+    firmware_path.mkdir(parents=True, exist_ok=True)
+    config.firmware_folder = firmware_path
+    # Ensure the database is pointed at the same folder as firmware storage.
+    from mpflash.db.core import _init_database, migrate_database
+
+    _init_database(config.db_path)
+    migrate_database(boards=True, firmwares=True)
+    log.trace(f"Setting firmware folder to {firmware_path}")
+    return value
+
+
 @click.group(cls=ClickAliasedGroup)
 # @click.group()
 @click.version_option(package_name="mpflash")
@@ -96,6 +113,17 @@ def cb_quiet(ctx, param, value):
     help="Shows USB location of the connected boards.",
     callback=cb_usb,
     show_default=True,
+)
+@click.option(
+    "--dir",
+    "-d",
+    is_eager=True,
+    default=None,
+    show_default=False,
+    type=click.Path(file_okay=False, writable=True, path_type=Path),
+    help="""Firmware folder used by download and flash. Defaults to the OS downloads folder.""",
+    metavar="DIRECTORY",
+    callback=cb_firmware_dir,
 )
 @click.option(
     "--test",

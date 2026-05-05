@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 
 import pytest
@@ -66,13 +67,44 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
     assert m_download.call_args.args[1], "one or more ports should be specified for download"
 
     if "--clean" in args:
-        assert m_download.call_args.args[4] == True, "clean should be True"
+        assert m_download.call_args.kwargs["clean"] == True, "clean should be True"
     if "--no-clean" in args:
-        assert m_download.call_args.args[4] == False, "clean should be False"
+        assert m_download.call_args.kwargs["clean"] == False, "clean should be False"
     else:
-        assert m_download.call_args.args[4] == True, "clean should be True"
+        assert m_download.call_args.kwargs["clean"] == True, "clean should be True"
 
     if "--force" in args:
-        assert m_download.call_args.args[3] == True, "force should be True"
+        assert m_download.call_args.kwargs["force"] == True, "force should be True"
     else:
-        assert m_download.call_args.args[3] == False, "force should be False"
+        assert m_download.call_args.kwargs["force"] == False, "force should be False"
+
+    # destination should be None when --dir is not specified
+    assert m_download.call_args.kwargs.get("destination") is None, "destination should be None when --dir is not specified"
+
+
+def test_mpflash_download_dir_option(mocker: MockerFixture, session_fx, tmp_path: Path):
+    """Test that --dir option passes the destination path to the download function."""
+
+    def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
+        return params
+
+    mocker.patch(
+        "mpflash.connected.connected_ports_boards_variants",
+        return_value=(["esp32"], ["ESP32_GENERIC"], [], [MPRemoteBoard("COM99")]),
+        autospec=True,
+    )
+    m_download = mocker.patch("mpflash.download.download", return_value=1, autospec=True)
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_main.cli,
+        ["download", "--board", "ESP32_GENERIC", "--version", "1.22.0", "--dir", str(tmp_path)],
+        standalone_mode=True,
+    )
+    assert result.exit_code == 0
+    m_download.assert_called_once()
+    # Verify destination was passed correctly
+    assert m_download.call_args.kwargs.get("destination") == tmp_path, "destination should be the tmp_path provided via --dir"
