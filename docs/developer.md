@@ -50,6 +50,8 @@ mpflash/
 
 The application uses **SQLite** via the **[Peewee](https://docs.peewee-orm.com/)** ORM. The database file location defaults to the OS user data directory and can be overridden with the `MPFLASH_FIRMWARE` environment variable.
 
+For a single CLI invocation, the global option `--dir` can override both firmware and database location, for example: `mpflash --dir ./scratch download`.
+
 ### Peewee Models
 
 Models are defined in `mpflash/db/models.py`. All models inherit from `BaseModel` which binds them to the shared `SqliteDatabase` instance initialised in `core.py`.
@@ -152,6 +154,8 @@ Optional overrides for local development:
 MPFLASH_FIRMWARE=./scratch    # firmware storage location (instead of ~/Downloads/firmware)
 PYTHONPATH=src                # needed when running pytest directly
 ```
+
+CLI note: use `mpflash --dir ./scratch <command>` when you want a one-off override instead of setting `MPFLASH_FIRMWARE`.
 
 ### Running Tests
 

@@ -151,6 +151,17 @@ mpflash flash --board ESP32_GENERIC --version stable
 - `MPFLASH_IGNORE` - Space-separated list of ports to ignore
 - `MPFLASH_DATABASE` - Custom database file location
 
+### Global CLI Options
+- `--dir` - Per-invocation firmware and database directory override (global option)
+
+```bash
+# Global options must be placed before the command
+mpflash --dir ./scratch download --board ESP32_GENERIC
+mpflash --dir ./scratch flash --board ESP32_GENERIC --serial COM3
+```
+
+`--dir` takes precedence over `MPFLASH_FIRMWARE` for that invocation.
+
 ### Configuration Files
 - `~/.mpflash/config.toml` - User configuration *(future feature)*
 - `board_info.toml` - Per-board configuration

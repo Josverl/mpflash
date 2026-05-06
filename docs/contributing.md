@@ -62,6 +62,13 @@ MPFLASH_FIRMWARE=./scratch    # Local firmware storage
 PYTHONPATH=src                # For development
 ```
 
+For one-off runs, prefer the global CLI option instead of changing environment variables:
+
+```bash
+mpflash --dir ./scratch download --board ESP32_GENERIC
+mpflash --dir ./scratch flash --board ESP32_GENERIC --serial COM3
+```
+
 ### Verify Installation
 
 ```bash

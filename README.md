@@ -101,10 +101,11 @@ export MPFLASH_FIRMWARE="/path/to/custom/firmware"
 
 When this variable is set, `mpflash` will use that location to store firmware files and estabish it's database.
 
-You can also override the download location for a single invocation using the `--dir` option:
+You can also override the firmware and database location for a single invocation using the global `--dir` option:
 
 ```bash
-mpflash download --dir "/path/to/custom/firmware"
+mpflash --dir "/path/to/custom/firmware" download
+mpflash --dir "/path/to/custom/firmware" flash --board ESP32_GENERIC --serial COM3
 ```
 
 The `--dir` option takes precedence over the `MPFLASH_FIRMWARE` environment variable.
@@ -200,7 +201,7 @@ other options are `--version stable`, `--version preview` and `--version x.y.z` 
 
 By default the firmware will be downloaded to your OS's preferred `Downloads/firmware` folder.
 You can specify a different directory using:
- - the `--dir` option on the command line: `mpflash download --dir /path/to/firmware`
+ - the global `--dir` option on the command line: `mpflash --dir /path/to/firmware download`
  - the `MPFLASH_FIRMWARE` environment variable (applies to all commands): `export MPFLASH_FIRMWARE="/path/to/firmware"`
 
 The `--dir` option takes precedence over the `MPFLASH_FIRMWARE` environment variable.
