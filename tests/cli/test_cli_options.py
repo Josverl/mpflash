@@ -20,7 +20,7 @@ def test_mpflash_help():
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, ["--help"])
     assert result.exit_code == 0
-    expected = ["Usage:", "Options", "Commands", "download", "flash", "list"]
+    expected = ["Usage:", "Options", "Commands", "--dir", "download", "flash", "list"]
     for word in expected:
         assert word in result.output
 
@@ -59,3 +59,23 @@ def test_cli_quiet(params: List[str]):
     assert result
     assert cli_group.config.quiet == True
     assert cli_group.config.verbose == False
+
+
+def test_global_dir_keeps_db_and_firmware_folder_aligned(mocker, tmp_path):
+    """Global --dir should keep db path rooted in the selected firmware folder."""
+    from mpflash.config import config
+
+    mock_init_db = mocker.patch("mpflash.db.core._init_database")
+    mock_migrate_db = mocker.patch("mpflash.db.core.migrate_database")
+
+    old_folder = config._firmware_folder
+    runner = CliRunner()
+    try:
+        result = runner.invoke(cli_main.cli, ["--dir", str(tmp_path), "--help"])
+        assert result.exit_code == 0
+        assert config.firmware_folder == tmp_path.resolve()
+        assert config.db_path == tmp_path.resolve() / "mpflash.db"
+        mock_init_db.assert_called_once_with(config.db_path)
+        mock_migrate_db.assert_called_once_with(boards=True, firmwares=True)
+    finally:
+        config._firmware_folder = old_folder
