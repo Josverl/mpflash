@@ -31,7 +31,7 @@ coverage:
   coverage html
   start coverage/index.html
 
-# bump mpflash's version
+# bump mpflash's version [major, minor, patch, stable, alpha, beta, rc, post, dev]
 bump bump="patch":
   uv version --bump {{bump}}
 
