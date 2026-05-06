@@ -83,7 +83,8 @@ def test_mpflash_download(id, ex_code, args: List[str], mocker: MockerFixture, s
 
 
 def test_mpflash_download_dir_option(mocker: MockerFixture, session_fx, tmp_path: Path):
-    """Test that --dir option passes the destination path to the download function."""
+    """Test that global --dir sets the shared firmware folder for download."""
+    from mpflash.config import config
 
     def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
         return params
@@ -98,13 +99,17 @@ def test_mpflash_download_dir_option(mocker: MockerFixture, session_fx, tmp_path
         "mpflash.ask_input.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
+    old_folder = config._firmware_folder
     runner = CliRunner()
-    result = runner.invoke(
-        cli_main.cli,
-        ["download", "--board", "ESP32_GENERIC", "--version", "1.22.0", "--dir", str(tmp_path)],
-        standalone_mode=True,
-    )
-    assert result.exit_code == 0
-    m_download.assert_called_once()
-    # Verify destination was passed correctly
-    assert m_download.call_args.kwargs.get("destination") == tmp_path, "destination should be the tmp_path provided via --dir"
+    try:
+        result = runner.invoke(
+            cli_main.cli,
+            ["--dir", str(tmp_path), "download", "--board", "ESP32_GENERIC", "--version", "1.22.0"],
+            standalone_mode=True,
+        )
+        assert result.exit_code == 0
+        m_download.assert_called_once()
+        assert config.firmware_folder == tmp_path.resolve()
+        assert m_download.call_args.kwargs.get("destination") is None
+    finally:
+        config._firmware_folder = old_folder
