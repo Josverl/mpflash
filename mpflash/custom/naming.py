@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import mpflash.basicgit as git
-from mpflash.common import SA_PORTS
+from mpflash.common import PORT_FWTYPES, SA_PORTS
 from mpflash.logger import log
 
 
@@ -18,8 +18,16 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
     """
     repo_path = fw_path.expanduser().absolute().parent
     port, board_id = port_and_boardid_from_path(fw_path)
-    if not port or not board_id:
-        raise ValueError(f"Could not extract port and board_id from path: {fw_path}")
+    if not board_id:
+        # Fallback: use the filename stem as the board_id so we never crash on
+        # firmware files that do not follow the standard MicroPython build layout.
+        board_id = fw_path.stem
+        log.warning(
+            f"Could not determine board_id from path; using filename stem as board_id: {board_id!r}"
+        )
+    if not port:
+        log.warning(f"Could not determine port from path: {fw_path}; using empty port.")
+        port = ""
     if "wsl.localhost" in str(repo_path):
         log.info("Accessing WSL path; please note that it may take a few seconds to get git info across filesystems")
     version = git.get_local_tag(repo_path) or "unknown"
@@ -33,7 +41,8 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
         branch = branch.split("/")[-1]  # Use only last part of the branch name (?)
     build_str = f".{build}" if build > 0 else ""
     branch_str = f"@{branch}" if branch else ""
-    new_fw_path = Path(port) / f"{board_id}{branch_str}-{version}{build_str}{fw_path.suffix}"
+    fw_filename = f"{board_id}{branch_str}-{version}{build_str}{fw_path.suffix}"
+    new_fw_path = Path(port) / fw_filename if port else Path(fw_filename)
 
     return {
         "port": port,
@@ -74,6 +83,17 @@ def port_and_boardid_from_path(firmware_path: Path) -> Tuple[Optional[str], Opti
     if port_match:
         port = port_match.group(1)
         return port, None
+
+    # Fallback: try to detect a known port name embedded in the filename
+    # (e.g. lvgl_micropy_ESP32_GENERIC-SPIRAM-16.bin -> port=esp32)
+    filename = Path(path_str).name
+    if filename:
+        known_ports = list(PORT_FWTYPES.keys()) + list(SA_PORTS)
+        # Single regex with alternation to avoid recompiling per iteration.
+        alt = "|".join(re.escape(p) for p in known_ports)
+        m = re.search(rf"(?:^|[_\-])({alt})(?:[_\-]|\.|$)", filename, re.IGNORECASE)
+        if m:
+            return m.group(1).lower(), None
 
     return None, None
 

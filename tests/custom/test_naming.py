@@ -27,6 +27,9 @@ class TestPortAndBoardidFromPath:
             ("/some/other/path/firmware.bin", None, None),
             ("/micropython/firmware.bin", None, None),
             ("", None, None),
+            # Filename-based fallback (port name embedded in filename)
+            ("/home/user/build/lvgl_micropy_ESP32_GENERIC-SPIRAM-16.bin", "esp32", None),
+            ("/tmp/my_custom_RP2_build.uf2", "rp2", None),
         ],
     )
     def test_valid_paths(self, path: str, expected_port: str, expected_board: str):
@@ -176,12 +179,45 @@ class TestCustomFwFromPath:
         assert result["board_id"] == "GENERIC"
         assert result["version"] == "v1.26.0"
 
-    def test_invalid_path_raises_error(self, mocker: MockerFixture):
-        """Test that invalid paths raise ValueError."""
+    def test_invalid_path_uses_filename_fallback(self, mocker: MockerFixture):
+        """Test that paths not matching the standard MicroPython build layout
+        fall back to using the filename stem as board_id instead of crashing."""
+        mock_get_local_tag = mocker.patch("mpflash.custom.naming.git.get_local_tag")
+        mock_get_git_describe = mocker.patch("mpflash.custom.naming.git.get_git_describe")
+        mock_get_current_branch = mocker.patch("mpflash.custom.naming.git.get_current_branch")
+
+        mock_get_local_tag.return_value = None
+        mock_get_git_describe.return_value = None
+        mock_get_current_branch.return_value = None
+
         fw_path = Path("/invalid/path/firmware.bin")
 
-        with pytest.raises(ValueError, match="Could not extract port and board_id"):
-            custom_fw_from_path(fw_path)
+        # Should not raise; falls back to filename stem
+        result = custom_fw_from_path(fw_path)
+        assert result["board_id"] == "firmware"
+        assert result["port"] == ""
+        assert result["firmware_file"] == "firmware-unknown.bin"
+
+    def test_filename_with_known_port_fallback(self, mocker: MockerFixture):
+        """Test fallback behaviour for the user-reported case where the
+        firmware file is in a non-standard location but the filename
+        contains a known port name (e.g. ESP32)."""
+        mock_get_local_tag = mocker.patch("mpflash.custom.naming.git.get_local_tag")
+        mock_get_git_describe = mocker.patch("mpflash.custom.naming.git.get_git_describe")
+        mock_get_current_branch = mocker.patch("mpflash.custom.naming.git.get_current_branch")
+
+        mock_get_local_tag.return_value = None
+        mock_get_git_describe.return_value = None
+        mock_get_current_branch.return_value = None
+
+        fw_path = Path("/home/user/lvgl_micropython/build/lvgl_micropy_ESP32_GENERIC-SPIRAM-16.bin")
+
+        result = custom_fw_from_path(fw_path)
+
+        assert result["port"] == "esp32"
+        assert result["board_id"] == "lvgl_micropy_ESP32_GENERIC-SPIRAM-16"
+        assert result["version"] == "unknown"
+        assert result["firmware_file"] == "esp32/lvgl_micropy_ESP32_GENERIC-SPIRAM-16-unknown.bin"
 
     def test_different_file_extensions(self, mocker: MockerFixture):
         """Test firmware naming with different file extensions."""
