@@ -69,6 +69,11 @@ def flash_mcu(
                 if not enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")
                 updated = flash_uf2(mcu, fw_file=fw_file, erase=erase)
+            elif fw_file.suffix == ".uf2":
+                raise MPFlashError(
+                    "Cannot determine a UF2-capable port for this device. "
+                    "Use '--port <port>' (for example 'rp2', 'samd', or 'nrf') or specify '--board'."
+                )
             elif mcu.port in ["stm32"]:
                 if not enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")

@@ -113,6 +113,9 @@ def _ask_select(
 
 def ask_missing_params(
     params: ParamType,
+    *,
+    ask_board: bool = True,
+    ask_for_port: bool = False,
 ) -> ParamType:
     """
     Asks the user for parameters not supplied on the command line and returns updated params.
@@ -139,9 +142,10 @@ def ask_missing_params(
     variant_unknown = isinstance(params, FlashParams) and params.variant == "?"
     needs_serial = not multi_select and (not params.serial or "?" in params.serial)
     needs_versions = params.versions == [] or "?" in params.versions
-    needs_board = not params.boards or "?" in params.boards or variant_unknown
+    needs_board = ask_board and (not params.boards or "?" in params.boards or variant_unknown)
+    needs_port = isinstance(params, FlashParams) and ask_for_port and (not params.ports or "?" in params.ports)
 
-    if not (needs_serial or needs_versions or needs_board):
+    if not (needs_serial or needs_versions or needs_board or needs_port):
         return params
 
     from rich.console import Console
@@ -172,6 +176,13 @@ def ask_missing_params(
         answers["versions"] = versions
     else:
         answers["versions"] = params.versions  # type: ignore
+
+    # Port only (direct firmware mode where board selection is intentionally skipped)
+    if needs_port and not needs_board:
+        port = ask_mp_port(action=action)
+        if not port:
+            return []  # type: ignore
+        answers["port"] = port
 
     # Port, board(s), and variant
     if needs_board:
@@ -505,6 +516,21 @@ def ask_serialport(
         comports,
     )
     return result if result else None
+
+
+def ask_mp_port(*, action: str) -> Optional[str]:
+    """Ask for MicroPython port using tab-completion."""
+    ports = known_ports()
+    if not ports:
+        log.warning("No known ports found in database.")
+        return None
+    port_meta = _port_meta()
+    result = _ask_with_completion(
+        f"Port to {action}?",
+        ports,
+        meta=port_meta,
+    )
+    return result if result and result in ports else None
 
 
 # ---------------------------------------------------------------------------
