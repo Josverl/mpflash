@@ -209,11 +209,11 @@ def get_pyocd_targets() -> Dict[str, Dict[str, str]]:
     Raises:
         MPFlashError: If pyOCD is not available or discovery fails
     """
-    _ensure_pyocd()
     targets = {}
     
     # Try API-based approach first (fast, but may miss pack targets)
     try:
+        _ensure_pyocd()
         from pyocd.target import BUILTIN_TARGETS as TARGET_CLASSES
         
         for target_name, target_class in TARGET_CLASSES.items():
@@ -462,9 +462,6 @@ def auto_install_pack_for_target(chip_family: str) -> bool:
 # Main Target Detection API
 # =============================================================================
 
-# Simple cache to avoid redundant target detection for the same board
-_target_cache = {}
-
 def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> Optional[str]:
     """
     Detect pyOCD target type for a connected MCU with automatic pack installation.
@@ -481,14 +478,6 @@ def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> 
         >>> detect_pyocd_target(mcu)
         'stm32wb55xg'
     """
-    # Create cache key from board_id and chip info
-    cache_key = f"{mcu.board_id}_{mcu.cpu}_{getattr(mcu, 'port', '')}"
-    
-    # Check cache first
-    if cache_key in _target_cache:
-        log.debug(f"Using cached target for {mcu.board_id}: {_target_cache[cache_key]}")
-        return _target_cache[cache_key]
-    
     try:
         # Parse MCU information for fuzzy matching
         mcu_info = parse_mcu_info(mcu)
@@ -500,7 +489,6 @@ def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> 
         
         if target:
             log.debug(f"Target detection: {mcu.board_id} -> {target}")
-            _target_cache[cache_key] = target
             return target
         
         # No target found - try automatic pack installation if enabled
@@ -516,7 +504,6 @@ def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> 
                 
                 if target:
                     log.info(f"Target found after pack installation: {mcu.board_id} -> {target}")
-                    _target_cache[cache_key] = target
                     return target
                 else:
                     log.warning(f"Still no target found for {chip_family} after pack installation")
@@ -524,12 +511,10 @@ def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> 
                 log.debug(f"Automatic pack installation failed for {chip_family}")
         
         log.debug(f"No target found for {mcu.board_id} ({chip_family})")
-        _target_cache[cache_key] = None
         return None
         
     except Exception as e:
         log.debug(f"Target detection failed: {e}")
-        _target_cache[cache_key] = None
         return None
 
 

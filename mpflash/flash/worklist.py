@@ -57,17 +57,19 @@ def select_firmware_for_method(firmwares: List[Firmware], method: FlashMethod) -
     if len(firmwares) == 1:
         return firmwares[0]
 
-    # Define preferred file extensions for each method
+    # Preserve legacy behavior for AUTO/SERIAL: pick the latest candidate.
+    if method in (FlashMethod.AUTO, FlashMethod.SERIAL):
+        return firmwares[-1]
+
+    # Define preferred file extensions for each explicit method
     method_preferences = {
         FlashMethod.PYOCD: [".hex", ".bin", ".elf"],
         FlashMethod.DFU: [".dfu"],
         FlashMethod.UF2: [".uf2"],
         FlashMethod.ESPTOOL: [".bin"],
-        FlashMethod.SERIAL: [".dfu", ".hex", ".bin", ".uf2"],
-        FlashMethod.AUTO: [".dfu", ".hex", ".bin", ".uf2", ".elf"],
     }
 
-    preferred_extensions = method_preferences.get(method, method_preferences[FlashMethod.AUTO])
+    preferred_extensions = method_preferences.get(method, [".dfu", ".hex", ".bin", ".uf2", ".elf"])
 
     for ext in preferred_extensions:
         for fw in firmwares:
@@ -311,7 +313,16 @@ def create_auto_worklist(
             )
             continue
 
-        firmware = _find_firmware_for_board(board, config.version, config.custom_firmware, config.method)
+        # Preserve legacy helper call signature for AUTO to keep patch targets stable.
+        if config.method == FlashMethod.AUTO:
+            firmware = _find_firmware_for_board(board, config.version, config.custom_firmware)
+        else:
+            firmware = _find_firmware_for_board(
+                board,
+                config.version,
+                config.custom_firmware,
+                config.method,
+            )
         tasks.append(_create_flash_task(board, firmware))
 
     return tasks
@@ -338,7 +349,23 @@ def create_manual_worklist(
     tasks: FlashTaskList = []
     for port in serial_ports:
         log.trace(f"Manual updating {port} to {config.board_id} {config.version}")
-        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware, port=config.port or "", method=config.method)
+        if config.method == FlashMethod.AUTO:
+            task = _create_manual_board(
+                port,
+                config.board_id,
+                config.version,
+                config.custom_firmware,
+                port=config.port or "",
+            )
+        else:
+            task = _create_manual_board(
+                port,
+                config.board_id,
+                config.version,
+                config.custom_firmware,
+                port=config.port or "",
+                method=config.method,
+            )
         tasks.append(task)
 
     return tasks

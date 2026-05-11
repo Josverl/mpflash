@@ -8,8 +8,10 @@ pyOCD APIs and subprocess calls.
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from importlib.util import find_spec
 
 # Import the modules under test
+from mpflash.flash.pyocd_probe import PyOCDProbe
 from mpflash.flash.pyocd_core import (
     parse_mcu_info,
     fuzzy_match_target, 
@@ -32,6 +34,26 @@ from tests.fixtures.mock_pyocd_data import (
     MOCK_SUBPROCESS_OUTPUTS,
     ERROR_SCENARIOS
 )
+
+
+def _pyocd_runtime_ready() -> bool:
+    if find_spec("pyocd") is None:
+        return False
+    try:
+        if not PyOCDProbe.is_implementation_available():
+            return False
+        return len(PyOCDProbe.discover()) > 0
+    except Exception:
+        return False
+
+
+pytestmark = [
+    pytest.mark.pyocd,
+    pytest.mark.skipif(
+        not _pyocd_runtime_ready(),
+        reason="pyOCD or debug probe backend not available in this environment",
+    ),
+]
 
 
 class TestMCUInfoParsing:

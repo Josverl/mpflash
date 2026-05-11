@@ -12,13 +12,18 @@ from pathlib import Path
 from mpflash.logger import log
 from mpflash.errors import MPFlashError
 from mpflash.mpremoteboard import MPRemoteBoard
-from .debug_probe import DebugProbe
+from .debug_probe import DebugProbe, is_debug_programming_available
 from .pyocd_core import (
     detect_pyocd_target, 
     is_pyocd_supported, 
     get_unsupported_reason,
     is_pyocd_available
 )
+
+# Backward-compatible name used by tests and older code.
+get_pyocd_target_dynamic = detect_pyocd_target
+get_pyocd_target_from_mcu = detect_pyocd_target
+is_pyocd_supported_from_mcu = is_pyocd_supported
 
 
 # Lazy import pyOCD to handle optional dependency
@@ -246,7 +251,7 @@ class PyOCDFlash:
         self.probe_id = probe_id
         
         # Detect target type using core functionality
-        self.target_type = detect_pyocd_target(mcu, auto_install_packs=auto_install_packs)
+        self.target_type = get_pyocd_target_dynamic(mcu, auto_install_packs=auto_install_packs)
         
         if not is_pyocd_available():
             raise MPFlashError("No debug probe support available. Install with: uv sync --extra pyocd")
@@ -274,7 +279,7 @@ class PyOCDFlash:
             raise MPFlashError(f"Firmware file not found: {fw_file}")
             
         # Find appropriate probe
-        probe = find_pyocd_probe(self.probe_id)
+        probe = find_debug_probe(self.probe_id)
         if not probe:
             if self.probe_id:
                 raise MPFlashError(
@@ -329,7 +334,7 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
         MPFlashError: When multiple probes are available but no specific probe_id provided
     """
     from loguru import logger as log
-    from mpflash.exceptions import MPFlashError
+    from mpflash.errors import MPFlashError
     
     probes = list_pyocd_probes()
     
@@ -366,6 +371,11 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
         )
     
     return None
+
+
+def find_debug_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
+    """Backward-compatible probe lookup alias."""
+    return find_pyocd_probe(probe_id)
 
 
 # =============================================================================

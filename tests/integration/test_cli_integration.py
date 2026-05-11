@@ -8,15 +8,39 @@ parameter parsing, and error handling.
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
+from importlib.util import find_spec
 from click.testing import CliRunner
 
 # Import CLI functions and related modules
 from mpflash.cli_flash import cli_flash_board
 from mpflash.common import FlashMethod, BootloaderMethod
 from mpflash.errors import MPFlashError
+from mpflash.flash.pyocd_probe import PyOCDProbe
 
 # Import test fixtures
 from tests.fixtures.mock_pyocd_data import MOCK_MCUS, MOCK_PROBES
+
+
+def _pyocd_runtime_ready() -> bool:
+    if find_spec("pyocd") is None:
+        return False
+    try:
+        if not PyOCDProbe.is_implementation_available():
+            return False
+        return len(PyOCDProbe.discover()) > 0
+    except Exception:
+        return False
+
+
+PYOCD_TEST_RUNTIME_AVAILABLE = _pyocd_runtime_ready()
+
+pytestmark = [
+    pytest.mark.pyocd,
+    pytest.mark.skipif(
+        not PYOCD_TEST_RUNTIME_AVAILABLE,
+        reason="pyOCD or debug probe backend not available in this environment",
+    ),
+]
 
 
 class TestCLIFlashCommandPyOCD:

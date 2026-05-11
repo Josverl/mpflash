@@ -8,6 +8,7 @@ without requiring actual hardware.
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from pathlib import Path
+from importlib.util import find_spec
 
 # Import modules under test
 from mpflash.flash.debug_probe import (
@@ -28,6 +29,28 @@ from tests.fixtures.mock_pyocd_data import (
     MOCK_MCUS,
     ERROR_SCENARIOS
 )
+
+
+def _pyocd_runtime_ready() -> bool:
+    if find_spec("pyocd") is None:
+        return False
+    try:
+        if not PyOCDProbe.is_implementation_available():
+            return False
+        return len(PyOCDProbe.discover()) > 0
+    except Exception:
+        return False
+
+
+PYOCD_TEST_RUNTIME_AVAILABLE = _pyocd_runtime_ready()
+
+pytestmark = [
+    pytest.mark.pyocd,
+    pytest.mark.skipif(
+        not PYOCD_TEST_RUNTIME_AVAILABLE,
+        reason="pyOCD or debug probe backend not available in this environment",
+    ),
+]
 
 
 class MockPyOCDProbe(DebugProbe):

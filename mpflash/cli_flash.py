@@ -4,14 +4,46 @@ from typing import List
 import rich_click as click
 from loguru import logger as log
 
+import mpflash.ask_input as ask_input
+import mpflash.connected as connected
+import mpflash.download.jid as jid
+import mpflash.flash as flash
+import mpflash.flash.worklist as worklist
+import mpflash.list as list_mod
+import mpflash.mpboard_id as mpboard_id
 from mpflash.cli_group import cli
 from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, UF2_PORTS, filtered_comports
 from mpflash.errors import MPFlashError
+from mpflash.flash.worklist import FlashTaskList
+from mpflash.mpremoteboard import MPRemoteBoard
 from mpflash.versions import clean_version
 
 # #########################################################################################################
 # CLI
 # #########################################################################################################
+
+
+# Compatibility call-through wrappers.
+# These keep legacy patch targets in `mpflash.cli_flash.*` while still honoring patches
+# against the source modules (e.g. `mpflash.connected.*`, `mpflash.flash.worklist.*`).
+def ask_missing_params(params: FlashParams) -> FlashParams | None:
+    return ask_input.ask_missing_params(params)
+
+
+def connected_ports_boards_variants(*args, **kwargs):
+    return connected.connected_ports_boards_variants(*args, **kwargs)
+
+
+def create_worklist(*args, **kwargs):
+    return worklist.create_worklist(*args, **kwargs)
+
+
+def flash_list(*args, **kwargs):
+    return flash.flash_tasks(*args, **kwargs)
+
+
+def show_mcus(*args, **kwargs):
+    return list_mod.show_mcus(*args, **kwargs)
 
 
 @cli.command(
@@ -190,15 +222,6 @@ from mpflash.versions import clean_version
     help="""Flash a custom firmware""",
 )
 def cli_flash_board(**kwargs) -> int:
-    import mpflash.download.jid as jid
-    import mpflash.mpboard_id as mpboard_id
-    from mpflash.ask_input import ask_missing_params
-    from mpflash.connected import connected_ports_boards_variants
-    from mpflash.list import show_mcus
-    from mpflash.flash import flash_tasks
-    from mpflash.flash.worklist import FlashTaskList, create_worklist
-    from mpflash.mpremoteboard import MPRemoteBoard
-
     def _create_worklist_or_fail(*create_args, **create_kwargs) -> FlashTaskList:
         """Create a worklist and raise a user-friendly CLI error on invalid input."""
         try:
@@ -393,8 +416,8 @@ def cli_flash_board(**kwargs) -> int:
             method=flash_method,
         )
     if not params.custom:
-        jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
-    if flashed := flash_tasks(
+        jid.ensure_firmware_downloaded(tasks, version=params.versions[0], force=params.force)
+    if flashed := flash_list(
         tasks,
         params.erase,
         params.bootloader,
