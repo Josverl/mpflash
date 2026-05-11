@@ -28,10 +28,9 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from loguru import logger as log
-from serial.tools.list_ports_common import ListPortInfo
 from typing_extensions import TypeAlias
 
-from mpflash.common import filtered_portinfos
+from mpflash.common import filtered_portinfos, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
@@ -40,6 +39,45 @@ from mpflash.mpboard_id import find_known_board
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # #########################################################################################################
+
+
+def select_firmware_for_method(firmwares: List[Firmware], method: FlashMethod) -> Firmware:
+    """Select the best firmware file based on the flash method.
+
+    Args:
+        firmwares: List of available firmware files for the board
+        method: Flash method to be used
+
+    Returns:
+        Best firmware file for the specified method
+    """
+    if not firmwares:
+        raise MPFlashError("No firmware files available")
+
+    if len(firmwares) == 1:
+        return firmwares[0]
+
+    # Define preferred file extensions for each method
+    method_preferences = {
+        FlashMethod.PYOCD: [".hex", ".bin", ".elf"],
+        FlashMethod.DFU: [".dfu"],
+        FlashMethod.UF2: [".uf2"],
+        FlashMethod.ESPTOOL: [".bin"],
+        FlashMethod.SERIAL: [".dfu", ".hex", ".bin", ".uf2"],
+        FlashMethod.AUTO: [".dfu", ".hex", ".bin", ".uf2", ".elf"],
+    }
+
+    preferred_extensions = method_preferences.get(method, method_preferences[FlashMethod.AUTO])
+
+    for ext in preferred_extensions:
+        for fw in firmwares:
+            if fw.firmware_file.lower().endswith(ext):
+                log.debug(f"Selected {fw.firmware_file} for method {method.value} (preferred extension: {ext})")
+                return fw
+
+    # If no preferred format found, use the last one (original behavior)
+    log.debug(f"No preferred format found for method {method.value}, using default: {firmwares[-1].firmware_file}")
+    return firmwares[-1]
 
 
 @dataclass
@@ -75,6 +113,7 @@ class WorklistConfig:
     board_id: Optional[str] = None
     custom_firmware: bool = False
     port: Optional[str] = None  # user-specified port override
+    method: FlashMethod = FlashMethod.AUTO  # flash method for firmware selection
 
     def __post_init__(self):
         if self.include_ports is None:
@@ -83,21 +122,21 @@ class WorklistConfig:
             self.ignore_ports = []
 
     @classmethod
-    def for_auto_detection(cls, version: str) -> "WorklistConfig":
+    def for_auto_detection(cls, version: str, method: FlashMethod = FlashMethod.AUTO) -> "WorklistConfig":
         """Create config for automatic board detection."""
-        return cls(version=version)
+        return cls(version=version, method=method)
 
     @classmethod
-    def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False, port: Optional[str] = None) -> "WorklistConfig":
+    def for_manual_boards(cls, version: str, board_id: str, custom_firmware: bool = False, port: Optional[str] = None, method: FlashMethod = FlashMethod.AUTO) -> "WorklistConfig":
         """Create config for manually specified boards."""
-        return cls(version=version, board_id=board_id, custom_firmware=custom_firmware, port=port)
+        return cls(version=version, board_id=board_id, custom_firmware=custom_firmware, port=port, method=method)
 
     @classmethod
     def for_filtered_boards(
-        cls, version: str, include_ports: Optional[List[str]] = None, ignore_ports: Optional[List[str]] = None
+        cls, version: str, include_ports: Optional[List[str]] = None, ignore_ports: Optional[List[str]] = None, method: FlashMethod = FlashMethod.AUTO
     ) -> "WorklistConfig":
         """Create config for filtered board selection."""
-        return cls(version=version, include_ports=include_ports or [], ignore_ports=ignore_ports or [])
+        return cls(version=version, include_ports=include_ports or [], ignore_ports=ignore_ports or [], method=method)
 
 
 FlashTaskList: TypeAlias = List[FlashTask]
@@ -110,7 +149,7 @@ def _create_flash_task(board: MPRemoteBoard, firmware: Optional[Firmware]) -> Fl
     return FlashTask(board=board, firmware=firmware)
 
 
-def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = False) -> Optional[Firmware]:
+def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = False, method: FlashMethod = FlashMethod.AUTO) -> Optional[Firmware]:
     """Find appropriate firmware for a board."""
     board_id = f"{board.board}-{board.variant}" if board.variant else board.board
     firmwares = find_downloaded_firmware(board_id=board_id, version=version, port=board.port, custom=custom)
@@ -122,13 +161,12 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
     if len(firmwares) > 1:
         log.warning(f"Multiple {version} firmwares found for {board.board} on {board.serialport}.")
 
-    # Use the most recent matching firmware
-    firmware = firmwares[-1]
+    firmware = select_firmware_for_method(firmwares, method)
     log.info(f"Found {version} firmware {firmware.firmware_file} for {board.board} on {board.serialport}.")
     return firmware
 
 
-def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False, port: str = "") -> FlashTask:
+def _create_manual_board(serial_port: str, board_id: str, version: str, custom: bool = False, port: str = "", method: FlashMethod = FlashMethod.AUTO) -> FlashTask:
     """Create a FlashTask for manually specified board parameters."""
     log.debug(f"Creating manual board task: {serial_port} {board_id} {version}")
 
@@ -145,7 +183,7 @@ def _create_manual_board(serial_port: str, board_id: str, version: str, custom: 
         return _create_flash_task(board, None)
 
     board.board = board_id
-    firmware = _find_firmware_for_board(board, version, custom)
+    firmware = _find_firmware_for_board(board, version, custom, method)
     return _create_flash_task(board, firmware)
 
 
@@ -187,6 +225,7 @@ def create_worklist(
     ignore_ports: Optional[List[str]] = None,
     custom_firmware: bool = False,
     port: Optional[str] = None,
+    method: FlashMethod = FlashMethod.AUTO,
 ) -> FlashTaskList:
     """High-level function to create a worklist based on different scenarios.
 
@@ -202,6 +241,7 @@ def create_worklist(
         ignore_ports: Port patterns to ignore (for filtered mode)
         custom_firmware: Whether to use custom firmware
         port: User-specified port type override (e.g. 'esp32', 'esp8266')
+        method: Flash method for firmware format selection
 
     Returns:
         List of FlashTask objects
@@ -221,17 +261,17 @@ def create_worklist(
     """
     # Manual mode: specific serial ports with board_id
     if serial_ports and board_id:
-        config = WorklistConfig.for_manual_boards(version, board_id, custom_firmware, port=port)
+        config = WorklistConfig.for_manual_boards(version, board_id, custom_firmware, port=port, method=method)
         return create_manual_worklist(serial_ports, config)
 
     # Auto mode with filtering
     if connected_comports and (include_ports or ignore_ports):
-        config = WorklistConfig.for_filtered_boards(version, include_ports, ignore_ports)
+        config = WorklistConfig.for_filtered_boards(version, include_ports, ignore_ports, method=method)
         return create_filtered_worklist(connected_comports, config)
 
     # Simple auto mode
     if connected_comports:
-        config = WorklistConfig.for_auto_detection(version)
+        config = WorklistConfig.for_auto_detection(version, method=method)
         return create_auto_worklist(connected_comports, config)
 
     # Error cases
@@ -271,7 +311,7 @@ def create_auto_worklist(
             )
             continue
 
-        firmware = _find_firmware_for_board(board, config.version, config.custom_firmware)
+        firmware = _find_firmware_for_board(board, config.version, config.custom_firmware, config.method)
         tasks.append(_create_flash_task(board, firmware))
 
     return tasks
@@ -298,7 +338,7 @@ def create_manual_worklist(
     tasks: FlashTaskList = []
     for port in serial_ports:
         log.trace(f"Manual updating {port} to {config.board_id} {config.version}")
-        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware, port=config.port or "")
+        task = _create_manual_board(port, config.board_id, config.version, config.custom_firmware, port=config.port or "", method=config.method)
         tasks.append(task)
 
     return tasks
