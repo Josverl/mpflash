@@ -97,7 +97,10 @@ def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=
         preview = sorted([v for v in tags if v.endswith(V_PREVIEW)], reverse=True)[0]
         versions.append(preview)
     except Exception as e:
-        log.error(e)
+        try:
+            log.error(e)
+        except TypeError:
+            log.error(f"Failed to fetch MicroPython versions: {type(e).__name__}")
         versions = []
         # returns - but does not cache
         raise NoCacheCondition(function_value=versions) from e
