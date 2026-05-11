@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from loguru import logger as log
-from mpflash.bootloader.activate import enter_bootloader
+from mpflash.bootloader import activate as bootloader_activate
 from mpflash.common import PORT_FWTYPES, UF2_PORTS, BootloaderMethod, FlashMethod
 from mpflash.config import config
 from mpflash.errors import MPFlashError
@@ -84,13 +84,13 @@ def flash_mcu(
                 
             elif flash_method == FlashMethod.UF2:
                 # UF2 file copy method (RP2040, SAMD)
-                if not enter_bootloader(mcu, bootloader):
+                if not bootloader_activate.enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")
                 updated = flash_uf2(mcu, fw_file=fw_file, erase=erase)
                 
             elif flash_method == FlashMethod.DFU:
                 # STM32 DFU method
-                if not enter_bootloader(mcu, bootloader):
+                if not bootloader_activate.enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")
                 updated = flash_stm32(mcu, fw_file, erase=erase)
                 
