@@ -30,7 +30,11 @@ HERE = Path(__file__).parent
 OK = 0
 ERROR = -1
 RETRIES = 3
+ON_WSL2 = bool(sys.platform == "linux" and Path("/proc/version").exists() and "microsoft" in Path("/proc/version").read_text().lower())
+
+DEFAULT_TIMEOUT = 4 if ON_WSL2 else 2
 ###############################################################################################
+
 
 
 class MPRemoteBoard:
@@ -179,7 +183,7 @@ class MPRemoteBoard:
         return sorted(output)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_mcu_info(self, timeout: int = 2):
+    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT):
         """
         Get MCU information from the connected board.
 
@@ -189,6 +193,7 @@ class MPRemoteBoard:
         Raises:
         - ConnectionError: If failed to get mcu_info for the serial port.
         """
+
         rc, result = self.run_command(
             ["run", str(HERE / "mpy_fw_info.py")],
             no_info=True,
@@ -246,7 +251,7 @@ class MPRemoteBoard:
         self.connected = True
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(0.2), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_board_info_toml(self, timeout: int = 1):
+    def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT):
         """
         Reads the content of the board_info.toml file from the connected board,
         and adds that to the board object.
@@ -282,7 +287,7 @@ class MPRemoteBoard:
         else:
             log.trace(f"Did not find a board_info.toml: {result}")
 
-    def set_board_info_toml(self, timeout: int = 1):
+    def set_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT):
         """
         Writes the current board information to the board_info.toml file on the connected board.
 
