@@ -1,12 +1,3 @@
-# Cross platform shebang:
-shebang := if os() == 'windows' {
-  'pwsh.exe'
-} else {
-  '/usr/bin/env pwsh'
-}
-
-# Set shell for non-Windows OSs:
-set shell := ["pwsh", "-c"]
 
 # Set shell for Windows OSs:
 set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
@@ -14,8 +5,6 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 # Show recipes
 help:
   @just --list
-
-
 
 # install project in edi mode and install dev dependencies
 sync: 
