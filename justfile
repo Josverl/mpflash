@@ -6,9 +6,9 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 help:
   @just --list
 
-# install project in edi mode and install dev dependencies
+# install project in edit mode and install dev dependencies
 sync: 
-  uv sync --extra dev,test
+  uv sync --extra dev,test,build
 
 # run full pytest suite
 test: 
@@ -37,6 +37,8 @@ lock:
   del uv.lock -erroraction ignore
   uv lock
 
+update:
+  uv lock -U
 
 # [script('python')]
 # python:
