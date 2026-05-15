@@ -156,25 +156,28 @@ class TestPyOCDTargetDiscovery:
     @patch('subprocess.run')
     def test_get_pyocd_targets_success(self, mock_subprocess):
         """Test target discovery via subprocess."""
+        get_pyocd_targets.cache_clear()
+
         # Mock subprocess success
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = MOCK_SUBPROCESS_OUTPUTS["pyocd_list_targets"]
         mock_subprocess.return_value = mock_result
-        
-        # Mock API failure to force subprocess path
-        with patch('mpflash.flash.pyocd_core.get_pyocd_targets') as mock_get_targets:
-            # This will use the actual implementation, so we need to mock the API import
-            with patch('mpflash.flash.pyocd_core._ensure_pyocd'):
-                with patch('pyocd.target.BUILTIN_TARGETS', side_effect=ImportError):
-                    # Call the actual function which should fall back to subprocess
-                    pass  # Skip complex mocking for this simplified test
+
+        # Force API path to fail so subprocess parsing is exercised.
+        with patch('mpflash.flash.pyocd_core._ensure_pyocd', side_effect=MPFlashError("pyOCD not installed")):
+            targets = get_pyocd_targets()
+
+        assert isinstance(targets, dict)
+        assert len(targets) > 0
     
     def test_pyocd_not_available(self):
         """Test behavior when pyOCD is not installed."""
+        get_pyocd_targets.cache_clear()
         with patch('mpflash.flash.pyocd_core._ensure_pyocd', side_effect=MPFlashError("pyOCD not installed")):
-            with pytest.raises(MPFlashError, match="pyOCD not installed"):
-                get_pyocd_targets()
+            with patch('mpflash.flash.pyocd_core._run_pyocd_command', side_effect=MPFlashError("pyOCD command not found")):
+                targets = get_pyocd_targets()
+        assert targets == {}
 
 
 class TestDynamicTargetDetection:
@@ -368,6 +371,7 @@ class TestErrorHandling:
     
     def test_malformed_subprocess_output(self):
         """Test handling of malformed subprocess output."""
+        get_pyocd_targets.cache_clear()
         with patch('mpflash.flash.pyocd_core.subprocess.run') as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 0
