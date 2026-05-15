@@ -27,8 +27,17 @@ def _init_db(db_fx):
 def _non_interactive_defaults(monkeypatch):
     """Avoid CI-only prompt flows by default; tests can override this."""
     import mpflash.ask_input as ask_input
+    import mpflash.cli_flash as cli_flash
 
     monkeypatch.setattr(ask_input, "ask_missing_params", lambda params: params)
+
+    # Keep CLI tests deterministic in CI where no physical serial ports exist.
+    def _fake_filtered_comports(*, ignore, include, bluetooth):
+        if include and include != ["*"]:
+            return list(include)
+        return ["COM1"]
+
+    monkeypatch.setattr(cli_flash, "filtered_comports", _fake_filtered_comports)
 
 
 from click.testing import CliRunner
@@ -68,7 +77,8 @@ class TestCLIFlashCommandPyOCD:
             "--auto-install-packs"
         ])
         
-        assert result.exit_code == 0
+        assert result.exit_code == 0, f"Unexpected CLI failure. Output:\n{result.output}"
+        assert "Usage:" not in result.output
         
         # Verify flash_list was called with correct parameters
         mock_flash_list.assert_called_once()
