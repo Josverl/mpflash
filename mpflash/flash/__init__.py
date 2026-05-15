@@ -30,7 +30,7 @@ def flash_tasks(
         if not fw_info:
             log.error(f"Firmware not found for {mcu.board} on {mcu.serialport}, skipping")
             continue
-        fw_file = config.firmware_folder / fw_info.firmware_file
+        fw_file = config.firmware_folder / str(fw_info.firmware_file)
         if not fw_file.exists():
             log.error(f"File {fw_file} does not exist, skipping {mcu.board} on {mcu.serialport}")
             continue
@@ -81,45 +81,64 @@ def flash_mcu(
                 # PyOCD SWD/JTAG programming
                 if not is_debug_programming_available():
                     raise MPFlashError("Debug probe programming not available. Install with: uv sync --extra pyocd")
-                updated = flash_pyocd(mcu, fw_file=fw_file, erase=erase, **kwargs)
-                
+                pyocd_kwargs = _filter_kwargs(
+                    kwargs,
+                    {"probe_id", "auto_install_packs", "frequency", "pyocd_options"},
+                )
+                updated = flash_pyocd(mcu, fw_file=fw_file, erase=erase, **pyocd_kwargs)
+
             elif flash_method == FlashMethod.UF2:
                 # UF2 file copy method (RP2040, SAMD)
                 if not enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")
                 updated = flash_uf2(mcu, fw_file=fw_file, erase=erase)
-                
+
             elif flash_method == FlashMethod.DFU:
                 # STM32 DFU method
                 if not enter_bootloader(mcu, bootloader):
                     raise MPFlashError(f"Failed to enter bootloader for {mcu.board} on {mcu.serialport}")
                 updated = flash_stm32(mcu, fw_file, erase=erase)
-                
+
             elif flash_method == FlashMethod.ESPTOOL:
                 # ESP32/ESP8266 esptool method (bootloader handled by esptool)
-                updated = flash_esp(mcu, fw_file=fw_file, erase=erase, **kwargs)
-                
+                esp_kwargs = _filter_kwargs(
+                    kwargs,
+                    {
+                        "flash_mode",
+                        "flash_size",
+                        "retry_on_error",
+                        "retry_baud",
+                        "retry_flash_mode",
+                    },
+                )
+                updated = flash_esp(mcu, fw_file=fw_file, erase=erase, **esp_kwargs)
+
             else:
                 raise MPFlashError(f"Unsupported flash method: {flash_method.value}")
-                
+
         except Exception as e:
             raise MPFlashError(f"Failed to flash {mcu.board} on {mcu.serialport}") from e
-            
+
         return updated
+
+
+def _filter_kwargs(kwargs: dict, allowed_keys: set[str]) -> dict:
+    """Return kwargs limited to keys accepted by the selected flash backend."""
+    return {k: v for k, v in kwargs.items() if k in allowed_keys}
 
 
 def _select_flash_method(mcu, requested_method: FlashMethod, fw_file: Path) -> FlashMethod:
     """
     Select the appropriate flash method based on board type and user preference.
-    
+
     Args:
         mcu: MPRemoteBoard instance
         requested_method: User-requested flash method
         fw_file: Firmware file path
-        
+
     Returns:
         FlashMethod to use
-        
+
     Raises:
         MPFlashError: If no suitable method available
     """
@@ -131,26 +150,26 @@ def _select_flash_method(mcu, requested_method: FlashMethod, fw_file: Path) -> F
             if not is_pyocd_supported_from_mcu(mcu):
                 raise MPFlashError(f"pyOCD does not support {mcu.board_id} ({mcu.cpu})")
             return FlashMethod.PYOCD
-            
+
         elif requested_method == FlashMethod.UF2:
             if mcu.port not in UF2_PORTS or fw_file.suffix != ".uf2":
                 raise MPFlashError(f"UF2 method not suitable for {mcu.port} with {fw_file.suffix}")
             return FlashMethod.UF2
-            
+
         elif requested_method == FlashMethod.DFU:
             if mcu.port != "stm32":
                 raise MPFlashError(f"DFU method not suitable for {mcu.port}")
             return FlashMethod.DFU
-            
+
         elif requested_method == FlashMethod.ESPTOOL:
             if mcu.port not in ["esp32", "esp8266"]:
                 raise MPFlashError(f"esptool method not suitable for {mcu.port}")
             return FlashMethod.ESPTOOL
-            
+
         elif requested_method == FlashMethod.SERIAL:
             # Use traditional serial-based methods
             return _select_serial_method(mcu, fw_file)
-            
+
     # Auto-select the best method
     return _auto_select_flash_method(mcu, fw_file)
 
@@ -158,15 +177,15 @@ def _select_flash_method(mcu, requested_method: FlashMethod, fw_file: Path) -> F
 def _auto_select_flash_method(mcu, fw_file: Path) -> FlashMethod:
     """
     Automatically select the best flash method for a board.
-    
+
     Priority order (maintains existing behavior as default):
     1. Platform-specific serial methods (UF2, DFU, esptool) - no extra hardware needed
     2. Fall back to serial bootloader methods
-    
+
     Note: PyOCD is NOT included in auto-selection as it requires debug probe hardware.
     Use --method pyocd to explicitly enable SWD/JTAG programming.
     """
-    
+
     # First priority: Platform-specific serial methods (existing behavior)
     if mcu.port in UF2_PORTS and fw_file.suffix == ".uf2":
         return FlashMethod.UF2
@@ -174,7 +193,7 @@ def _auto_select_flash_method(mcu, fw_file: Path) -> FlashMethod:
         return FlashMethod.DFU
     elif mcu.port in ["esp32", "esp8266"]:
         return FlashMethod.ESPTOOL
-    
+
     # Fall back to serial method selection
     return _select_serial_method(mcu, fw_file)
 

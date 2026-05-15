@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mpflash.common import BootloaderMethod
+from mpflash.common import BootloaderMethod, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.download.jid import ensure_firmware_downloaded_tasks
 from mpflash.errors import MPFlashError
-from mpflash.flash import flash_tasks
+from mpflash.flash import flash_mcu, flash_tasks
 from mpflash.flash.worklist import FlashTask, FlashTaskList
 from mpflash.mpremoteboard import MPRemoteBoard
 
@@ -215,3 +215,31 @@ def test_ensure_firmware_downloaded_tasks_error(mock_alt, mock_dl, mock_find):
 
     with pytest.raises(MPFlashError, match="Failed to download"):
         ensure_firmware_downloaded_tasks([task], version="1.24.0", force=False)
+
+
+@patch("mpflash.flash._select_flash_method", return_value=FlashMethod.ESPTOOL)
+@patch("mpflash.flash.esp.flash_esp")
+def test_flash_mcu_filters_pyocd_kwargs_for_esptool(mock_flash_esp, _mock_select_method):
+    """ESP flashing must not receive pyOCD-only kwargs like probe options."""
+    board = MPRemoteBoard("COM1")
+    board.port = "esp32"
+    board.board = "ESP32_GENERIC"
+    board.board_id = "ESP32_GENERIC"
+    board.serialport = "COM99"
+    mock_flash_esp.return_value = board
+
+    flash_mcu(
+        board,
+        fw_file=Path("/tmp/ESP32_GENERIC.bin"),
+        erase=False,
+        method=FlashMethod.AUTO,
+        probe_id="066CFF",
+        auto_install_packs=True,
+        flash_mode="keep",
+    )
+
+    assert mock_flash_esp.called
+    _, kwargs = mock_flash_esp.call_args
+    assert kwargs["flash_mode"] == "keep"
+    assert "probe_id" not in kwargs
+    assert "auto_install_packs" not in kwargs
