@@ -25,12 +25,12 @@ The equivalent ``esptool`` CLI commands are always logged so that users can
 copy-paste them for manual flashing or troubleshooting.
 """
 
+import time
 from pathlib import Path
 from typing import Literal, Optional, Tuple
 
 import esptool.cmds as espcmds
 from esptool import FatalError
-from esptool.loader import ESPLoader
 from esptool.targets import CHIP_DEFS
 from loguru import logger as log
 
@@ -47,6 +47,7 @@ _BAUD_FOR: dict = {
 }
 _DEFAULT_BAUD = 921_600
 _RETRY_BAUD = 115_200
+_DND_AFTER_FLASH = 1  # ESP32 Magic reset time needed - give the board a moment to reset before trying to reconnect
 
 
 def _chip_params(cpu: str) -> Tuple[str, str, int]:
@@ -154,11 +155,13 @@ def _attempt_flash(
 
         log.info("Writing flash (compressed)...")
         try:
-            espcmds.write_flash(esp, addr_data, **write_kwargs, compress=True)
+            espcmds.write_flash(esp, addr_data, **write_kwargs, compress=True)  # type: ignore
         except FatalError as exc:
             log.warning(f"Compressed write failed ({exc}), retrying without compression...")
             _log_esptool_cmd(chip, mcu.serialport, baud_rate, start_addr, fw_file, flash_mode, flash_size, compress=False, erase=False)
-            espcmds.write_flash(esp, addr_data, **write_kwargs, no_compress=True)
+            espcmds.write_flash(esp, addr_data, **write_kwargs, no_compress=True)  # type: ignore
+
+        espcmds.reset_chip(esp)
 
 
 def flash_esp(
@@ -201,7 +204,7 @@ def flash_esp(
     if not mcu.cpu:
         mcu.cpu = find_known_board(mcu.board).mcu
 
-    chip, start_addr, baud_rate = _chip_params(mcu.cpu)
+    chip, start_addr, baud_rate = _chip_params(str(mcu.cpu))
 
     try:
         _attempt_flash(mcu, chip, start_addr, baud_rate, fw_file, flash_mode, flash_size, erase=erase)
@@ -218,7 +221,8 @@ def flash_esp(
             log.error(f"Retry also failed for {mcu.board} on {mcu.serialport}: {retry_exc}")
             return None
 
-    log.info("Done flashing, resetting the board...")
+    log.info("Done flashing, board has been reset ...")
+    time.sleep(_DND_AFTER_FLASH)  # Magic reset time needed - give the board a moment to reset before trying to reconnect
     mcu.wait_for_restart()
     log.success(f"Flashed {mcu.serialport} to {mcu.board} {mcu.version}")
     return mcu
