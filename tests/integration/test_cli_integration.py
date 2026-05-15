@@ -32,9 +32,28 @@ from mpflash.errors import MPFlashError
 from tests.fixtures.mock_pyocd_data import MOCK_MCUS, MOCK_PROBES
 
 
+@pytest.fixture
+def _patch_filtered_comports():
+    """Patch filtered_comports so detection-branch CLI flows have ports.
+
+    The CLI's auto-detect path calls `mpflash.cli_flash.filtered_comports`
+    (imported from `mpflash.common`). Tests in this module mock
+    `connected_ports_boards_variants` but the second call to
+    `filtered_comports` is what populates the comport list used by
+    `_create_worklist_or_fail`. On dev/CI machines no real comports exist,
+    which would otherwise raise `click.UsageError`.
+    """
+    with patch("mpflash.cli_flash.filtered_comports", return_value=["COM1"]) as m:
+        yield m
+
+
 class TestCLIFlashCommandPyOCD:
     """Test CLI flash command with pyOCD integration."""
-    
+
+    @pytest.fixture(autouse=True)
+    def _comports(self, _patch_filtered_comports):
+        yield _patch_filtered_comports
+
     def setup_method(self):
         """Set up CLI runner for testing."""
         self.runner = CliRunner()
@@ -165,70 +184,83 @@ class TestCLIFlashCommandPyOCD:
 
 class TestCLIParameterValidation:
     """Test CLI parameter validation and error handling."""
-    
+
+    @pytest.fixture(autouse=True)
+    def _comports(self, _patch_filtered_comports):
+        yield _patch_filtered_comports
+
     def setup_method(self):
         self.runner = CliRunner()
-    
+
     def test_probe_id_parameter_validation(self):
         """Test probe ID parameter accepts various formats."""
-        with patch('mpflash.flash.flash_tasks') as mock_flash:
-            with patch('mpflash.connected.connected_ports_boards_variants') as mock_connected:
+        with patch("mpflash.flash.flash_tasks") as mock_flash:
+            with patch("mpflash.connected.connected_ports_boards_variants") as mock_connected:
                 mock_board = MOCK_MCUS["stm32wb55"]
                 mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
                 mock_flash.return_value = [mock_board]
-                
+
                 # Test short probe ID
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd",
-                    "--probe-id", "066C",
-                    "--version", "stable"
-                ])
-                
+                result = self.runner.invoke(cli_flash_board, ["--method", "pyocd", "--probe-id", "066C", "--version", "stable"])
+
                 assert result.exit_code == 0
-                
+
                 # Test full probe ID
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd", 
-                    "--probe-id", "066CFF505750827567154312",
-                    "--version", "stable"
-                ])
-                
+                result = self.runner.invoke(
+                    cli_flash_board, ["--method", "pyocd", "--probe-id", "066CFF505750827567154312", "--version", "stable"]
+                )
+
                 assert result.exit_code == 0
-    
+
     def test_auto_install_packs_default_true(self):
         """Test that auto-install-packs defaults to True."""
-        with patch('mpflash.flash.flash_tasks') as mock_flash:
-            with patch('mpflash.connected.connected_ports_boards_variants') as mock_connected:
+        with patch("mpflash.flash.flash_tasks") as mock_flash:
+            with patch("mpflash.connected.connected_ports_boards_variants") as mock_connected:
                 mock_board = MOCK_MCUS["stm32wb55"]
                 mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
                 mock_flash.return_value = [mock_board]
-                
-                result = self.runner.invoke(cli_flash_board, [
-                    "--method", "pyocd",
-                    "--version", "stable"
-                    # No explicit --auto-install-packs flag
-                ])
-                
+
+                result = self.runner.invoke(
+                    cli_flash_board,
+                    [
+                        "--method",
+                        "pyocd",
+                        "--version",
+                        "stable",
+                        # No explicit --auto-install-packs flag
+                    ],
+                )
+
                 assert result.exit_code == 0
-                
+
                 call_args = mock_flash.call_args
                 assert call_args[1]["auto_install_packs"] is True  # Default value
-    
+
     def test_multiple_versions_error(self):
         """Test error when multiple versions specified."""
-        result = self.runner.invoke(cli_flash_board, [
-            "--version", "stable",
-            "--version", "1.20.0",  # Multiple versions not allowed
-            "--method", "pyocd"
-        ])
-        
+        result = self.runner.invoke(
+            cli_flash_board,
+            [
+                "--version",
+                "stable",
+                "--version",
+                "1.20.0",  # Multiple versions not allowed
+                "--method",
+                "pyocd",
+            ],
+        )
+
         # Should fail during parameter processing
         assert result.exit_code != 0
 
 
 class TestCLIWorkflowIntegration:
     """Test complete CLI workflows with pyOCD."""
-    
+
+    @pytest.fixture(autouse=True)
+    def _comports(self, _patch_filtered_comports):
+        yield _patch_filtered_comports
+
     def setup_method(self):
         self.runner = CliRunner()
     
