@@ -18,6 +18,41 @@ from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # =============================================================================
+# Known Dependency Issues
+# =============================================================================
+
+KNOWN_DEPENDENCY_ISSUES = {
+    "python_3_14_libusb": {
+        "python_versions": ["3.14"],
+        "affected_package": "libusb-package",
+        "root_cause": "libusb-package does not provide pre-built wheels for Python 3.14+",
+        "affected_by": ["pyocd"],
+        "workaround": "Use Python 3.10-3.13, or install libusb separately and build from source",
+    }
+}
+
+
+def _check_known_dependency_issues() -> Optional[str]:
+    """Check for known dependency chain issues on this Python version.
+    
+    Returns:
+        Error message if a known issue is detected, None otherwise.
+    """
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    
+    for issue_key, issue in KNOWN_DEPENDENCY_ISSUES.items():
+        if python_version in issue["python_versions"]:
+            affected_str = ", ".join(issue["affected_by"])
+            return (
+                f"Known dependency chain issue on Python {python_version}: "
+                f"{issue['affected_package']} is not available. "
+                f"This affects {affected_str}. "
+                f"Reason: {issue['root_cause']}. "
+                f"Workaround: {issue['workaround']}"
+            )
+    return None
+
+# =============================================================================
 # Secure Subprocess Utilities
 # =============================================================================
 
@@ -105,16 +140,26 @@ def _ensure_pyocd():
     
     if _pyocd_available is None:
         _check_libusb_windows()
-        try:
-            import pyocd
-            _pyocd_modules['pyocd_version'] = pyocd.__version__
-            _pyocd_available = True
-            log.debug(f"pyOCD {pyocd.__version__} available")
-        except ImportError as e:
+        
+        # Check for known dependency chain issues first
+        known_issue = _check_known_dependency_issues()
+        if known_issue:
             _pyocd_available = False
-            log.debug(f"pyOCD not available: {e}")
+            log.debug(f"pyOCD unavailable due to known issue: {known_issue}")
+        else:
+            try:
+                import pyocd
+                _pyocd_modules['pyocd_version'] = pyocd.__version__
+                _pyocd_available = True
+                log.debug(f"pyOCD {pyocd.__version__} available")
+            except ImportError as e:
+                _pyocd_available = False
+                log.debug(f"pyOCD not available: {e}")
     
     if not _pyocd_available:
+        known_issue = _check_known_dependency_issues()
+        if known_issue:
+            raise MPFlashError(known_issue)
         raise MPFlashError("pyOCD is not installed. Install with: uv sync --extra pyocd")
     
     return _pyocd_modules
