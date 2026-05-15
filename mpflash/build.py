@@ -17,8 +17,7 @@ from loguru import logger as log
 
 from mpflash.config import config
 from mpflash.errors import MPFlashError
-from mpflash.db.core import Session
-from mpflash.db.models import Board, Firmware
+from mpflash.db.models import Board, Firmware, database
 
 
 class BuildManager:
@@ -335,11 +334,11 @@ def import_firmware_to_database(firmware_files: List[Path], board_id: str, versi
         port = _detect_port_from_board_id(board_id)
     
     imported_count = 0
-    
+
     try:
-        with Session() as session:
-            # Ensure board exists in database
-            board = Board(
+        with database.atomic():
+            # Ensure board exists in database (upsert on composite key)
+            Board.insert(
                 board_id=board_id,
                 version=version,
                 board_name=board_id,  # Use board_id as name for built firmware
@@ -350,9 +349,17 @@ def import_firmware_to_database(firmware_files: List[Path], board_id: str, versi
                 description=f"Locally built MicroPython firmware for {board_id}",
                 family="micropython",
                 custom=True,  # Mark as custom since it's locally built
-            )
-            session.merge(board)
-            
+            ).on_conflict(
+                conflict_target=[Board.board_id, Board.version],
+                update={
+                    Board.board_name: board_id,
+                    Board.port: port,
+                    Board.path: "built",
+                    Board.description: f"Locally built MicroPython firmware for {board_id}",
+                    Board.custom: True,
+                },
+            ).execute()
+
             # Add firmware entries
             for fw_file in firmware_files:
                 # Make path relative to firmware folder for storage
@@ -361,23 +368,32 @@ def import_firmware_to_database(firmware_files: List[Path], board_id: str, versi
                 except ValueError:
                     # If file is not under firmware folder, use absolute path
                     relative_path = fw_file
-                
-                firmware = Firmware(
+
+                firmware_file = str(Path(relative_path).as_posix())
+                description = f"Built locally with mpbuild ({fw_file.suffix})"
+
+                Firmware.insert(
                     board_id=board_id,
                     version=version,
-                    firmware_file=str(relative_path),
+                    firmware_file=firmware_file,
                     source="mpbuild",  # Mark source as mpbuild
                     build=0,  # No build number for local builds
                     custom=True,  # Mark as custom
                     port=port,
-                    description=f"Built locally with mpbuild ({fw_file.suffix})",
-                )
-                session.merge(firmware)
+                    description=description,
+                ).on_conflict(
+                    conflict_target=[Firmware.board_id, Firmware.version, Firmware.firmware_file],
+                    update={
+                        Firmware.source: "mpbuild",
+                        Firmware.build: 0,
+                        Firmware.custom: True,
+                        Firmware.port: port,
+                        Firmware.description: description,
+                    },
+                ).execute()
                 imported_count += 1
-                log.debug(f"Imported firmware: {fw_file.name} -> {relative_path}")
-            
-            session.commit()
-            
+                log.debug(f"Imported firmware: {fw_file.name} -> {firmware_file}")
+
     except Exception as e:
         raise MPFlashError(f"Failed to import firmware to database: {e}")
     

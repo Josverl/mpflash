@@ -54,6 +54,7 @@ dependencies = [
     "tomli>=2.2.1",
     "pytest-cov>=7.0.0",
     "peewee>=4.0.3",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
