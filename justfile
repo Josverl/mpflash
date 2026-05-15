@@ -34,7 +34,6 @@ publish : build
 
 # delete and regen the lockfile - useful in merge conficts
 lock:
-  #!{{shebang}}
   del uv.lock -erroraction ignore
   uv lock
 
