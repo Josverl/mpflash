@@ -232,12 +232,6 @@ class TestCLIWorkflowIntegration:
     def setup_method(self):
         self.runner = CliRunner()
     
-    # TODO(rebase): This test asserts on log output ("Flashed 1 boards") which is
-    # emitted via loguru log.info. When run after other tests in the suite, the
-    # logger configuration changes and the message no longer reaches result.output,
-    # though the test passes when run in isolation. Make the test assert on mock
-    # calls instead of log output, or configure loguru explicitly in this test.
-    @pytest.mark.xfail(reason="log output capture is order-dependent across the full suite", strict=False)
     @patch('mpflash.flash.flash_tasks')
     @patch('mpflash.connected.connected_ports_boards_variants')
     @patch('mpflash.download.jid.ensure_firmware_downloaded_tasks')
@@ -258,12 +252,16 @@ class TestCLIWorkflowIntegration:
         ])
         
         assert result.exit_code == 0
-        assert "Flashed 1 boards" in result.output
-        
-        # Verify all steps were called
+
+        # Verify all steps were called. We assert on mock calls rather than on
+        # loguru log output ("Flashed 1 boards"), because log capture is
+        # order-dependent across the full suite and unreliable here.
         mock_download.assert_called_once()  # Firmware downloaded
         mock_flash_list.assert_called_once()  # Flash operation
         mock_show.assert_called_once()  # Results displayed
+        # show_mcus must receive the flashed boards from flash_tasks
+        shown_boards, *_ = mock_show.call_args.args
+        assert shown_boards == [mock_board]
     
     @patch('mpflash.flash.flash_tasks')
     @patch('mpflash.connected.connected_ports_boards_variants')
