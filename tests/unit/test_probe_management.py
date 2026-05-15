@@ -246,104 +246,108 @@ class TestPyOCDProbeIntegration:
         assert probes[0].description == "Test Probe"
 
 
-# TODO(pyocd-rebase): These tests patch symbols that do not exist in
-# mpflash.flash.pyocd_flash (e.g. is_debug_programming_available,
-# get_pyocd_target_dynamic). Those names live in debug_probe.py / pyocd_core.py
-# under different names. Rewrite the tests to patch the real source modules
-# (mpflash.flash.debug_probe.is_debug_programming_available,
-# mpflash.flash.pyocd_core.detect_pyocd_target, etc.) and update assertions to
-# match the current PyOCDFlash API.
-@pytest.mark.xfail(reason="pyOCD PR tests: patch targets (is_debug_programming_available, get_pyocd_target_dynamic) not in pyocd_flash module; needs rework against actual API")
+# Tests for the PyOCDFlash class.
+# PyOCDFlash.__init__ calls detect_pyocd_target() and is_pyocd_available()
+# (both imported from pyocd_core), and PyOCDFlash.flash_firmware() calls
+# find_pyocd_probe() (defined in pyocd_flash itself). We patch each on the
+# pyocd_flash module where the names are bound.
 class TestPyOCDFlash:
     """Test PyOCDFlash class functionality."""
-    
+
     def setup_method(self):
         """Set up mocks for testing."""
         self.mock_mcu = MOCK_MCUS["stm32wb55"]
         self.test_firmware = Path("/tmp/test_firmware.bin")
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available')
-    def test_pyocd_flash_init_success(self, mock_available, mock_get_target):
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_pyocd_flash_init_success(self, mock_detect, mock_available):
         """Test successful PyOCDFlash initialization."""
         mock_available.return_value = True
-        mock_get_target.return_value = "stm32wb55xg"
-        
+        mock_detect.return_value = "stm32wb55xg"
+
         flasher = PyOCDFlash(self.mock_mcu)
-        
+
         assert flasher.mcu == self.mock_mcu
         assert flasher.target_type == "stm32wb55xg"
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available')
-    def test_pyocd_flash_init_no_debug_support(self, mock_available, mock_get_target):
-        """Test PyOCDFlash initialization when debug programming unavailable."""
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_pyocd_flash_init_no_debug_support(self, mock_detect, mock_available):
+        """Test PyOCDFlash initialization when pyOCD is not available."""
+        mock_detect.return_value = "stm32wb55xg"
         mock_available.return_value = False
-        
+
         with pytest.raises(MPFlashError, match="No debug probe support available"):
             PyOCDFlash(self.mock_mcu)
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available')
-    def test_pyocd_flash_init_unsupported_target(self, mock_available, mock_get_target):
+
+    @patch('mpflash.flash.pyocd_flash.get_unsupported_reason')
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_pyocd_flash_init_unsupported_target(self, mock_detect, mock_available, mock_reason):
         """Test PyOCDFlash initialization with unsupported target."""
         mock_available.return_value = True
-        mock_get_target.return_value = None  # No target found
-        
+        mock_detect.return_value = None  # No target found
+        mock_reason.return_value = "board not in CMSIS pack database"
+
         with pytest.raises(MPFlashError, match="not supported by pyOCD"):
             PyOCDFlash(self.mock_mcu)
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available') 
-    @patch('mpflash.flash.pyocd_flash.find_debug_probe')
-    def test_flash_firmware_success(self, mock_find_probe, mock_available, mock_get_target):
+
+    @patch('mpflash.flash.pyocd_flash.find_pyocd_probe')
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_flash_firmware_success(self, mock_detect, mock_available, mock_find_probe):
         """Test successful firmware flashing."""
-        # Setup mocks
         mock_available.return_value = True
-        mock_get_target.return_value = "stm32wb55xg"
-        
+        mock_detect.return_value = "stm32wb55xg"
+
         mock_probe = Mock(spec=PyOCDProbe)
+        mock_probe.description = "Mock probe"
         mock_probe.program_flash.return_value = True
         mock_find_probe.return_value = mock_probe
-        
+
         # Create temporary firmware file
         self.test_firmware.touch()
-        
+
         try:
             flasher = PyOCDFlash(self.mock_mcu)
             result = flasher.flash_firmware(self.test_firmware)
-            
+
             assert result is True
             mock_probe.program_flash.assert_called_once()
+            # First positional arg is the firmware path; second is target_type
+            args, _ = mock_probe.program_flash.call_args
+            assert args[0] == self.test_firmware
+            assert args[1] == "stm32wb55xg"
         finally:
             self.test_firmware.unlink(missing_ok=True)
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available')
-    def test_flash_firmware_file_not_found(self, mock_available, mock_get_target):
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_flash_firmware_file_not_found(self, mock_detect, mock_available):
         """Test error when firmware file doesn't exist."""
         mock_available.return_value = True
-        mock_get_target.return_value = "stm32wb55xg"
-        
+        mock_detect.return_value = "stm32wb55xg"
+
         flasher = PyOCDFlash(self.mock_mcu)
-        
+
         with pytest.raises(MPFlashError, match="Firmware file not found"):
             flasher.flash_firmware(Path("/nonexistent/firmware.bin"))
-    
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_dynamic')
-    @patch('mpflash.flash.pyocd_flash.is_debug_programming_available')
-    @patch('mpflash.flash.pyocd_flash.find_debug_probe')
-    def test_flash_firmware_no_probe(self, mock_find_probe, mock_available, mock_get_target):
+
+    @patch('mpflash.flash.pyocd_flash.find_pyocd_probe')
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
+    @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
+    def test_flash_firmware_no_probe(self, mock_detect, mock_available, mock_find_probe):
         """Test error when no probe is found."""
         mock_available.return_value = True
-        mock_get_target.return_value = "stm32wb55xg"
+        mock_detect.return_value = "stm32wb55xg"
         mock_find_probe.return_value = None
-        
+
         self.test_firmware.touch()
-        
+
         try:
             flasher = PyOCDFlash(self.mock_mcu)
-            
+
             with pytest.raises(MPFlashError, match="No PyOCD debug probes available"):
                 flasher.flash_firmware(self.test_firmware)
         finally:
