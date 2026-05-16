@@ -14,7 +14,7 @@ from serial.tools.list_ports_common import ListPortInfo
 from .logger import log
 
 PORT_FWTYPES = {
-    "stm32": [".dfu", ".bin"],  # .dfu for pydfu.py, .bin also supported; .hex for cube cli/GUI
+    "stm32": [".dfu", ".bin", ".hex"],  # .dfu for pydfu.py, .bin also supported; .hex for pyOCD
     "esp32": [".bin"],
     "esp8266": [".bin"],
     "rp2": [".uf2"],
