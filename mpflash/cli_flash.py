@@ -126,7 +126,7 @@ from mpflash.versions import clean_version
 @click.option(
     "--probe",
     "--probe-id",  # Keep as alias for backwards compatibility
-    "probe_id", 
+    "probe_id",
     help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
     metavar="PROBE_ID",
 )
@@ -212,11 +212,11 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
-        
+
     # Convert flash_method to method and convert to enum
     flash_method_str = kwargs.pop("flash_method", "auto")
     flash_method = FlashMethod(flash_method_str)
-    
+
     # Extract pyOCD options
     probe_id = kwargs.pop("probe_id", None)
     auto_install_packs = kwargs.pop("auto_install_packs", True)

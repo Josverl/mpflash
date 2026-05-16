@@ -139,11 +139,13 @@ def session_mem(db_mem):
 # Fixtures for pyOCD testing
 #############################################################
 
+
 @pytest.fixture
 def mock_mcu():
     """Provide a mock MCU for testing."""
     if "stm32wb55" in MOCK_MCUS:
         return MOCK_MCUS["stm32wb55"]
+
     # Fallback mock
     class MockMCU:
         def __init__(self):
@@ -151,6 +153,7 @@ def mock_mcu():
             self.cpu = "STM32WB55RGV6"
             self.description = "Test MCU with STM32WB55RGV6"
             self.port = "stm32"
+
     return MockMCU()
 
 
@@ -159,6 +162,7 @@ def mock_esp32_mcu():
     """Provide an ESP32 mock MCU for testing unsupported scenarios."""
     if "esp32" in MOCK_MCUS:
         return MOCK_MCUS["esp32"]
+
     # Fallback mock
     class MockESP32:
         def __init__(self):
@@ -166,6 +170,7 @@ def mock_esp32_mcu():
             self.cpu = "ESP32"
             self.description = "ESP32-DevKitC with ESP32-WROOM-32"
             self.port = "esp32"
+
     return MockESP32()
 
 
@@ -194,6 +199,7 @@ def reset_probe_registry():
     """Reset the probe registry before each test."""
     try:
         from mpflash.flash.debug_probe import _probe_implementations
+
         original_implementations = _probe_implementations.copy()
         _probe_implementations.clear()
 
@@ -210,7 +216,7 @@ def reset_probe_registry():
 @pytest.fixture
 def mock_subprocess():
     """Mock subprocess.run for testing command execution."""
-    with patch('subprocess.run') as mock_run:
+    with patch("subprocess.run") as mock_run:
         yield mock_run
 
 

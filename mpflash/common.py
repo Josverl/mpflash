@@ -14,7 +14,7 @@ from serial.tools.list_ports_common import ListPortInfo
 from .logger import log
 
 PORT_FWTYPES = {
-    "stm32": [".dfu", ".bin"], #, ".hex"],  # .dfu for pydfu.py, .bin also supported; .hex for pyOCD
+    "stm32": [".dfu", ".bin"],  # , ".hex"],  # .dfu for pydfu.py, .bin also supported; .hex for pyOCD
     "esp32": [".bin"],
     "esp8266": [".bin"],
     "rp2": [".uf2"],
@@ -63,9 +63,9 @@ class BootloaderMethod(Enum):
 class FlashMethod(Enum):
     AUTO = "auto"
     SERIAL = "serial"  # Traditional serial bootloader methods
-    PYOCD = "pyocd"    # SWD/JTAG programming via pyOCD
-    UF2 = "uf2"        # UF2 file copy method
-    DFU = "dfu"        # STM32 DFU method
+    PYOCD = "pyocd"  # SWD/JTAG programming via pyOCD
+    UF2 = "uf2"  # UF2 file copy method
+    DFU = "dfu"  # STM32 DFU method
     ESPTOOL = "esptool"  # ESP32/ESP8266 esptool method
 
 
