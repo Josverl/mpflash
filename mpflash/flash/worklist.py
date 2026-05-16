@@ -139,6 +139,9 @@ def _create_manual_board(serial_port: str, board_id: str, version: str, custom: 
         info = find_known_board(board_id, port=port)
         board.port = info.port
         board.cpu = info.mcu  # Need CPU type for esptool
+        # Description carries the specific chip name (e.g. "PYBv1.1 with STM32F405RG"),
+        # which pyOCD target detection uses to pick the right CMSIS target.
+        board.description = info.description or board.description
     except (LookupError, MPFlashError) as e:
         log.error(f"Board {board_id} not found in board database")
         log.exception(e)
