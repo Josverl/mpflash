@@ -48,3 +48,8 @@ def ensure_firmware_downloaded_tasks(tasks: FlashTaskList, version: str, force: 
         updated.append(task)
     tasks.clear()
     tasks.extend(updated)
+
+
+def ensure_firmware_downloaded(tasks: FlashTaskList, version: str, force: bool) -> None:
+    """Backward-compatible wrapper for legacy callers/tests."""
+    ensure_firmware_downloaded_tasks(tasks, version, force)
