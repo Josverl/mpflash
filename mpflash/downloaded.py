@@ -25,7 +25,7 @@ def clean_downloaded_firmwares() -> None:
     firmware_dir = Path(config.firmware_folder)
 
     firmware_files_on_disk = {
-        str(f.relative_to(firmware_dir)) for f in firmware_dir.rglob("*") if f.is_file() and f.suffix not in {".db", ".bak", ".jsonl"}
+        f.relative_to(firmware_dir).as_posix() for f in firmware_dir.rglob("*") if f.is_file() and f.suffix not in {".db", ".bak", ".jsonl"}
     }
 
     with database.atomic():

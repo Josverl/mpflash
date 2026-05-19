@@ -187,7 +187,7 @@ def fetch_firmware_files(available_firmwares: List[Firmware], firmware_folder: P
             r = requests.get(board.source, allow_redirects=True)
             with open(filename, "wb") as fw:
                 fw.write(r.content)
-            board.firmware_file = str(filename.relative_to(firmware_folder))
+            board.firmware_file = filename.relative_to(firmware_folder).as_posix()
         except requests.RequestException as e:
             log.exception(e)
             continue
