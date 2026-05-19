@@ -62,7 +62,15 @@ from .logger import make_quiet
     show_default=True,
     help="""Show progress""",
 )
-def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json: bool, progress: bool = True) -> int:
+@click.option(
+    "--reset/--no-reset",
+    "reset",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="""Reset the board after listing.""",
+)
+def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json: bool, progress: bool = True, reset: bool = True) -> int:
     """List the connected MCU boards, and output in a nice table or json."""
     from .connected import list_mcus
     from .list import show_mcus
@@ -82,13 +90,14 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
 
     if progress:
         show_mcus(conn_mcus, refresh=False)
-    for mcu in conn_mcus:
-        # reset the board so it can continue to whatever it was running before
-        if mcu.family == "circuitpython":
-            # CircuitPython boards need a special reset command
-            mcu.run_command(["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"], resume=False)
-        elif mcu.family == "unknown":
-            continue
-        else:
-            mcu.run_command("reset")
+    if reset:
+        for mcu in conn_mcus:
+            # reset the board so it can continue to whatever it was running before
+            if mcu.family == "circuitpython":
+                # CircuitPython boards need a special reset command
+                mcu.run_command(["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"], resume=False)
+            elif mcu.family == "unknown":
+                continue
+            else:
+                mcu.run_command("reset")
     return 0 if conn_mcus else 1

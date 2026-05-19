@@ -22,6 +22,8 @@ pytestmark = pytest.mark.mpflash
         ("2", 0, ["list", "--json"]),
         ("3", 0, ["list", "--no-progress"]),
         ("4", 0, ["list", "--json", "--no-progress"]),
+        ("5", 0, ["list", "--no-reset"]),
+        ("6", 0, ["list", "--reset"]),
     ],
 )
 def test_mpflash_list(id, ex_code, args: List[str], mocker: MockerFixture):
