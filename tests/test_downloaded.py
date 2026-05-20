@@ -1,10 +1,13 @@
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 from pytest_mock import MockerFixture
 
 from mpflash.db.models import Firmware
 
 # from mpflash.db.downloads import downloaded_fw
-from mpflash.downloaded import find_downloaded_firmware
+from mpflash.downloaded import clean_downloaded_firmwares, find_downloaded_firmware
 from mpflash.versions import clean_version
 
 pytestmark = [pytest.mark.mpflash]
@@ -147,3 +150,77 @@ def test_find_downloaded_firmware_preview_no_port(mocker: MockerFixture, session
     assert result, "Should find preview firmware even without port"
     fw = result[0]
     assert "preview" in fw.firmware_file
+
+
+def test_clean_downloaded_firmwares_uses_posix_paths(tmp_path):
+    """Ensure clean_downloaded_firmwares uses POSIX paths for cross-platform DB compat.
+
+    On Windows, Path.relative_to() produces backslash separators which would
+    mismatch DB records stored with forward slashes (e.g. from Linux/WSL2).
+    The fix normalises disk paths to POSIX before comparing with the DB.
+    """
+    from mpflash.db.models import Board, Firmware, Metadata, database
+
+    # Initialize the shared database to an in-memory instance
+    if not database.is_closed():
+        database.close()
+    database.init(":memory:")
+    database.connect()
+    database.create_tables([Metadata, Board, Firmware])
+
+    try:
+        # Create a firmware file on disk
+        fw_dir = tmp_path / "esp32"
+        fw_dir.mkdir()
+        fw_file = fw_dir / "ESP32_GENERIC-v1.28.0.bin"
+        fw_file.write_bytes(b"fake firmware")
+
+        # Insert a DB record using POSIX-style path (as Linux/loader would)
+        posix_path = "esp32/ESP32_GENERIC-v1.28.0.bin"
+        Firmware.create(
+            board_id="ESP32_GENERIC",
+            version="v1.28.0",
+            firmware_file=posix_path,
+            port="esp32",
+        )
+
+        # Patch config.firmware_folder to our tmp_path
+        with patch("mpflash.downloaded.config") as mock_config:
+            mock_config.firmware_folder = tmp_path
+            clean_downloaded_firmwares()
+
+        # The DB record should still exist (not deleted)
+        remaining = list(Firmware.select().where(Firmware.firmware_file == posix_path))
+        assert len(remaining) == 1, "DB record with posix path should NOT be removed when file exists on disk"
+    finally:
+        if not database.is_closed():
+            database.close()
+
+
+def test_fetch_firmware_files_stores_posix_path(tmp_path):
+    """Ensure fetch_firmware_files stores firmware_file as POSIX path in DB."""
+    from mpflash.download.from_web import fetch_firmware_files
+
+    fw = Firmware(
+        board_id="ESP32_GENERIC",
+        version="v1.28.0",
+        firmware_file="ESP32_GENERIC-v1.28.0.bin",
+        port="esp32",
+        source="https://example.com/ESP32_GENERIC-v1.28.0.bin",
+    )
+
+    # Mock requests.get to return fake content
+    class FakeResponse:
+        content = b"fake firmware data"
+
+    import requests as real_requests
+
+    with patch.dict("sys.modules", {"requests": real_requests}):
+        with patch("requests.get", return_value=FakeResponse()):
+            results = list(fetch_firmware_files([fw], tmp_path, force=True))
+
+    assert len(results) == 1
+    result_path = results[0].firmware_file
+    # Path must use forward slashes (POSIX), never backslashes
+    assert "\\" not in result_path, f"firmware_file should use POSIX separators, got: {result_path}"
+    assert result_path == "esp32/ESP32_GENERIC-v1.28.0.bin"
