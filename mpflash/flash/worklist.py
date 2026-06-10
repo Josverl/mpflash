@@ -129,6 +129,22 @@ def _firmware_path_exists(firmware_file: str) -> bool:
     return candidate.exists()
 
 
+def _is_port_compatible_firmware(port: str, firmware_file: str) -> bool:
+    """Return True when firmware extension is compatible with the target port."""
+    ext = Path(_normalize_firmware_file(firmware_file)).suffix.lower()
+    preferred_ext = {
+        "esp32": {".bin"},
+        "esp8266": {".bin"},
+        "rp2": {".uf2"},
+        "samd": {".uf2"},
+        "nrf": {".uf2"},
+        "stm32": {".dfu", ".bin"},
+    }
+    if port not in preferred_ext:
+        return True
+    return ext in preferred_ext[port]
+
+
 def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = False) -> Optional[Firmware]:
     """Find appropriate firmware for a board."""
     board_id = f"{board.board}-{board.variant}" if board.variant else board.board
@@ -146,6 +162,7 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
         firmware.firmware_file = _normalize_firmware_file(firmware.firmware_file)
         rank = (
             int(_firmware_path_exists(firmware.firmware_file)),
+            int(_is_port_compatible_firmware(board.port, firmware.firmware_file)),
             int((firmware.source or "").lower() == "mpbuild"),
             int(bool(firmware.custom)),
             int(getattr(firmware, "build", 0) or 0),
