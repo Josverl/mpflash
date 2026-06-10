@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import pytest
-from mock import MagicMock
+from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
 
 from mpflash.db.loader import HERE

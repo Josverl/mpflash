@@ -1,4 +1,9 @@
-"""Flash STM32 boards using pydfu"""
+"""Flash STM32 boards using pydfu.
+
+This helper is now the internal implementation of
+:class:`mpflash.flash.builtins.dfu_backend.DFUBackend`. New code should call
+:func:`mpflash.flash.flash_mcu` with ``method=FlashMethod.DFU``.
+"""
 
 from pathlib import Path
 
