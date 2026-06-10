@@ -82,20 +82,76 @@ Install the test extras (and `pyocd` if you want to drive the pyOCD backend):
 uv sync --extra test --extra pyocd
 ```
 
-Run a single backend (example: UF2 on `/dev/ttyACM0` with a Pico firmware):
+Use one shared `.env` file for hardware settings (recommended):
+
+```env
+# UF2 example
+# Linux / WSL path examples:
+MPFLASH_HW_UF2_PORT=/dev/ttyACM1
+MPFLASH_HW_UF2_FW=/mnt/c/Users/jos_v/Downloads/firmware/rp2/RPI_PICO2-v1.28.0.uf2
+# Native Windows path example (PowerShell / cmd):
+# MPFLASH_HW_UF2_PORT=COM5
+# MPFLASH_HW_UF2_FW=C:\Users\jos_v\Downloads\firmware\rp2\RPI_PICO2-v1.28.0.uf2
+
+# Optional: tune loguru verbosity during pytest runs
+LOGURU_LEVEL=INFO
+```
+
+This keeps board/probe and firmware paths in one place for:
+- interactive debugging in VS Code
+- `just` recipes
+- direct `uv run pytest ...` command-line runs
+
+Run a single backend from the command line (load `.env` first).
+
+Linux / macOS / WSL:
 
 ```bash
-export MPFLASH_HW_UF2_PORT=/dev/ttyACM0
-export MPFLASH_HW_UF2_FW=$HOME/firmware/RPI_PICO-20240222-v1.28.0.uf2
+set -a
+source .env
+set +a
 
 uv run pytest -m hw_uf2 tests/hw -v
 ```
+
+Windows PowerShell:
+
+```powershell
+Get-Content .env | ForEach-Object {
+   if ($_ -match '^\s*#' -or $_ -match '^\s*$') { return }
+   $name, $value = $_ -split '=', 2
+   [Environment]::SetEnvironmentVariable($name.Trim(), $value.Trim(), 'Process')
+}
+
+uv run pytest -m hw_uf2 tests/hw -v
+```
+
+With `just`, prefer enabling dotenv loading in `justfile` so recipes read `.env`
+automatically:
+
+```just
+set dotenv-load := true
+```
+
+Then run:
+
+```bash
+just hil_pico2
+```
+
+This `just` command works on Linux/macOS/WSL and on Windows PowerShell
+because `set dotenv-load := true` loads the same `.env` file before the recipe.
+
+For interactive debugging in VS Code, point launch/test configuration at the
+same `.env` file (for example `envFile: ${workspaceFolder}/.env`).
 
 Run every hardware test for which the environment is configured:
 
 ```bash
 uv run pytest -m hardware tests/hw -v
 ```
+
+Windows PowerShell uses the same pytest command once `.env` is loaded.
 
 Combine markers to select a subset, e.g. UF2 + DFU only:
 

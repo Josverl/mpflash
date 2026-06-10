@@ -37,6 +37,16 @@ lock:
   del uv.lock -erroraction ignore
   uv lock
 
+# -----------------------------------------------------------------------------------------------
+# HIL testing 
+# Configure environment for the port and firmware selection in the .env file, then run the test suite 
+# -----------------------------------------------------------------------------------------------
+# export LOGURU_LEVEL := "TRACE"
+export LOGURU_LEVEL := "INFO"
+
+hil_pico2:
+    uv run pytest -m hw_uf2 tests/hw -v
+
 
 # [script('python')]
 # python:
