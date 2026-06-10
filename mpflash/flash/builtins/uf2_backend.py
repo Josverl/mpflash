@@ -1,6 +1,6 @@
 """UF2 flash backend (rp2 / samd / nrf).
 
-Wraps :func:`mpflash.flash.uf2.flash_uf2`. Bootloader entry is performed
+Wraps :func:`mpflash.flash.builtins.uf2.flash_uf2`. Bootloader entry is performed
 through ``ctx.services.enter_bootloader`` so a fake services bundle can
 short-circuit it in tests.
 """

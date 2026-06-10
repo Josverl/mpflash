@@ -6,9 +6,9 @@ to serial bootloader methods. Includes probe discovery, target detection,
 and flash programming operations.
 
 .. note::
-    The :func:`flash_pyocd` helper here is now the internal implementation of
-    :class:`mpflash.flash.builtins.pyocd_backend.PyOCDBackend`. New code
-    should call :func:`mpflash.flash.flash_mcu` with
+    Internal implementation behind
+    :class:`mpflash.flash.builtins.pyocd_backend.PyOCDBackend`. Public callers
+    should use :func:`mpflash.flash.flash_mcu` with
     ``method=FlashMethod.PYOCD``.
 """
 

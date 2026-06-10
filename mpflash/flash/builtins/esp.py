@@ -197,10 +197,10 @@ def flash_esp(
         The updated ``MPRemoteBoard`` on success, ``None`` on failure.
 
     .. note::
-        This helper is now the internal implementation of
-        :class:`mpflash.flash.builtins.esptool_backend.EsptoolBackend`. New
-        code should call :func:`mpflash.flash.flash_mcu` with
-        ``method=FlashMethod.ESPTOOL`` instead.
+        Internal implementation behind
+        :class:`mpflash.flash.builtins.esptool_backend.EsptoolBackend`. Public
+        callers should use :func:`mpflash.flash.flash_mcu` with
+        ``method=FlashMethod.ESPTOOL``.
     """
     if mcu.port not in ["esp32", "esp8266"] or mcu.board.startswith("ARDUINO_"):
         log.error(f"esptool not supported for {mcu.port} {mcu.board} on {mcu.serialport}")
