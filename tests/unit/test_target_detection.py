@@ -176,6 +176,7 @@ class TestPyOCDTargetDiscovery:
 
     def test_pyocd_not_available(self):
         """Test behavior when pyOCD is not installed."""
+        get_pyocd_targets.cache_clear()
         with patch("mpflash.flash.builtins.pyocd.core._ensure_pyocd", side_effect=MPFlashError("pyOCD not installed")):
             with pytest.raises(MPFlashError):
                 get_pyocd_targets()
