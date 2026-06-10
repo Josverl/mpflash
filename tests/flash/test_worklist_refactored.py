@@ -186,6 +186,38 @@ class TestFindFirmwareForBoard:
         mock_log.info.assert_called_once()
 
     @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    def test_multiple_firmwares_prefers_existing_mpbuild(self, mock_find_firmware, tmp_path, monkeypatch):
+        firmware1 = Firmware(
+            board_id="ESP32_GENERIC",
+            version="1.22.0",
+            port="esp32",
+            firmware_file="esp32\\legacy.bin",
+            source="github",
+        )
+        firmware2 = Firmware(
+            board_id="ESP32_GENERIC",
+            version="1.22.0",
+            port="esp32",
+            firmware_file="esp32/new.bin",
+            source="mpbuild",
+        )
+        mock_find_firmware.return_value = [firmware1, firmware2]
+
+        fw_file = tmp_path / "esp32" / "new.bin"
+        fw_file.parent.mkdir(parents=True, exist_ok=True)
+        fw_file.write_bytes(b"x")
+        monkeypatch.setattr("mpflash.flash.worklist.config._firmware_folder", tmp_path)
+
+        board = MPRemoteBoard("COM1")
+        board.board = "ESP32_GENERIC"
+        board.port = "esp32"
+
+        result = _find_firmware_for_board(board, "1.22.0", False)
+
+        assert result == firmware2
+        assert result.firmware_file == "esp32/new.bin"
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
     @patch("mpflash.flash.worklist.log")
     def test_single_firmware_found(self, mock_log, mock_find_firmware):
         """Test when single firmware is found."""

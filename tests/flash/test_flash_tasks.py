@@ -123,6 +123,36 @@ def test_flash_tasks_file_not_exists(mock_config, mock_flash_mcu):
 
 
 @patch("mpflash.flash.flash_mcu")
+def test_flash_tasks_normalizes_legacy_backslash_paths(mock_flash_mcu, tmp_path, monkeypatch):
+    """Legacy Windows-style firmware paths should resolve on POSIX hosts."""
+    monkeypatch.setattr("mpflash.flash.config._firmware_folder", tmp_path)
+    mock_flash_mcu.return_value = MagicMock()
+
+    board = MPRemoteBoard("/dev/ttyUSB0")
+    board.board_id = "ESP8266_GENERIC"
+    board.board = "ESP8266_GENERIC"
+    board.serialport = "/dev/ttyUSB0"
+
+    fw_file = tmp_path / "esp8266" / "ESP8266_GENERIC-v1.28.0.bin"
+    fw_file.parent.mkdir(parents=True, exist_ok=True)
+    fw_file.write_bytes(b"bin")
+
+    fw = Firmware(
+        board_id="ESP8266_GENERIC",
+        version="1.28.0",
+        port="esp8266",
+        firmware_file="esp8266\\ESP8266_GENERIC-v1.28.0.bin",
+    )
+    task = FlashTask(board=board, firmware=fw)
+
+    result = flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert len(result) == 1
+    _, kwargs = mock_flash_mcu.call_args
+    assert kwargs["fw_file"] == fw_file
+
+
+@patch("mpflash.flash.flash_mcu")
 @patch("mpflash.flash.config")
 def test_flash_tasks_flash_error(mock_config, mock_flash_mcu):
     """Test handling flash errors."""
@@ -250,11 +280,14 @@ def test_flash_tasks_downloads_backend_compatible_firmware_before_flash(
             return False
         return True
 
-    with patch("mpflash.flash.get_backend", return_value=backend), patch(
-        "mpflash.flash.find_downloaded_firmware",
-        side_effect=fake_find_downloaded_firmware,
-    ), patch("mpflash.download.download", return_value=1) as mock_download, patch(
-        "pathlib.Path.exists", autospec=True, side_effect=fake_exists
+    with (
+        patch("mpflash.flash.get_backend", return_value=backend),
+        patch(
+            "mpflash.flash.find_downloaded_firmware",
+            side_effect=fake_find_downloaded_firmware,
+        ),
+        patch("mpflash.download.download", return_value=1) as mock_download,
+        patch("pathlib.Path.exists", autospec=True, side_effect=fake_exists),
     ):
         result = flash_tasks(
             [task],
@@ -295,9 +328,11 @@ def test_flash_tasks_raises_when_backend_has_no_compatible_firmware(
     backend = MagicMock()
     backend.supported_formats = (".bin", ".hex", ".elf", ".axf")
 
-    with patch("mpflash.flash.get_backend", return_value=backend), patch(
-        "mpflash.flash.find_downloaded_firmware", return_value=[]
-    ), patch("mpflash.download.download", return_value=1):
+    with (
+        patch("mpflash.flash.get_backend", return_value=backend),
+        patch("mpflash.flash.find_downloaded_firmware", return_value=[]),
+        patch("mpflash.download.download", return_value=1),
+    ):
         with pytest.raises(MPFlashError, match="No firmware matching backend"):
             flash_tasks(
                 [task],
