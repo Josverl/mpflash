@@ -81,7 +81,8 @@ def flash_mcu(
                 # PyOCD SWD/JTAG programming
                 if not is_debug_programming_available():
                     raise MPFlashError("Debug probe programming not available. Install with: uv sync --extra pyocd")
-                updated = flash_pyocd(mcu, fw_file=fw_file, erase=erase, **kwargs)
+                ok = flash_pyocd(mcu, fw_file=fw_file, erase=erase, **kwargs)
+                updated = mcu if ok else None
                 
             elif flash_method == FlashMethod.UF2:
                 # UF2 file copy method (RP2040, SAMD)
@@ -102,8 +103,11 @@ def flash_mcu(
             else:
                 raise MPFlashError(f"Unsupported flash method: {flash_method.value}")
                 
+        except MPFlashError:
+            raise
         except Exception as e:
-            raise MPFlashError(f"Failed to flash {mcu.board} on {mcu.serialport}") from e
+            log.exception(f"Unexpected error while flashing {mcu.board} on {mcu.serialport}")
+            raise MPFlashError(f"Failed to flash {mcu.board} on {mcu.serialport}: {e}") from e
             
         return updated
 

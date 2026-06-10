@@ -8,6 +8,7 @@ and flash programming operations.
 
 from typing import List, Optional, Dict, Any
 from pathlib import Path
+import traceback
 
 from mpflash.logger import log
 from mpflash.errors import MPFlashError
@@ -24,6 +25,7 @@ from .pyocd_core import (
 # Lazy import pyOCD to handle optional dependency
 _pyocd_available = None
 _pyocd_modules = {}
+SUPPORTED_PYOCD_FILE_SUFFIXES = {".bin", ".hex", ".elf", ".axf"}
 
 
 def _ensure_pyocd():
@@ -35,11 +37,13 @@ def _ensure_pyocd():
             from pyocd.core.helpers import ConnectHelper
             from pyocd.flash.file_programmer import FileProgrammer
             from pyocd.core.exceptions import Error as PyOCDError
-            
+            from pyocd.core.exceptions import TransferError as PyOCDTransferError
+
             _pyocd_modules.update({
                 'ConnectHelper': ConnectHelper,
                 'FileProgrammer': FileProgrammer,
-                'PyOCDError': PyOCDError
+                'PyOCDError': PyOCDError,
+                'PyOCDTransferError': PyOCDTransferError,
             })
             _pyocd_available = True
             log.debug("pyOCD modules loaded successfully")
@@ -95,29 +99,60 @@ class PyOCDProbe(DebugProbe):
                 probes.append(probe)
             
             log.debug(f"Discovered {len(probes)} pyOCD probes")
+            for probe in probes:
+                log.debug(
+                    f"Probe: id={probe.unique_id}, description={probe.description}"
+                )
             return probes
             
         except Exception as e:
             log.debug(f"Failed to discover pyOCD probes: {e}")
             return []
     
-    def connect(self) -> bool:
-        """Connect to the pyOCD probe."""
+    def connect(
+        self,
+        target_type: Optional[str] = None,
+        frequency: int = 4_000_000,
+        connect_mode: str = "under-reset",
+    ) -> bool:
+        """Connect to the pyOCD probe.
+
+        connect_mode defaults to 'under-reset' which is required by most
+        STM32 boards already running MicroPython firmware (otherwise the
+        STLink fails to read IDCODE).
+        """
         if self._connected:
             return True
-        
+
         try:
             modules = _ensure_pyocd()
             ConnectHelper = modules['ConnectHelper']
-            
+
+            session_options = {
+                "auto_unlock": True,
+                "connect_mode": connect_mode,
+            }
+            if target_type:
+                session_options["target_override"] = target_type
+            if frequency > 0:
+                session_options["frequency"] = frequency
+
+            log.debug(
+                f"Opening pyOCD session for probe {self.unique_id} with options: {session_options}"
+            )
             self._session = ConnectHelper.session_with_chosen_probe(
                 unique_id=self.unique_id,
-                options={"halt_on_connect": False, "auto_unlock": True}
+                options=session_options,
             )
+            if self._session:
+                self._session.open()
+                log.debug(f"pyOCD session opened for probe {self.unique_id}")
             
             if self._session:
                 self._connected = True
                 log.debug(f"Connected to pyOCD probe {self.unique_id}")
+                if hasattr(self._session, "options"):
+                    log.debug(f"Session options: {self._session.options}")
                 return True
             else:
                 raise MPFlashError(f"Failed to create session with probe {self.unique_id}")
@@ -146,56 +181,121 @@ class PyOCDProbe(DebugProbe):
     def program_flash(self, firmware_path: Path, target_type: str, **options) -> bool:
         """
         Program flash memory using pyOCD.
-        
+
+        Mirrors the behaviour of the ``pyocd flash`` CLI subcommand: builds a
+        FileProgrammer with the requested erase mode, calls add_file()+commit(),
+        then performs a separate reset, tolerating TransferError on the reset
+        (as the CLI does) so the session can be closed cleanly.
+
         Args:
             firmware_path: Path to firmware file (.bin, .hex, .elf)
             target_type: pyOCD target type string
             **options: Programming options (erase, frequency, etc.)
-            
+
         Returns:
             True if programming succeeded
-            
+
         Raises:
             MPFlashError: If programming fails
         """
         if not firmware_path.exists():
             raise MPFlashError(f"Firmware file not found: {firmware_path}")
-        
-        # Connect if not already connected
-        if not self._connected:
-            self.connect()
-        
+
         try:
             modules = _ensure_pyocd()
-            FileProgrammer = modules['FileProgrammer']
-            
-            # Extract programming options
+            FileProgrammer = modules["FileProgrammer"]
+            PyOCDTransferError = modules["PyOCDTransferError"]
+
+            # Extract programming options.
+            # ``chip_erase`` must be one of {"auto", "sector", "chip"} and is
+            # configured on the FileProgrammer constructor (NOT on program()).
             erase_option = "chip" if options.get("erase", False) else "sector"
             frequency = options.get("frequency", 4000000)
-            
-            # Create programmer with session
-            programmer = FileProgrammer(self._session)
-            
-            log.info(f"Programming {firmware_path.name} to {target_type} via {self.description}")
-            log.debug(f"Options: erase={erase_option}, frequency={frequency}Hz")
-            
-            # Program the firmware
-            programmer.program(
-                str(firmware_path),
-                file_format=None,  # Auto-detect format
-                erase=erase_option,
-                reset=True,
-                verify=True
+            connect_mode = options.get("connect_mode", "under-reset")
+
+            suffix = firmware_path.suffix.lower()
+            if suffix not in SUPPORTED_PYOCD_FILE_SUFFIXES:
+                supported_formats = ", ".join(sorted(SUPPORTED_PYOCD_FILE_SUFFIXES))
+                raise MPFlashError(
+                    f"Unsupported firmware format for pyOCD: '{suffix or '<none>'}'. "
+                    f"Supported formats: {supported_formats}. "
+                    "Use --method dfu for .dfu files or provide a .bin/.hex/.elf image."
+                )
+
+            # Connect with explicit target configuration before programming.
+            if not self._connected:
+                self.connect(
+                    target_type=target_type,
+                    frequency=frequency,
+                    connect_mode=connect_mode,
+                )
+
+            # Defensive: check session/target/core
+            if not self._session:
+                raise MPFlashError("pyOCD session was not created.")
+            if not getattr(self._session, "target", None):
+                raise MPFlashError(
+                    "pyOCD session has no target. Check target_override and probe connection."
+                )
+            if not getattr(self._session.target, "selected_core", None):
+                raise MPFlashError(
+                    "pyOCD session target has no selected_core. "
+                    "Board may not be powered or supported."
+                )
+
+            log.info(
+                f"Programming {firmware_path.name} to {target_type} via {self.description}"
             )
-            
+            log.debug(
+                f"Options: chip_erase={erase_option}, frequency={frequency}Hz, "
+                f"connect_mode={connect_mode}"
+            )
+            log.debug(f"Firmware path: {firmware_path}")
+
+            # Build programmer + add file + commit (matches pyOCD CLI flow).
+            programmer = FileProgrammer(self._session, chip_erase=erase_option)
+            programmer.add_file(str(firmware_path), file_format=None)
+            programmer.commit()
+
             log.info(f"Successfully programmed {firmware_path.name}")
+
+            # Post-program reset (separate step, as pyOCD CLI does).
+            # A TransferError here is expected on some targets because the
+            # reset momentarily drops debug access. Tolerate it and tell pyOCD
+            # to skip the DebugCoreStop / DebugPortStop sequences on close,
+            # otherwise session.close() will fail with a DP error and leave
+            # the SWD pins in a state that prevents the new firmware booting.
+            try:
+                log.debug("Resetting target to boot newly programmed firmware")
+                self._session.target.reset()
+            except PyOCDTransferError as err:
+                log.debug(f"Tolerated transfer error during post-program reset: {err}")
+                if not self._session.options.is_set("resume_on_disconnect"):
+                    self._session.options.set("resume_on_disconnect", False)
+
+            # Release the probe so the STLink/USB handle is freed and the
+            # board's USB VCP becomes available for mpremote.
+            self.disconnect()
             return True
-            
+
+        except MPFlashError as e:
+            error_msg = f"Flash programming failed: {e}"
+            log.error(error_msg)
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            raise MPFlashError(error_msg) from e
         except Exception as e:
             error_msg = f"Flash programming failed: {e}"
             log.error(error_msg)
-            raise MPFlashError(error_msg)
-    
+            log.debug(f"Flash programming traceback:\n{traceback.format_exc()}")
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            raise MPFlashError(error_msg) from e
+
     def detect_target(self) -> Optional[str]:
         """Detect the target type connected to the probe."""
         try:
@@ -328,10 +428,10 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
     Raises:
         MPFlashError: When multiple probes are available but no specific probe_id provided
     """
-    from loguru import logger as log
-    from mpflash.exceptions import MPFlashError
-    
     probes = list_pyocd_probes()
+    log.debug(
+        f"find_pyocd_probe(probe_id={probe_id!r}) found {len(probes)} connected probes"
+    )
     
     if not probes:
         return None
@@ -352,11 +452,13 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
     # Exact match first
     for probe in probes:
         if probe.unique_id == probe_id:
+            log.debug(f"Selected probe by exact id: {probe.unique_id}")
             return probe
     
     # Partial match
     matches = [p for p in probes if probe_id in p.unique_id]
     if len(matches) == 1:
+        log.debug(f"Selected probe by partial id: {matches[0].unique_id}")
         return matches[0]
     elif len(matches) > 1:
         raise MPFlashError(
@@ -394,10 +496,17 @@ def flash_pyocd(mcu: MPRemoteBoard, fw_file: Path, erase: bool = False,
     if not is_pyocd_supported(mcu):
         reason = get_unsupported_reason(mcu)
         raise MPFlashError(f"PyOCD flash not supported: {reason}")
-        
+
     # Create flasher and program
     flasher = PyOCDFlash(mcu, probe_id=probe_id, auto_install_packs=auto_install_packs)
-    return flasher.flash_firmware(fw_file, erase=erase, **kwargs)
+    ok = flasher.flash_firmware(fw_file, erase=erase, **kwargs)
+    if ok:
+        # Give the board a moment to reset and re-enumerate over USB,
+        # then wait for the MicroPython VCP to come back.
+        log.info("Done flashing, board has been reset ...")
+        mcu.wait_for_restart()
+        log.success(f"Flashed {mcu.serialport} to {mcu.board} {mcu.version}")
+    return ok
 
 
 def pyocd_info() -> Dict[str, Any]:
