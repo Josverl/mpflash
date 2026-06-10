@@ -14,12 +14,7 @@ from mpflash.logger import log
 from mpflash.errors import MPFlashError
 from mpflash.mpremoteboard import MPRemoteBoard
 from .debug_probe import DebugProbe
-from .pyocd_core import (
-    detect_pyocd_target, 
-    is_pyocd_supported, 
-    get_unsupported_reason,
-    is_pyocd_available
-)
+from .pyocd_core import detect_pyocd_target, is_pyocd_supported, get_unsupported_reason, is_pyocd_available
 
 
 # Lazy import pyOCD to handle optional dependency
@@ -31,7 +26,7 @@ SUPPORTED_PYOCD_FILE_SUFFIXES = {".bin", ".hex", ".elf", ".axf"}
 def _ensure_pyocd():
     """Ensure pyOCD modules are imported and available."""
     global _pyocd_available, _pyocd_modules
-    
+
     if _pyocd_available is None:
         try:
             from pyocd.core.helpers import ConnectHelper
@@ -39,22 +34,24 @@ def _ensure_pyocd():
             from pyocd.core.exceptions import Error as PyOCDError
             from pyocd.core.exceptions import TransferError as PyOCDTransferError
 
-            _pyocd_modules.update({
-                'ConnectHelper': ConnectHelper,
-                'FileProgrammer': FileProgrammer,
-                'PyOCDError': PyOCDError,
-                'PyOCDTransferError': PyOCDTransferError,
-            })
+            _pyocd_modules.update(
+                {
+                    "ConnectHelper": ConnectHelper,
+                    "FileProgrammer": FileProgrammer,
+                    "PyOCDError": PyOCDError,
+                    "PyOCDTransferError": PyOCDTransferError,
+                }
+            )
             _pyocd_available = True
             log.debug("pyOCD modules loaded successfully")
-            
+
         except ImportError as e:
             _pyocd_available = False
             log.debug(f"pyOCD not available: {e}")
-    
+
     if not _pyocd_available:
         raise MPFlashError("pyOCD is not installed. Install with: uv sync --extra pyocd")
-    
+
     return _pyocd_modules
 
 
@@ -62,15 +59,16 @@ def _ensure_pyocd():
 # PyOCD Probe Implementation
 # =============================================================================
 
+
 class PyOCDProbe(DebugProbe):
     """PyOCD debug probe implementation."""
-    
+
     def __init__(self, unique_id: str, description: str, pyocd_probe_obj=None):
         super().__init__(unique_id, description)
         self._pyocd_probe = pyocd_probe_obj
         self._session = None
         self._connected = False
-    
+
     @classmethod
     def is_implementation_available(cls) -> bool:
         """Check if pyOCD implementation is available."""
@@ -79,36 +77,30 @@ class PyOCDProbe(DebugProbe):
             return True
         except MPFlashError:
             return False
-    
+
     @classmethod
-    def discover(cls) -> List['PyOCDProbe']:
+    def discover(cls) -> List["PyOCDProbe"]:
         """Discover all connected pyOCD probes."""
         try:
             modules = _ensure_pyocd()
-            ConnectHelper = modules['ConnectHelper']
-            
+            ConnectHelper = modules["ConnectHelper"]
+
             pyocd_probes = ConnectHelper.get_all_connected_probes(blocking=False)
             probes = []
-            
+
             for pyocd_probe in pyocd_probes:
-                probe = cls(
-                    unique_id=pyocd_probe.unique_id,
-                    description=pyocd_probe.description,
-                    pyocd_probe_obj=pyocd_probe
-                )
+                probe = cls(unique_id=pyocd_probe.unique_id, description=pyocd_probe.description, pyocd_probe_obj=pyocd_probe)
                 probes.append(probe)
-            
+
             log.debug(f"Discovered {len(probes)} pyOCD probes")
             for probe in probes:
-                log.debug(
-                    f"Probe: id={probe.unique_id}, description={probe.description}"
-                )
+                log.debug(f"Probe: id={probe.unique_id}, description={probe.description}")
             return probes
-            
+
         except Exception as e:
             log.debug(f"Failed to discover pyOCD probes: {e}")
             return []
-    
+
     def connect(
         self,
         target_type: Optional[str] = None,
@@ -126,7 +118,7 @@ class PyOCDProbe(DebugProbe):
 
         try:
             modules = _ensure_pyocd()
-            ConnectHelper = modules['ConnectHelper']
+            ConnectHelper = modules["ConnectHelper"]
 
             session_options = {
                 "auto_unlock": True,
@@ -137,9 +129,7 @@ class PyOCDProbe(DebugProbe):
             if frequency > 0:
                 session_options["frequency"] = frequency
 
-            log.debug(
-                f"Opening pyOCD session for probe {self.unique_id} with options: {session_options}"
-            )
+            log.debug(f"Opening pyOCD session for probe {self.unique_id} with options: {session_options}")
             self._session = ConnectHelper.session_with_chosen_probe(
                 unique_id=self.unique_id,
                 options=session_options,
@@ -147,7 +137,7 @@ class PyOCDProbe(DebugProbe):
             if self._session:
                 self._session.open()
                 log.debug(f"pyOCD session opened for probe {self.unique_id}")
-            
+
             if self._session:
                 self._connected = True
                 log.debug(f"Connected to pyOCD probe {self.unique_id}")
@@ -156,16 +146,14 @@ class PyOCDProbe(DebugProbe):
                 return True
             else:
                 raise MPFlashError(f"Failed to create session with probe {self.unique_id}")
-                
+
         except Exception as e:
             self._connected = False
             log.error(f"Failed to connect to pyOCD probe {self.unique_id}: {e}")
             raise MPFlashError(
-                f"Cannot connect to probe {self.unique_id}. "
-                f"Ensure the target is powered and SWD/JTAG pins are connected. "
-                f"Error: {e}"
+                f"Cannot connect to probe {self.unique_id}. Ensure the target is powered and SWD/JTAG pins are connected. Error: {e}"
             )
-    
+
     def disconnect(self) -> None:
         """Disconnect from the pyOCD probe."""
         if self._session:
@@ -177,7 +165,7 @@ class PyOCDProbe(DebugProbe):
             finally:
                 self._session = None
                 self._connected = False
-    
+
     def program_flash(self, firmware_path: Path, target_type: str, **options) -> bool:
         """
         Program flash memory using pyOCD.
@@ -234,22 +222,12 @@ class PyOCDProbe(DebugProbe):
             if not self._session:
                 raise MPFlashError("pyOCD session was not created.")
             if not getattr(self._session, "target", None):
-                raise MPFlashError(
-                    "pyOCD session has no target. Check target_override and probe connection."
-                )
+                raise MPFlashError("pyOCD session has no target. Check target_override and probe connection.")
             if not getattr(self._session.target, "selected_core", None):
-                raise MPFlashError(
-                    "pyOCD session target has no selected_core. "
-                    "Board may not be powered or supported."
-                )
+                raise MPFlashError("pyOCD session target has no selected_core. Board may not be powered or supported.")
 
-            log.info(
-                f"Programming {firmware_path.name} to {target_type} via {self.description}"
-            )
-            log.debug(
-                f"Options: chip_erase={erase_option}, frequency={frequency}Hz, "
-                f"connect_mode={connect_mode}"
-            )
+            log.info(f"Programming {firmware_path.name} to {target_type} via {self.description}")
+            log.debug(f"Options: chip_erase={erase_option}, frequency={frequency}Hz, connect_mode={connect_mode}")
             log.debug(f"Firmware path: {firmware_path}")
 
             # Build programmer + add file + commit (matches pyOCD CLI flow).
@@ -301,22 +279,22 @@ class PyOCDProbe(DebugProbe):
         try:
             if not self._connected:
                 self.connect()
-            
+
             if self._session and self._session.target:
                 target_name = self._session.target.part_number.lower()
                 log.info(f"Detected target: {target_name}")
                 return target_name
-                
+
         except Exception as e:
             log.debug(f"Target detection failed: {e}")
-        
+
         return None
-    
+
     def __enter__(self):
         """Context manager entry."""
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         try:
@@ -330,13 +308,14 @@ class PyOCDProbe(DebugProbe):
 # Flash Programming Interface
 # =============================================================================
 
+
 class PyOCDFlash:
     """High-level pyOCD flash programming interface."""
-    
+
     def __init__(self, mcu: MPRemoteBoard, probe_id: Optional[str] = None, auto_install_packs: bool = True):
         """
         Initialize PyOCD flash programmer.
-        
+
         Args:
             mcu: MPRemoteBoard instance with board information
             probe_id: Specific probe unique ID to use (optional)
@@ -344,59 +323,49 @@ class PyOCDFlash:
         """
         self.mcu = mcu
         self.probe_id = probe_id
-        
+
         # Detect target type using core functionality
         self.target_type = detect_pyocd_target(mcu, auto_install_packs=auto_install_packs)
-        
+
         if not is_pyocd_available():
             raise MPFlashError("No debug probe support available. Install with: uv sync --extra pyocd")
-            
+
         if not self.target_type:
             reason = get_unsupported_reason(mcu)
             raise MPFlashError(f"Board {mcu.board_id} ({mcu.cpu}) not supported by pyOCD: {reason}")
-    
+
     def flash_firmware(self, fw_file: Path, erase: bool = False, **kwargs) -> bool:
         """
         Flash firmware using pyOCD.
-        
+
         Args:
             fw_file: Path to firmware file (.bin, .hex, .elf)
             erase: Whether to perform chip erase before programming
             **kwargs: Additional options passed to pyOCD
-            
+
         Returns:
             True if flashing succeeded
-            
+
         Raises:
             MPFlashError: If flashing fails
         """
         if not fw_file.exists():
             raise MPFlashError(f"Firmware file not found: {fw_file}")
-            
+
         # Find appropriate probe
         probe = find_pyocd_probe(self.probe_id)
         if not probe:
             if self.probe_id:
-                raise MPFlashError(
-                    f"PyOCD probe '{self.probe_id}' not found. "
-                    f"Use 'mpflash list-probes' to see available probes."
-                )
+                raise MPFlashError(f"PyOCD probe '{self.probe_id}' not found. Use 'mpflash list-probes' to see available probes.")
             else:
-                raise MPFlashError(
-                    "No PyOCD debug probes available. "
-                    "Connect a debug probe and ensure pyOCD can detect it."
-                )
-        
+                raise MPFlashError("No PyOCD debug probes available. Connect a debug probe and ensure pyOCD can detect it.")
+
         log.info(f"Flashing {fw_file.name} to {self.mcu.board_id} via pyOCD SWD/JTAG")
         log.debug(f"Target type: {self.target_type}, Probe: {probe.description}")
-        
+
         # Build programming options
-        options = {
-            "erase": erase,
-            "frequency": kwargs.get("frequency", 4000000),
-            "pyocd_options": kwargs.get("pyocd_options", {})
-        }
-        
+        options = {"erase": erase, "frequency": kwargs.get("frequency", 4000000), "pyocd_options": kwargs.get("pyocd_options", {})}
+
         # Program using the probe
         return probe.program_flash(fw_file, self.target_type, **options)
 
@@ -405,10 +374,11 @@ class PyOCDFlash:
 # Probe Discovery Functions
 # =============================================================================
 
+
 def list_pyocd_probes() -> List[PyOCDProbe]:
     """
     Discover all connected pyOCD debug probes.
-    
+
     Returns:
         List of PyOCDProbe instances
     """
@@ -418,24 +388,22 @@ def list_pyocd_probes() -> List[PyOCDProbe]:
 def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
     """
     Find a pyOCD debug probe by ID, or handle multi-probe selection.
-    
+
     Args:
         probe_id: Specific probe ID to find (supports partial matching)
-        
+
     Returns:
         PyOCDProbe instance or None if not found
-        
+
     Raises:
         MPFlashError: When multiple probes are available but no specific probe_id provided
     """
     probes = list_pyocd_probes()
-    log.debug(
-        f"find_pyocd_probe(probe_id={probe_id!r}) found {len(probes)} connected probes"
-    )
-    
+    log.debug(f"find_pyocd_probe(probe_id={probe_id!r}) found {len(probes)} connected probes")
+
     if not probes:
         return None
-    
+
     if not probe_id:
         if len(probes) == 1:
             return probes[0]
@@ -448,13 +416,13 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
                 f"Multiple debug probes found. Use --probe <ID> to specify which probe to use.\n"
                 f"Available probes: {', '.join(p.unique_id for p in probes)}"
             )
-    
+
     # Exact match first
     for probe in probes:
         if probe.unique_id == probe_id:
             log.debug(f"Selected probe by exact id: {probe.unique_id}")
             return probe
-    
+
     # Partial match
     matches = [p for p in probes if probe_id in p.unique_id]
     if len(matches) == 1:
@@ -466,7 +434,7 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
             f"{[p.unique_id for p in matches]}. "
             f"Use a more specific ID or the full unique ID."
         )
-    
+
     return None
 
 
@@ -474,22 +442,24 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
 # Main Public API
 # =============================================================================
 
-def flash_pyocd(mcu: MPRemoteBoard, fw_file: Path, erase: bool = False, 
-                probe_id: Optional[str] = None, auto_install_packs: bool = True, **kwargs) -> bool:
+
+def flash_pyocd(
+    mcu: MPRemoteBoard, fw_file: Path, erase: bool = False, probe_id: Optional[str] = None, auto_install_packs: bool = True, **kwargs
+) -> bool:
     """
     Flash MCU using pyOCD SWD/JTAG interface.
-    
+
     Args:
         mcu: MPRemoteBoard instance with board information
         fw_file: Path to firmware file
-        erase: Whether to erase flash before programming  
+        erase: Whether to erase flash before programming
         probe_id: Specific debug probe ID to use (optional)
         auto_install_packs: Automatically install missing CMSIS packs
         **kwargs: Additional options
-        
+
     Returns:
         True if flashing succeeded
-        
+
     Raises:
         MPFlashError: If flashing fails
     """
@@ -512,34 +482,31 @@ def flash_pyocd(mcu: MPRemoteBoard, fw_file: Path, erase: bool = False,
 def pyocd_info() -> Dict[str, Any]:
     """
     Get information about pyOCD installation and available probes.
-    
+
     Returns:
         Dictionary with pyOCD status information
     """
-    info = {
-        "available": is_pyocd_available(),
-        "probes": [],
-        "version": None
-    }
-    
+    info = {"available": is_pyocd_available(), "probes": [], "version": None}
+
     if info["available"]:
         try:
             import pyocd
+
             info["version"] = pyocd.__version__
         except ImportError:
             pass
-            
+
         info["probes"] = [
             {
                 "unique_id": probe.unique_id,
                 "description": probe.description,
-                "vendor": getattr(probe, 'vendor_name', 'Unknown'),
-                "product": getattr(probe, 'product_name', 'Unknown'),
-                "target_type": probe.target_type
+                "vendor": getattr(probe, "vendor_name", "Unknown"),
+                "product": getattr(probe, "product_name", "Unknown"),
+                "target_type": probe.target_type,
             }
             for probe in list_pyocd_probes()
         ]
-    
+
     return info
 
 
@@ -547,14 +514,15 @@ def pyocd_info() -> Dict[str, Any]:
 # Compatibility Functions (for migration)
 # =============================================================================
 
+
 def find_probe_for_target(target_type: str, probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
     """
     Find a suitable debug probe for the target type.
-    
+
     Args:
         target_type: pyOCD target type string
         probe_id: Specific probe ID to find (optional)
-        
+
     Returns:
         PyOCDProbe instance or None if not found
     """
