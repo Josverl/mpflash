@@ -444,7 +444,12 @@ class TestFlashPyOCDFunction:
             result = flash_pyocd(self.mock_mcu, self.test_firmware)
 
             assert result is True
-            mock_flasher_class.assert_called_once_with(self.mock_mcu, probe_id=None, auto_install_packs=True)
+            mock_flasher_class.assert_called_once_with(
+                self.mock_mcu,
+                probe_id=None,
+                auto_install_packs=True,
+                target_override=None,
+            )
             mock_flasher.flash_firmware.assert_called_once_with(self.test_firmware, erase=False)
         finally:
             self.test_firmware.unlink(missing_ok=True)
