@@ -256,11 +256,13 @@ class TestPackInstallation:
         find_result = Mock()
         find_result.returncode = 0
         find_result.stdout = MOCK_SUBPROCESS_OUTPUTS["pyocd_pack_find_stm32h563"]
+        find_result.stderr = ""
 
         # Mock pack install command
         install_result = Mock()
         install_result.returncode = 0
         install_result.stdout = MOCK_SUBPROCESS_OUTPUTS["pyocd_pack_install_success"]
+        install_result.stderr = ""
 
         mock_subprocess.side_effect = [find_result, install_result]
 
@@ -283,6 +285,7 @@ class TestPackInstallation:
         """Test pack installation when search fails."""
         mock_result = Mock()
         mock_result.returncode = 1
+        mock_result.stdout = ""
         mock_result.stderr = "No packs found"
         mock_subprocess.return_value = mock_result
 

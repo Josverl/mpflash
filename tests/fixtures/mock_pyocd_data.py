@@ -137,6 +137,10 @@ class MockMCU:
     def set_board_info_toml(self, *args, **kwargs):  # pragma: no cover - test stub
         return None
 
+    def wait_for_restart(self, *args, **kwargs):  # pragma: no cover - test stub
+        """No-op stub for post-flash USB re-enumeration in unit tests."""
+        return None
+
 
 MOCK_MCUS = {
     "stm32wb55": MockMCU("NUCLEO_WB55", "STM32WB55RGV6", "NUCLEO-WB55 with STM32WB55RGV6", "stm32"),
