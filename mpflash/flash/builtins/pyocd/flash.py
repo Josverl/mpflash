@@ -36,6 +36,10 @@ _pyocd_modules = {}
 SUPPORTED_PYOCD_FILE_SUFFIXES = {".bin", ".hex", ".elf", ".axf"}
 _last_probe_discovery_error: Optional[str] = None
 
+# Some Renesas RA4M1 boards are unstable at pyOCD's higher default SWD rates.
+# Use a conservative default that matches known-good manual pyocd CLI behaviour.
+RA4M1_SAFE_SWD_FREQUENCY_HZ = 1_000_000
+
 
 def _is_linux_usb_permission_error(message: str) -> bool:
     """Return True when an error message looks like Linux USB permission denial."""
@@ -89,6 +93,7 @@ def _ensure_pyocd():
             from pyocd.flash.file_programmer import FileProgrammer
             from pyocd.core.exceptions import Error as PyOCDError
             from pyocd.core.exceptions import TransferError as PyOCDTransferError
+            from pyocd.core.exceptions import CoreRegisterAccessError as PyOCDCoreRegisterAccessError
 
             _pyocd_modules.update(
                 {
@@ -96,6 +101,7 @@ def _ensure_pyocd():
                     "FileProgrammer": FileProgrammer,
                     "PyOCDError": PyOCDError,
                     "PyOCDTransferError": PyOCDTransferError,
+                    "PyOCDCoreRegisterAccessError": PyOCDCoreRegisterAccessError,
                 }
             )
             _pyocd_available = True
@@ -164,7 +170,7 @@ class PyOCDProbe(DebugProbe):
         self,
         target_type: Optional[str] = None,
         frequency: int = 4_000_000,
-        connect_mode: str = "under-reset",
+        connect_mode: Optional[str] = "under-reset",
     ) -> bool:
         """Connect to the pyOCD probe.
 
@@ -178,7 +184,7 @@ class PyOCDProbe(DebugProbe):
         modules = _ensure_pyocd()
         ConnectHelper = modules["ConnectHelper"]
 
-        modes = [connect_mode, "attach", "pre-reset"]
+        modes = [connect_mode, "halt", "attach", "pre-reset"]
         attempted = []
         seen = set()
         last_error: Optional[Exception] = None
@@ -189,10 +195,9 @@ class PyOCDProbe(DebugProbe):
             seen.add(mode)
             attempted.append(mode)
 
-            session_options = {
-                "auto_unlock": True,
-                "connect_mode": mode,
-            }
+            session_options: Dict[str, Any] = {"auto_unlock": True}
+            if mode is not None:
+                session_options["connect_mode"] = mode
             if target_type:
                 session_options["target_override"] = target_type
             if frequency > 0:
@@ -285,6 +290,7 @@ class PyOCDProbe(DebugProbe):
             modules = _ensure_pyocd()
             FileProgrammer = modules["FileProgrammer"]
             PyOCDTransferError = modules["PyOCDTransferError"]
+            PyOCDCoreRegisterAccessError = modules["PyOCDCoreRegisterAccessError"]
 
             # Extract programming options.
             # ``chip_erase`` must be one of {"auto", "sector", "chip"} and is
@@ -322,10 +328,35 @@ class PyOCDProbe(DebugProbe):
             log.debug(f"Options: chip_erase={erase_option}, frequency={frequency}Hz, connect_mode={connect_mode}")
             log.debug(f"Firmware path: {firmware_path}")
 
+            # Match pyOCD's load/flash subcommand default pre-reset behaviour.
+            # For RA4M1 this reset-and-halt step is required before flash init.
+            try:
+                self._session.target.reset_and_halt()
+            except Exception as reset_err:
+                log.debug(f"Target reset_and_halt before programming failed: {reset_err}")
+
             # Build programmer + add file + commit (matches pyOCD CLI flow).
             programmer = FileProgrammer(self._session, chip_erase=erase_option)
             programmer.add_file(str(firmware_path), file_format=None)
-            programmer.commit()
+
+            # Ensure the core is halted before invoking the flash algorithm.
+            # Some targets connected in attach mode can remain running.
+            try:
+                self._session.target.halt()
+            except Exception as halt_err:
+                log.debug(f"Target halt before programming failed: {halt_err}")
+
+            try:
+                programmer.commit()
+            except PyOCDCoreRegisterAccessError:
+                # Retry once after forcing reset+halt to recover from
+                # transient running-core states on certain targets/probes.
+                log.debug("Retrying flash commit after CoreRegisterAccessError with reset_and_halt")
+                try:
+                    self._session.target.reset_and_halt()
+                    programmer.commit()
+                except PyOCDCoreRegisterAccessError:
+                    raise
 
             log.info(f"Successfully programmed {firmware_path.name}")
 
@@ -480,8 +511,29 @@ class PyOCDFlash:
         log.info(f"Flashing {fw_file.name} to {self.mcu.board_id} via pyOCD SWD/JTAG")
         log.debug(f"Target type: {self.target_type}, Probe: {probe.description}")
 
-        # Build programming options
-        options = {"erase": erase, "frequency": kwargs.get("frequency", 4000000), "pyocd_options": kwargs.get("pyocd_options", {})}
+        # Build programming options.
+        # Default RA4M1 targets to a safer SWD frequency unless explicitly set.
+        requested_frequency = kwargs.get("frequency")
+        if requested_frequency is None and self.target_type and "r7fa4m1" in self.target_type:
+            requested_frequency = RA4M1_SAFE_SWD_FREQUENCY_HZ
+            log.info(
+                f"Using safe SWD frequency {requested_frequency}Hz for target {self.target_type}"
+            )
+
+        requested_connect_mode = kwargs.get("connect_mode")
+        if requested_connect_mode is None and self.target_type and "r7fa4m1" in self.target_type:
+            requested_connect_mode = "halt"
+            log.info(
+                f"Using pyOCD connect_mode={requested_connect_mode} for target {self.target_type}"
+            )
+
+        options = {
+            "erase": erase,
+            "frequency": requested_frequency if requested_frequency is not None else 4_000_000,
+            "pyocd_options": kwargs.get("pyocd_options", {}),
+        }
+        if requested_connect_mode is not None:
+            options["connect_mode"] = requested_connect_mode
 
         # Program using the probe
         assert self.target_type is not None , "Target type should have been detected in __init__"

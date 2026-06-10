@@ -150,6 +150,13 @@ class TestFuzzyMatching:
 
         assert result is None
 
+    def test_renesas_ra_family_matching(self):
+        """Test that Renesas RA names match pyOCD R7FA-style targets."""
+        mcu_info = {"chip_family": "RA4M1", "chip_variant": "", "port": "renesas-ra"}
+        result = fuzzy_match_target(mcu_info, ALL_PYOCD_TARGETS)
+
+        assert result == "r7fa4m1ab"
+
 
 @pytest.mark.skipif(
     sys.version_info >= (3, 14), reason="pyOCD unavailable on Python 3.14+ due to libusb-package missing wheels (known dependency issue)"

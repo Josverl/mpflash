@@ -399,12 +399,22 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
         return None
 
     chip_full = (chip_family + chip_variant).lower()
+    # Build normalized aliases to bridge naming differences between board metadata
+    # and pyOCD targets. Example: RA4M1 <-> r7fa4m1ab.
+    family_aliases = {chip_family.lower(), chip_full}
+    if chip_family.upper().startswith("RA") and len(chip_family) > 2:
+        # pyOCD Renesas targets often include "a4m1" token inside "r7fa4m1xx".
+        family_aliases.add(chip_family[1:].lower())
+
+    family_aliases = {alias for alias in family_aliases if alias}
     log.debug(f"Fuzzy matching for chip: {chip_family}{chip_variant}, port: {port}")
 
     # 0. Fast path: exact match against target name or part number
-    if chip_full:
+    if family_aliases:
         for target_name, target_info in pyocd_targets.items():
-            if target_name.lower() == chip_full or target_info.get("part_number", "").upper() == chip_full.upper():
+            target_lower = target_name.lower()
+            part_lower = target_info.get("part_number", "").lower()
+            if target_lower in family_aliases or part_lower in family_aliases:
                 log.info(f"Exact target match: {target_name}")
                 return target_name
         # Try chip_family alone as exact match (e.g. STM32F405RG)
@@ -418,20 +428,27 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
 
     for target_name, target_info in pyocd_targets.items():
         target_lower = target_name.lower()
+        target_normalized = re.sub(r"[^a-z0-9]", "", target_lower)
         part_number = target_info.get("part_number", "").upper()
+        part_normalized = re.sub(r"[^a-z0-9]", "", part_number.lower())
+        vendor = target_info.get("vendor", "").lower()
 
         # Calculate similarity scores
         scores = []
 
         # 1. Direct chip family match
-        if chip_family.lower() in target_lower:
+        if any(alias and len(alias) >= 4 and alias in target_normalized for alias in family_aliases):
+            family_score = 1.0
+        elif chip_family.lower() in target_lower:
             family_score = 1.0
         else:
             family_score = SequenceMatcher(None, chip_family.lower(), target_lower).ratio()
         scores.append(("family", family_score * 0.5))
 
         # 2. Part number match (if available)
-        if part_number and chip_family in part_number:
+        if part_number and any(alias and len(alias) >= 4 and alias in part_normalized for alias in family_aliases):
+            part_score = 1.0
+        elif part_number and chip_family in part_number:
             part_score = 1.0
         elif part_number:
             part_score = SequenceMatcher(None, chip_family, part_number).ratio()
@@ -446,6 +463,10 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
         elif port == "rp2" and "rp20" in target_lower:
             port_score = 0.2
         elif port == "samd" and "samd" in target_lower:
+            port_score = 0.2
+        elif port in {"renesas-ra", "renesas"} and (
+            "r7f" in target_lower or "renesas" in vendor or "ra" in target_lower
+        ):
             port_score = 0.2
         scores.append(("port", port_score))
 
