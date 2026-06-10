@@ -7,11 +7,16 @@ short-circuit it in tests.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Tuple
+
 from mpflash.common import BootloaderMethod
 from mpflash.errors import MPFlashError
 from mpflash.flash.base import FlashBackend
 from mpflash.flash.context import FlashContext, FlashResult, Platform
 from mpflash.flash.registry import register
+
+if TYPE_CHECKING:
+    from mpflash.mpremoteboard import MPRemoteBoard
 
 
 class UF2Backend(FlashBackend):
@@ -26,6 +31,25 @@ class UF2Backend(FlashBackend):
     requires_bootloader = True
     priority = 10
 
+    # Per-port preferences are returned by ``get_preferred_bootloaders``;
+    # this default covers anything not listed there.
+    preferred_bootloaders: Tuple[str, ...] = ("mpy", "touch1200", "manual")
+
+    def get_preferred_bootloaders(self, mcu: "MPRemoteBoard") -> Tuple[str, ...]:
+        # rp2 boards work best with machine.bootloader(); samd/nrf prefer 1200-baud touch.
+        if mcu.port == "rp2":
+            return ("mpy", "touch1200", "manual")
+        if mcu.port in {"samd", "nrf"}:
+            return ("touch1200", "mpy", "manual")
+        return self.preferred_bootloaders
+
+    def is_board_ready(self, mcu: "MPRemoteBoard") -> bool:
+        from mpflash.flash.builtins.uf2 import waitfor_uf2
+
+        if not mcu.port:
+            return False
+        return bool(waitfor_uf2(board_id=mcu.port.upper()))
+
     def flash(self, ctx: FlashContext) -> FlashResult:
         # Lazy import — keeps tenacity / psutil / blkinfo out of the startup path.
         from mpflash.flash.builtins.uf2 import flash_uf2
@@ -35,7 +59,7 @@ class UF2Backend(FlashBackend):
             raise MPFlashError("UF2 backend requires FlashContext.services")
 
         bootloader = ctx.bootloader or BootloaderMethod.AUTO
-        if not services.enter_bootloader(ctx.mcu, bootloader):
+        if not services.enter_bootloader(ctx.mcu, bootloader, backend=self):
             return FlashResult(
                 success=False,
                 backend=self.name,

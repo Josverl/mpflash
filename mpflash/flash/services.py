@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from mpflash.flash.context import Platform
 from mpflash.logger import log as _log
 
 if TYPE_CHECKING:
     from mpflash.common import BootloaderMethod
+    from mpflash.flash.base import FlashBackend
     from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -60,12 +61,25 @@ class FlashServices:
         method: "BootloaderMethod",
         timeout: int = 10,
         wait_after: int = 2,
+        *,
+        backend: Optional["FlashBackend"] = None,
     ) -> bool:
-        """Put the board into bootloader mode using the requested method."""
+        """Put the board into bootloader mode using the requested method.
+
+        ``backend`` (optional) lets the caller pass its own
+        :class:`FlashBackend` instance so the bootloader orchestrator can
+        consult ``get_preferred_bootloaders`` and ``is_board_ready``.
+        """
         # JIT import — bootloader pulls in serial + win32 helpers.
         from mpflash.bootloader.activate import enter_bootloader
 
-        return enter_bootloader(mcu, method=method, timeout=timeout, wait_after=wait_after)
+        return enter_bootloader(
+            mcu,
+            method=method,
+            timeout=timeout,
+            wait_after=wait_after,
+            backend=backend,
+        )
 
     def wait_for_restart(self, mcu: "MPRemoteBoard", timeout: int = 10) -> None:
         mcu.wait_for_restart(timeout=timeout)
