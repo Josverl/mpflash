@@ -31,6 +31,7 @@ class DFUBackend(FlashBackend):
     preferred_bootloaders: Tuple[str, ...] = ("touch1200", "mpy", "manual")
 
     def is_board_ready(self, mcu: "MPRemoteBoard") -> bool:
+        import time
         if os.name == "nt":
             driver_installed, status = _check_for_stm32_bootloader_device()
             if not driver_installed:
@@ -43,7 +44,16 @@ class DFUBackend(FlashBackend):
                     "https://github.com/pbatard/libwdi/wiki/Zadig"
                 )
                 return False
-        return _check_dfu_devices()
+        # Poll for DFU device for up to 3 seconds
+        max_wait = 3.0
+        poll_interval = 0.25
+        waited = 0.0
+        while waited < max_wait:
+            if _check_dfu_devices():
+                return True
+            time.sleep(poll_interval)
+            waited += poll_interval
+        return False
 
     def flash(self, ctx: FlashContext) -> FlashResult:
         from mpflash.flash.builtins.dfu import flash_stm32
