@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from mpflash.flash.uf2 import flash_uf2
+from mpflash.flash.builtins.uf2 import flash_uf2
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -46,7 +46,7 @@ def test_flash_uf2_unsupported_port(mock_mcu, mock_fw_file):
 
 
 def test_flash_uf2_board_not_in_bootloader(mock_mcu, mock_fw_file):
-    with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=None):
+    with mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=None):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
         assert result is None
 
@@ -54,18 +54,18 @@ def test_flash_uf2_board_not_in_bootloader(mock_mcu, mock_fw_file):
 # TODO: Need better mocking of the destination
 
 # def test_flash_uf2_successful_flash(mock_mcu, mock_fw_file, mock_destination):
-#     with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination), \
-#          mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"), \
-#          mock.patch("mpflash.flash.uf2.dismount_uf2_linux"), \
-#          mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"):
+#     with mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination), \
+#          mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"), \
+#          mock.patch("mpflash.flash.builtins.uf2.dismount_uf2_linux"), \
+#          mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="test_board_id"):
 #         result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
 #         assert result == mock_mcu
 
 # def test_flash_uf2_successful_flash_with_erase(mock_mcu, mock_fw_file, mock_destination, mock_erase_file):
-#     with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination), \
-#          mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"), \
-#          mock.patch("mpflash.flash.uf2.dismount_uf2_linux"), \
-#          mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"), \
+#     with mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination), \
+#          mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"), \
+#          mock.patch("mpflash.flash.builtins.uf2.dismount_uf2_linux"), \
+#          mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="test_board_id"), \
 #          mock.patch("pathlib.Path.resolve", return_value=mock_erase_file):
 #         result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
 #         assert result == mock_mcu
@@ -77,10 +77,10 @@ def test_flash_uf2_erase_fallback_samd(mock_mcu, mock_fw_file, mock_destination)
     mock_mcu.run_command.return_value = (0, [""])  # Successful erase
 
     with (
-        mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination),
-        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"),
-        mock.patch("mpflash.flash.uf2.dismount_uf2_linux"),
-        mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"),
+        mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination),
+        mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"),
+        mock.patch("mpflash.flash.builtins.uf2.dismount_uf2_linux"),
+        mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="test_board_id"),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
 
@@ -95,10 +95,10 @@ def test_flash_uf2_erase_fallback_failed(mock_mcu, mock_fw_file, mock_destinatio
     mock_mcu.run_command.return_value = (1, ["Error message"])  # Failed erase
 
     with (
-        mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination),
-        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"),
-        mock.patch("mpflash.flash.uf2.dismount_uf2_linux"),
-        mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"),
+        mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination),
+        mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"),
+        mock.patch("mpflash.flash.builtins.uf2.dismount_uf2_linux"),
+        mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="test_board_id"),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
 
@@ -110,7 +110,7 @@ def test_flash_uf2_erase_fallback_failed(mock_mcu, mock_fw_file, mock_destinatio
 
 def test_flash_uf2_erase_not_supported(mock_mcu, mock_fw_file):
     mock_mcu.port = "unsupported_erase_port"
-    with mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=None):
+    with mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=None):
         with pytest.raises(KeyError):
             result = flash_uf2(mock_mcu, mock_fw_file, erase=True)
             assert result is None
@@ -122,10 +122,10 @@ def test_flash_uf2_no_erase_command_when_erase_false(mock_mcu, mock_fw_file, moc
     mock_mcu.run_command = mock.Mock()
 
     with (
-        mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination),
-        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"),
-        mock.patch("mpflash.flash.uf2.dismount_uf2_linux"),
-        mock.patch("mpflash.flash.uf2.get_board_id", return_value="test_board_id"),
+        mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination),
+        mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"),
+        mock.patch("mpflash.flash.builtins.uf2.dismount_uf2_linux"),
+        mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="test_board_id"),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
 
@@ -145,10 +145,10 @@ def test_flash_uf2_uses_explicit_volume_path(tmp_path, mock_mcu, mock_fw_file):
     mock_mcu.serialport = str(tmp_path)
 
     with (
-        mock.patch("mpflash.flash.uf2._is_volume_pattern", return_value=True),
-        mock.patch("mpflash.flash.uf2.waitfor_uf2") as m_waitfor,
-        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2") as m_copy,
-        mock.patch("mpflash.flash.uf2.get_board_id", return_value="RPI-RP2"),
+        mock.patch("mpflash.flash.builtins.uf2._is_volume_pattern", return_value=True),
+        mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2") as m_waitfor,
+        mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2") as m_copy,
+        mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="RPI-RP2"),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
 
@@ -166,10 +166,10 @@ def test_flash_uf2_explicit_volume_not_found_falls_back_to_autodetect(tmp_path, 
     mock_mcu.serialport = str(tmp_path)
 
     with (
-        mock.patch("mpflash.flash.uf2._is_volume_pattern", return_value=True),
-        mock.patch("mpflash.flash.uf2.waitfor_uf2", return_value=mock_destination) as m_waitfor,
-        mock.patch("mpflash.flash.uf2.copy_firmware_to_uf2"),
-        mock.patch("mpflash.flash.uf2.get_board_id", return_value="RPI-RP2"),
+        mock.patch("mpflash.flash.builtins.uf2._is_volume_pattern", return_value=True),
+        mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination) as m_waitfor,
+        mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"),
+        mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="RPI-RP2"),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file, erase=False)
 

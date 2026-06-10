@@ -22,7 +22,7 @@ class DFUBackend(FlashBackend):
     priority = 10
 
     def flash(self, ctx: FlashContext) -> FlashResult:
-        from mpflash.flash.stm32 import flash_stm32
+        from mpflash.flash.builtins.dfu import flash_stm32
 
         services = ctx.services
         if services is None:

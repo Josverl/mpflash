@@ -82,7 +82,7 @@ def test_explicit_pyocd_method_routes_to_pyocd(tmp_path: Path, monkeypatch):
         lambda self: True,
     )
     monkeypatch.setattr(
-        "mpflash.flash.pyocd_core.is_pyocd_supported", lambda mcu: True
+        "mpflash.flash.builtins.pyocd.core.is_pyocd_supported", lambda mcu: True
     )
     backend = select_backend(mcu, fw, requested_name="pyocd")
     assert backend.name == "pyocd"
@@ -144,7 +144,7 @@ def test_external_plugin_registration(tmp_path: Path):
 
 
 def test_translate_volume_path_wsl2(monkeypatch):
-    from mpflash.flash.uf2 import volume
+    from mpflash.flash.builtins.uf2 import volume
 
     monkeypatch.setattr(volume, "_platform", lambda: Platform.WSL2)
     assert volume.translate_volume_path("D:\\") == "/mnt/d"
@@ -153,7 +153,7 @@ def test_translate_volume_path_wsl2(monkeypatch):
 
 
 def test_translate_volume_path_other_platforms(monkeypatch):
-    from mpflash.flash.uf2 import volume
+    from mpflash.flash.builtins.uf2 import volume
 
     for plat in (Platform.LINUX, Platform.WINDOWS, Platform.MACOS):
         monkeypatch.setattr(volume, "_platform", lambda p=plat: p)

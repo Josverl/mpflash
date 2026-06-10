@@ -198,7 +198,7 @@ def temp_firmware_file(tmp_path):
 def reset_probe_registry():
     """Reset the probe registry before each test."""
     try:
-        from mpflash.flash.debug_probe import _probe_implementations
+        from mpflash.flash.builtins.pyocd.probes import _probe_implementations
 
         original_implementations = _probe_implementations.copy()
         _probe_implementations.clear()

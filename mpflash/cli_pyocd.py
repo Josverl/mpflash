@@ -11,11 +11,14 @@ from mpflash.cli_group import cli
 from mpflash.errors import MPFlashError
 
 try:
-    from mpflash.flash.pyocd_flash import (
+    from mpflash.flash.builtins.pyocd.flash import (
         list_pyocd_probes,
         pyocd_info,
     )
-    from mpflash.flash.pyocd_core import is_pyocd_available, get_pyocd_targets
+    from mpflash.flash.builtins.pyocd.core import (
+        get_pyocd_targets,
+        is_pyocd_available,
+    )
 
     PYOCD_AVAILABLE = True
 except ImportError:

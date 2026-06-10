@@ -28,7 +28,7 @@ class UF2Backend(FlashBackend):
 
     def flash(self, ctx: FlashContext) -> FlashResult:
         # Lazy import — keeps tenacity / psutil / blkinfo out of the startup path.
-        from mpflash.flash.uf2 import flash_uf2
+        from mpflash.flash.builtins.uf2 import flash_uf2
 
         services = ctx.services
         if services is None:

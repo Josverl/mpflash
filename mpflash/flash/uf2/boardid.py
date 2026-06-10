@@ -1,15 +1,4 @@
-from pathlib import Path
+"""Compatibility shim — see :mod:`mpflash.flash.builtins.uf2.boardid`."""
 
-from loguru import logger as log
-
-
-def get_board_id(path: Path):
-    # Option : read Board-ID from INFO_UF2.TXT
-    board_id = "Unknown"
-    with open(path / "INFO_UF2.TXT") as f:
-        data = f.readlines()
-    for line in data:
-        if line.startswith("Board-ID"):
-            board_id = line[9:].strip()
-    log.debug(f"INFO_UF2.TXT Board-ID={board_id}")
-    return board_id
+from mpflash.flash.builtins.uf2.boardid import *  # noqa: F401,F403
+from mpflash.flash.builtins.uf2.boardid import get_board_id  # noqa: F401

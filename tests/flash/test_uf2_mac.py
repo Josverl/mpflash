@@ -1,7 +1,7 @@
 import pytest
 from unittest import mock
 from pathlib import Path
-from mpflash.flash.uf2.macos import wait_for_UF2_macos
+from mpflash.flash.builtins.uf2.macos import wait_for_UF2_macos
 
 
 @pytest.fixture
