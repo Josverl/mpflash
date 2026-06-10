@@ -5,7 +5,7 @@ import rich_click as click
 from loguru import logger as log
 
 from mpflash.cli_group import cli
-from mpflash.common import BootloaderMethod, FlashParams, UF2_PORTS, filtered_comports
+from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, UF2_PORTS, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
 
@@ -115,6 +115,27 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--method",
+    "--flash-method",
+    "flash_method",
+    type=click.Choice([e.value for e in FlashMethod]),
+    default="auto",
+    show_default=True,
+    help="""Flash programming method. 'auto' uses serial bootloader methods (existing behavior). Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+)
+@click.option(
+    "--probe",
+    "--probe-id",  # Keep as alias for backwards compatibility
+    "probe_id", 
+    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    metavar="PROBE_ID",
+)
+@click.option(
+    "--auto-install-packs/--no-auto-install-packs",
+    default=True,
+    help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
@@ -190,6 +211,14 @@ def cli_flash_board(**kwargs) -> int:
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
+        
+    # Convert flash_method to method and convert to enum
+    flash_method_str = kwargs.pop("flash_method", "auto")
+    flash_method = FlashMethod(flash_method_str)
+    
+    # Extract pyOCD options
+    probe_id = kwargs.pop("probe_id", None)
+    auto_install_packs = kwargs.pop("auto_install_packs", True)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -323,6 +352,9 @@ def cli_flash_board(**kwargs) -> int:
         tasks,
         params.erase,
         params.bootloader,
+        method=flash_method,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
         flash_mode=params.flash_mode,
         retry_on_error=params.retry_on_error,
         retry_baud=params.retry_baud,
