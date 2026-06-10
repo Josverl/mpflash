@@ -21,6 +21,16 @@ def _init_db(db_fx):
     from tests/conftest.py.
     """
     yield
+
+
+@pytest.fixture(autouse=True)
+def _non_interactive_defaults(monkeypatch):
+    """Avoid CI-only prompt flows by default; tests can override this."""
+    import mpflash.ask_input as ask_input
+
+    monkeypatch.setattr(ask_input, "ask_missing_params", lambda params: params)
+
+
 from click.testing import CliRunner
 
 # Import CLI functions and related modules
