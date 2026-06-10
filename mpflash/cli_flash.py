@@ -121,7 +121,7 @@ from mpflash.versions import clean_version
     type=click.Choice([e.value for e in FlashMethod]),
     default="auto",
     show_default=True,
-    help="""Flash programming method. 'auto' uses serial bootloader methods (existing behavior). Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'pyocd' for SWD/JTAG programming via debug probe.""",
 )
 @click.option(
     "--probe",
