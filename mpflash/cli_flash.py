@@ -183,7 +183,8 @@ from mpflash.versions import clean_version
     show_default=True,
     help="""Flash a custom firmware""",
 )
-def cli_flash_board(**kwargs) -> int:
+@click.pass_context
+def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     import mpflash.download.jid as jid
     import mpflash.mpboard_id as mpboard_id
     from mpflash.ask_input import ask_missing_params
@@ -263,7 +264,7 @@ def cli_flash_board(**kwargs) -> int:
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
-        return 2
+        ctx.exit(2)
     assert isinstance(params, FlashParams)
 
     if len(params.versions) > 1:
@@ -362,7 +363,7 @@ def cli_flash_board(**kwargs) -> int:
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")
-        return 0
+        ctx.exit(0)
     else:
         log.error("No boards were flashed")
-        return 1
+        ctx.exit(1)

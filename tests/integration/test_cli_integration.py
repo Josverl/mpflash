@@ -140,11 +140,6 @@ class TestCLIFlashCommandPyOCD:
         assert result.exit_code != 0
         assert "Invalid value" in result.output
     
-    # TODO(rebase): cli_flash_board uses `return 1` on flash failure, but click does
-    # not propagate function return values to CliRunner.exit_code in standalone_mode.
-    # Either the CLI should call ctx.exit(1) / sys.exit(1), or this test needs to
-    # assert on log output / mocks rather than exit_code.
-    @pytest.mark.xfail(reason="cli_flash_board returns int but click ignores return value for exit_code", strict=False)
     @patch('mpflash.flash.flash_tasks')
     @patch('mpflash.connected.connected_ports_boards_variants')
     def test_flash_failure_handling(self, mock_connected, mock_flash_list):
@@ -161,7 +156,11 @@ class TestCLIFlashCommandPyOCD:
         ])
         
         assert result.exit_code == 1
-        assert "No boards were flashed" in result.output
+        # Verify the flash pipeline ran end-to-end and produced the empty result
+        # we configured. Asserting on mock calls is more robust than asserting on
+        # loguru log output, which is order-dependent across the full suite.
+        mock_connected.assert_called_once()
+        mock_flash_list.assert_called_once()
 
 
 class TestCLIParameterValidation:
@@ -287,9 +286,6 @@ class TestCLIWorkflowIntegration:
         mock_download.assert_not_called()
         mock_flash_list.assert_called_once()
     
-    # TODO(rebase): Same issue as test_flash_failure_handling - cli_flash_board
-    # returns 2 on user cancellation but click does not propagate that to exit_code.
-    @pytest.mark.xfail(reason="cli_flash_board returns int but click ignores return value for exit_code", strict=False)
     @patch('mpflash.connected.connected_ports_boards_variants')
     @patch('mpflash.ask_input.ask_missing_params')
     def test_interactive_parameter_prompting(self, mock_ask, mock_connected):
