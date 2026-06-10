@@ -435,7 +435,13 @@ class PyOCDProbe(DebugProbe):
 class PyOCDFlash:
     """High-level pyOCD flash programming interface."""
 
-    def __init__(self, mcu: MPRemoteBoard, probe_id: Optional[str] = None, auto_install_packs: bool = True):
+    def __init__(
+        self,
+        mcu: MPRemoteBoard,
+        probe_id: Optional[str] = None,
+        auto_install_packs: bool = True,
+        target_override: Optional[str] = None,
+    ):
         """
         Initialize PyOCD flash programmer.
 
@@ -443,12 +449,19 @@ class PyOCDFlash:
             mcu: MPRemoteBoard instance with board information
             probe_id: Specific probe unique ID to use (optional)
             auto_install_packs: Automatically install missing CMSIS packs
+            target_override: Explicit pyOCD target name override (optional)
         """
         self.mcu = mcu
         self.probe_id = probe_id
 
-        # Detect target type using core functionality
-        self.target_type = detect_pyocd_target(mcu, auto_install_packs=auto_install_packs)
+        # Detect target type using core functionality unless explicitly overridden.
+        self.target_type = target_override or detect_pyocd_target(
+            mcu, auto_install_packs=auto_install_packs
+        )
+        if target_override:
+            log.info(
+                f"Using explicit pyOCD target override for {mcu.board_id}: {target_override}"
+            )
 
         if not is_pyocd_available():
             raise MPFlashError("No debug probe support available. Install with: uv sync --extra pyocd")
@@ -614,7 +627,13 @@ def find_pyocd_probe(probe_id: Optional[str] = None) -> Optional[PyOCDProbe]:
 
 
 def flash_pyocd(
-    mcu: MPRemoteBoard, fw_file: Path, erase: bool = False, probe_id: Optional[str] = None, auto_install_packs: bool = True, **kwargs
+    mcu: MPRemoteBoard,
+    fw_file: Path,
+    erase: bool = False,
+    probe_id: Optional[str] = None,
+    auto_install_packs: bool = True,
+    target_override: Optional[str] = None,
+    **kwargs,
 ) -> bool:
     """
     Flash MCU using pyOCD SWD/JTAG interface.
@@ -625,6 +644,7 @@ def flash_pyocd(
         erase: Whether to erase flash before programming
         probe_id: Specific debug probe ID to use (optional)
         auto_install_packs: Automatically install missing CMSIS packs
+        target_override: Explicit pyOCD target name override (optional)
         **kwargs: Additional options
 
     Returns:
@@ -633,12 +653,17 @@ def flash_pyocd(
     Raises:
         MPFlashError: If flashing fails
     """
-    if not is_pyocd_supported(mcu):
+    if not target_override and not is_pyocd_supported(mcu):
         reason = get_unsupported_reason(mcu)
         raise MPFlashError(f"PyOCD flash not supported: {reason}")
 
     # Create flasher and program
-    flasher = PyOCDFlash(mcu, probe_id=probe_id, auto_install_packs=auto_install_packs)
+    flasher = PyOCDFlash(
+        mcu,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
+        target_override=target_override,
+    )
     ok = flasher.flash_firmware(fw_file, erase=erase, **kwargs)
     if ok:
         # Give the board a moment to reset and re-enumerate over USB,

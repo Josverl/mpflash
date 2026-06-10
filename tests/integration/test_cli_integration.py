@@ -134,7 +134,18 @@ class TestCLIFlashCommandPyOCD:
 
         result = self.runner.invoke(
             cli_flash_board,
-            ["--method", "pyocd", "--probe-id", "066CFF505750827567154312", "--version", "stable", "--erase", "--auto-install-packs"],
+            [
+                "--method",
+                "pyocd",
+                "--probe-id",
+                "066CFF505750827567154312",
+                "--target",
+                "rp2040",
+                "--version",
+                "stable",
+                "--erase",
+                "--auto-install-packs",
+            ],
         )
 
         assert result.exit_code == 0
@@ -142,6 +153,7 @@ class TestCLIFlashCommandPyOCD:
         call_args = mock_flash_list.call_args
         assert call_args[1]["method"] == FlashMethod.PYOCD
         assert call_args[1]["probe_id"] == "066CFF505750827567154312"
+        assert call_args[1]["target_override"] == "rp2040"
         assert call_args[1]["auto_install_packs"] is True
         assert call_args[0][1] is True  # erase parameter
 
@@ -388,6 +400,7 @@ class TestCLIHelpAndDocumentation:
         assert "--method" in result.output
         assert "pyocd" in result.output
         assert "--probe-id" in result.output
+        assert "--target" in result.output
         assert "--auto-install-packs" in result.output
 
     def test_method_choice_validation(self):

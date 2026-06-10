@@ -76,7 +76,7 @@ class PyOCDBackend(FlashBackend):
 
         passthrough = {
             k: ctx.options[k]
-            for k in ("probe_id", "auto_install_packs")
+            for k in ("probe_id", "auto_install_packs", "target_override")
             if k in ctx.options
         }
         ok = flash_pyocd(ctx.mcu, fw_file=ctx.fw_file, erase=ctx.erase, **passthrough)

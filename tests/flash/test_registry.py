@@ -8,6 +8,7 @@ from typing import Optional
 
 import pytest
 
+from mpflash.common import FlashMethod
 from mpflash.errors import MPFlashError
 from mpflash.flash.base import FlashBackend
 from mpflash.flash.context import FlashContext, FlashResult, Platform, Reason
@@ -18,6 +19,7 @@ from mpflash.flash.registry import (
     select_backend,
     unregister,
 )
+from mpflash.flash import flash_mcu
 
 
 def _fake_mcu(port: str = "rp2", board_id: str = "PIMORONI_TINY2040", cpu: str = "RP2040"):
@@ -86,6 +88,45 @@ def test_explicit_pyocd_method_routes_to_pyocd(tmp_path: Path, monkeypatch):
     )
     backend = select_backend(mcu, fw, requested_name="pyocd")
     assert backend.name == "pyocd"
+
+
+def test_flash_mcu_pyocd_target_override_bypasses_target_lookup(
+    tmp_path: Path, monkeypatch
+):
+    """Explicit target override should not require metadata-based pyOCD support."""
+    mcu = _fake_mcu(port="rp2", board_id="RPI_PICO", cpu="RP2040")
+    fw = tmp_path / "firmware.elf"
+    fw.write_bytes(b"\x00")
+
+    class _Backend:
+        name = "pyocd"
+        supported_formats = (".bin", ".hex", ".elf", ".axf")
+        supported_platforms = frozenset(
+            {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
+        )
+
+        def is_available(self):
+            return True
+
+        def flash(self, ctx):
+            assert ctx.options["target_override"] == "rp2040"
+            return FlashResult(success=True, mcu=ctx.mcu, backend=self.name)
+
+    monkeypatch.setattr("mpflash.flash.get_backend", lambda name: _Backend())
+
+    def _fail_if_called(*args, **kwargs):
+        raise AssertionError("select_backend should not be called with target override")
+
+    monkeypatch.setattr("mpflash.flash.select_backend", _fail_if_called)
+
+    updated = flash_mcu(
+        mcu,
+        fw_file=fw,
+        method=FlashMethod.PYOCD,
+        target_override="rp2040",
+    )
+
+    assert updated is not None
 
 
 def test_unsupported_port_raises_with_reasons(tmp_path: Path):
