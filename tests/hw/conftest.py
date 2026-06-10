@@ -6,6 +6,7 @@ unless its corresponding environment variable points at the connected board:
 * ``MPFLASH_HW_UF2_PORT`` — serial port / volume of an RP2 or SAMD board.
 * ``MPFLASH_HW_DFU_PORT`` — serial port of an STM32 board in DFU mode.
 * ``MPFLASH_HW_ESP_PORT`` — serial port of an ESP32 / ESP8266 board.
+* ``MPFLASH_HW_PYOCD_PORT`` — serial port of the target board.
 * ``MPFLASH_HW_PYOCD_PROBE`` — unique-id of a CMSIS-DAP / J-Link probe.
 
 Pair each with ``MPFLASH_HW_<MARKER>_FW`` to point at a firmware file on
@@ -92,11 +93,24 @@ def hw_esp_firmware() -> Path:
 
 
 @pytest.fixture
-def hw_pyocd_probe() -> str:
+def hw_pyocd_probe() -> Optional[str]:
     probe = _env_port("MPFLASH_HW_PYOCD_PROBE")
     if not probe:
-        pytest.skip("Set MPFLASH_HW_PYOCD_PROBE to run pyOCD hardware tests")
+        pytest.skip("Set MPFLASH_HW_PYOCD_PROBE (or 'auto') to run pyOCD hardware tests")
+    if probe.lower() == "auto":
+        # Let pyOCD auto-select when exactly one probe is connected.
+        return None
     return probe
+
+
+@pytest.fixture
+def hw_pyocd_port() -> str:
+    port = _env_port("MPFLASH_HW_PYOCD_PORT")
+    if not port:
+        pytest.skip(
+            "Set MPFLASH_HW_PYOCD_PORT to run pyOCD hardware tests"
+        )
+    return port
 
 
 @pytest.fixture
@@ -120,7 +134,7 @@ def hw_board(request):
         "hw_uf2": "hw_uf2_port",
         "hw_dfu": "hw_dfu_port",
         "hw_esptool": "hw_esp_port",
-        "hw_pyocd": "hw_pyocd_probe",
+        "hw_pyocd": "hw_pyocd_port",
     }
     for mark_name, fixture_name in marker_to_fixture.items():
         if request.node.get_closest_marker(mark_name):
