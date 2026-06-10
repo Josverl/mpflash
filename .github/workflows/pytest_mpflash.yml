@@ -66,14 +66,7 @@ jobs:
             #----------------------------------------------
             # install project
             #----------------------------------------------
-            # pyOCD currently pulls libusb-package, which has no compatible
-            # wheel/sdist for Python 3.14
-            - name: Install mpflash & test dependencies (no pyocd on 3.14)
-              if: matrix.python-version == '3.14'
-              run: uv sync --extra dev --extra test
-
             - name: Install mpflash & test dependencies (all extras)
-              if: matrix.python-version != '3.14'
               run: uv sync --all-extras
 
             - name: Test mpflash
@@ -93,7 +86,7 @@ jobs:
               uses: codecov/codecov-action@v7
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}
-                  # fail_ci_if_error: false
+                  fail_ci_if_error: false
                   # file: results/coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}.xml
                   # flags: mpflash
 
