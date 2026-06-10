@@ -350,61 +350,71 @@ class TestPyOCDFlash:
             self.test_firmware.unlink(missing_ok=True)
 
 
-# TODO(pyocd-rebase): These tests patch is_pyocd_supported_from_mcu on
-# pyocd_flash, but pyocd_flash imports it as is_pyocd_supported from pyocd_core.
-# Update patch targets and assertions to match the actual flash_pyocd()
-# implementation in mpflash/flash/pyocd_flash.py.
-@pytest.mark.xfail(reason="pyOCD PR tests: patches symbols not present in pyocd_flash module; needs rework against actual API")
+# Tests for the flash_pyocd convenience function.
+# flash_pyocd imports is_pyocd_supported and get_unsupported_reason from
+# pyocd_core, so we patch them on the pyocd_flash module (where the names are
+# bound after import). The "no probe" scenario is exercised by having the
+# PyOCDFlash instance raise MPFlashError from flash_firmware, which mirrors
+# what the real implementation does when no probe is found.
 class TestFlashPyOCDFunction:
     """Test the flash_pyocd convenience function."""
-    
+
     def setup_method(self):
         self.mock_mcu = MOCK_MCUS["stm32wb55"]
         self.test_firmware = Path("/tmp/test_firmware.bin")
-    
-    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported_from_mcu')
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported')
     @patch('mpflash.flash.pyocd_flash.PyOCDFlash')
     def test_flash_pyocd_success(self, mock_flasher_class, mock_supported):
         """Test successful flash_pyocd function call."""
         mock_supported.return_value = True
-        
+
         mock_flasher = Mock()
         mock_flasher.flash_firmware.return_value = True
         mock_flasher_class.return_value = mock_flasher
-        
+
         self.test_firmware.touch()
-        
+
         try:
             result = flash_pyocd(self.mock_mcu, self.test_firmware)
-            
+
             assert result is True
-            mock_flasher_class.assert_called_once()
+            mock_flasher_class.assert_called_once_with(
+                self.mock_mcu, probe_id=None, auto_install_packs=True
+            )
             mock_flasher.flash_firmware.assert_called_once_with(
                 self.test_firmware, erase=False
             )
         finally:
             self.test_firmware.unlink(missing_ok=True)
-    
-    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported_from_mcu')
-    def test_flash_pyocd_unsupported(self, mock_supported):
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported')
+    @patch('mpflash.flash.pyocd_flash.get_unsupported_reason')
+    def test_flash_pyocd_unsupported(self, mock_reason, mock_supported):
         """Test flash_pyocd with unsupported MCU."""
         mock_supported.return_value = False
-        
-        with patch('mpflash.flash.pyocd_flash.get_unsupported_reason_from_mcu') as mock_reason:
-            mock_reason.return_value = "ESP32 not supported"
-            
-            with pytest.raises(MPFlashError, match="PyOCD flash not supported"):
-                flash_pyocd(self.mock_mcu, self.test_firmware)
-    
-    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported_from_mcu')
-    @patch('mpflash.flash.pyocd_flash.get_pyocd_target_from_mcu')
-    @patch('mpflash.flash.pyocd_flash.find_probe_for_target')
-    def test_flash_pyocd_no_probe(self, mock_find_probe, mock_get_target, mock_supported):
-        """Test flash_pyocd when no suitable probe found."""
+        mock_reason.return_value = "ESP32 not supported"
+
+        with pytest.raises(MPFlashError, match="PyOCD flash not supported"):
+            flash_pyocd(self.mock_mcu, self.test_firmware)
+
+    @patch('mpflash.flash.pyocd_flash.is_pyocd_supported')
+    @patch('mpflash.flash.pyocd_flash.PyOCDFlash')
+    def test_flash_pyocd_no_probe(self, mock_flasher_class, mock_supported):
+        """Test flash_pyocd when no suitable probe is found.
+
+        In the current implementation probe selection happens inside
+        PyOCDFlash.flash_firmware(); simulate that by having flash_firmware
+        raise the same MPFlashError the real code raises.
+        """
         mock_supported.return_value = True
-        mock_get_target.return_value = "stm32wb55xg"
-        mock_find_probe.return_value = None
-        
+
+        mock_flasher = Mock()
+        mock_flasher.flash_firmware.side_effect = MPFlashError(
+            "No suitable debug probe found"
+        )
+        mock_flasher_class.return_value = mock_flasher
+
         with pytest.raises(MPFlashError, match="No suitable debug probe found"):
             flash_pyocd(self.mock_mcu, self.test_firmware)
 
