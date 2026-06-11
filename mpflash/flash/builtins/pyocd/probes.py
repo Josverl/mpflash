@@ -1,9 +1,5 @@
 """Debug-probe abstraction owned by the pyOCD flash backend.
 
-The :class:`DebugProbe` ABC and the probe-implementation registry used to live
-in ``mpflash.flash.debug_probe``; that location is now a deprecation shim that
-re-exports the names defined here.
-
 Third parties that want to add a new probe implementation (OpenOCD, J-Link, …)
 should register through this module — but importantly, *probes are an
 internal concern of the pyOCD backend*, not a separate ``mpflash`` extension

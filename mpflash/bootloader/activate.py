@@ -13,7 +13,7 @@ contribute additional activators by calling
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from mpflash.bootloader.detect import backend_for_port, in_bootloader
 from mpflash.bootloader.registry import get_activator, resolve_methods
@@ -21,15 +21,7 @@ from mpflash.common import BootloaderMethod
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
-
-# Re-exported for backward compatibility with callers/tests that imported
-# the free functions from this module before the registry refactor.
-from mpflash.bootloader.builtins.manual import enter_bootloader_manual  # noqa: F401
-from mpflash.bootloader.builtins.mpy import enter_bootloader_mpy  # noqa: F401
-from mpflash.bootloader.builtins.touch1200 import enter_bootloader_touch_1200bps  # noqa: F401
-
-if TYPE_CHECKING:
-    from mpflash.flash.base import FlashBackend
+from mpflash.flash.base import FlashBackend
 
 
 def enter_bootloader(
@@ -38,7 +30,7 @@ def enter_bootloader(
     timeout: int = 10,
     wait_after: int = 2,
     *,
-    backend: Optional["FlashBackend"] = None,
+    backend: Optional[FlashBackend] = None,
 ) -> bool:
     """Put the board into bootloader mode.
 
