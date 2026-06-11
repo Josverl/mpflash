@@ -26,10 +26,10 @@ tasks = create_worklist("1.22.0", connected_comports=all_boards, include_ports=[
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, cast
 
 from loguru import logger as log
-from serial.tools.list_ports_common import ListPortInfo
+
 from typing_extensions import TypeAlias
 
 from mpflash.common import filtered_portinfos
@@ -64,7 +64,7 @@ class FlashTask:
     @property
     def firmware_version(self) -> str:
         """Get the firmware version for this task."""
-        return self.firmware.version if self.firmware else "unknown"
+        return str(self.firmware.version) if self.firmware else "unknown"
 
 
 @dataclass
@@ -157,15 +157,18 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
     if len(firmwares) > 1:
         log.warning(f"Multiple {version} firmwares found for {board.board} on {board.serialport}.")
 
-    ranked = []
+    ranked: list[tuple[tuple[int, int, int, int, int, int], Firmware]] = []
     for idx, firmware in enumerate(firmwares):
-        firmware.firmware_file = _normalize_firmware_file(firmware.firmware_file)
+        firmware_file = _normalize_firmware_file(cast(str, firmware.firmware_file))
+        firmware_source = cast(str, firmware.source) or ""
+        firmware_custom = bool(cast(bool, firmware.custom))
+        firmware_build = int(cast(int, getattr(firmware, "build", 0)) or 0)
         rank = (
-            int(_firmware_path_exists(firmware.firmware_file)),
-            int(_is_port_compatible_firmware(board.port, firmware.firmware_file)),
-            int((firmware.source or "").lower() == "mpbuild"),
-            int(bool(firmware.custom)),
-            int(getattr(firmware, "build", 0) or 0),
+            int(_firmware_path_exists(firmware_file)),
+            int(_is_port_compatible_firmware(board.port, firmware_file)),
+            int(firmware_source.lower() == "mpbuild"),
+            int(firmware_custom),
+            firmware_build,
             idx,
         )
         ranked.append((rank, firmware))
