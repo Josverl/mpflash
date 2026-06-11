@@ -352,6 +352,10 @@ def test_mpflash_flash_with_build_imports_firmware_and_flashes(mocker: MockerFix
         "mpflash.ask_input.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
+    m_clean_version = mocker.patch(
+        "mpflash.cli_flash.clean_version",
+        side_effect=lambda v: "v1.29.0-preview" if v == "preview" else v,
+    )
     mocker.patch("mpflash.build.is_build_available", return_value=True)
 
     fw_paths = [Path("/tmp/ESP8266_GENERIC-v1.26.0.bin")]
@@ -380,14 +384,76 @@ def test_mpflash_flash_with_build_imports_firmware_and_flashes(mocker: MockerFix
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
 
     assert result.exit_code == 0
+    m_clean_version.assert_called_once_with("preview")
     m_build.assert_called_once()
     built_board, built_version = m_build.call_args.args
     assert built_board == "ESP8266_GENERIC"
-    assert built_version.startswith("v")
-    assert m_build.call_args.kwargs["force"] is False
-    m_import.assert_called_once_with(fw_paths, "ESP8266_GENERIC", built_version)
+    assert built_version == "v1.29.0-preview"
+    assert m_build.call_args.kwargs["force"] is True
+    assert m_build.call_args.kwargs["preferred_suffixes"] == {".bin"}
+    m_import.assert_called_once_with(
+        fw_paths,
+        "ESP8266_GENERIC",
+        built_version,
+        port="esp8266",
+    )
+    assert "To flash this built firmware again without rebuilding:" in result.output
+    assert "mpflash flash --board ESP8266_GENERIC --version v1.29.0-preview" in result.output
     m_create_worklist.assert_called_once()
     m_flash_tasks.assert_called_once()
+
+
+def test_mpflash_flash_with_build_and_clean_runs_clean_before_build(mocker: MockerFixture):
+    args = ["flash", "--board", "ESP8266_GENERIC", "--serial", "COM99", "--build", "--clean", "--bootloader", "none"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+    mocker.patch("mpflash.build.is_build_available", return_value=True)
+
+    call_order = []
+
+    def _clean_side_effect(*args, **kwargs):
+        call_order.append("clean")
+
+    m_clean = mocker.patch("mpflash.build.clean_firmware", side_effect=_clean_side_effect)
+    fw_paths = [Path("/tmp/ESP8266_GENERIC-v1.26.0.bin")]
+
+    def _build_side_effect(*args, **kwargs):
+        call_order.append("build")
+        return fw_paths
+
+    m_build = mocker.patch("mpflash.build.build_firmware", side_effect=_build_side_effect)
+    mocker.patch("mpflash.build.import_firmware_to_database", return_value=1)
+
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM99"])
+
+    board = MPRemoteBoard("COM99")
+    board.port = "esp8266"
+    board.board_id = "ESP8266_GENERIC"
+    fw = Firmware(
+        board_id="ESP8266_GENERIC",
+        version="stable",
+        port="esp8266",
+        firmware_file="esp8266/ESP8266_GENERIC-v1.26.0.bin",
+    )
+    task = FlashTask(board=board, firmware=fw)
+
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    m_clean.assert_called_once_with("ESP8266_GENERIC")
+    m_build.assert_called_once()
+    assert m_build.call_args.kwargs["force"] is True
+    assert call_order == ["clean", "build"]
+    assert m_flash_tasks.called
 
 
 @pytest.mark.skip("TODO: Test Broken")
