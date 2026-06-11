@@ -199,8 +199,6 @@ def flash_tasks(
             "A download refresh was attempted but no compatible firmware was found."
         )
 
-        return fw_info
-
     flashed = []
     for task in tasks:
         mcu = task.board
