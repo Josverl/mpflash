@@ -238,7 +238,10 @@ def flash_tasks(
                     mcu.toml["description"] = fw_info.description
                 mcu.toml.setdefault("mpflash", {})
                 mcu.toml["mpflash"]["board_id"] = fw_info.board_id
-                mcu.toml["mpflash"]["custom_id"] = fw_info.custom_id
+                if fw_info.custom_id:
+                    mcu.toml["mpflash"]["custom_id"] = fw_info.custom_id
+                else:
+                    mcu.toml["mpflash"].pop("custom_id", None)
                 mcu.set_board_info_toml()
             flashed.append(updated)
         else:

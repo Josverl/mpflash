@@ -14,7 +14,6 @@ from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpboard_id.board_id import find_board_id_by_description
 from mpflash.mpremoteboard.runner import run
-from rich.progress import track
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 if sys.version_info >= (3, 11):
@@ -36,13 +35,10 @@ DEFAULT_TIMEOUT = 4 if ON_WSL2 else 2
 ###############################################################################################
 
 
-
 class MPRemoteBoard:
     """Class to run mpremote commands"""
 
-    def __init__(
-        self, serialport: str = "", update: bool = False, *, location: str = ""
-    ):
+    def __init__(self, serialport: str = "", update: bool = False, *, location: str = ""):
         """
         Initialize MPRemoteBoard object.
 
@@ -67,7 +63,7 @@ class MPRemoteBoard:
         self.build = ""
         self.location = location  # USB location
         self.toml = {}
-        
+
         # For filesystem paths (UF2 volume paths), skip serial port lookup.
         # On POSIX, Windows-style drive roots like "D:\\" are not recognized
         # as Path.drive, so detect them explicitly.
@@ -106,7 +102,7 @@ class MPRemoteBoard:
     @property
     def board(self) -> str:
         _board = self._board_id.split("-")[0]
-        # Workaround for Pimoroni boards 
+        # Workaround for Pimoroni boards
         if not "-" in self._board_id:
             # match with the regex : (.*)(_\d+MB)$
             match = re.match(r"(.*)_(\d+MB)$", self._board_id)
@@ -122,12 +118,12 @@ class MPRemoteBoard:
     def variant(self) -> str:
         _variant = self._board_id.split("-")[1] if "-" in self._board_id else ""
         if not _variant:
-            # Workaround for Pimoroni boards 
+            # Workaround for Pimoroni boards
             # match with the regex : (.*)(_\d+MB)$
             match = re.match(r"(.*)_(\d+MB)$", self._board_id)
             if match:
                 _variant = match.group(2)
-        return _variant 
+        return _variant
 
     @variant.setter
     def variant(self, value: str) -> None:
@@ -144,9 +140,7 @@ class MPRemoteBoard:
         return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}{f'-{self.variant}' if self.variant else ''}, {self.version})"
 
     @staticmethod
-    def connected_comports(
-        bluetooth: bool = False, description: bool = False
-    ) -> List[str]:
+    def connected_comports(bluetooth: bool = False, description: bool = False) -> List[str]:
         # TODO: rename to connected_comports
         """
         Get a list of connected comports.
@@ -175,9 +169,7 @@ class MPRemoteBoard:
             # Windows sort of comports by number - but fallback to device name
             return sorted(
                 output,
-                key=lambda x: int(x.split()[0][3:])
-                if x.split()[0][3:].isdigit()
-                else x,
+                key=lambda x: int(x.split()[0][3:]) if x.split()[0][3:].isdigit() else x,
             )
         # sort by device name
         return sorted(output)
@@ -240,9 +232,7 @@ class MPRemoteBoard:
             else:
                 self.board_id = f"{info['board']}-{info.get('variant', '')}"
                 try:
-                    board_name = find_board_id_by_description(
-                        descr, short_descr, version=self.version
-                    )
+                    board_name = find_board_id_by_description(descr, short_descr, version=self.version)
                     self.board_id = board_name or "UNKNOWN_BOARD"
                 except MPFlashError:
                     log.warning(f"Could not resolve board_id for description: {descr!r}")
@@ -272,17 +262,17 @@ class MPRemoteBoard:
         Raises:
         - ConnectionError: If failed to communicate with the serial port.
         """
+        was_connected = self.connected
         try:
             rc, result = self.run_command(
                 ["cat", ":board_info.toml"],
                 no_info=True,
                 timeout=timeout,
                 log_errors=False,
+                resume=False,
             )
         except Exception as e:
-            raise ConnectionError(
-                f"Failed to get board_info.toml for {self.serialport}:"
-            ) from e
+            raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
         # this is optional - so only parse if we got the file
         self.toml = {}
         if rc in [OK]:  # sometimes we get an -9 ???
@@ -295,6 +285,10 @@ class MPRemoteBoard:
             except Exception as e:
                 log.error(f"Failed to parse board_info.toml: {e}")
         else:
+            # board_info.toml is optional; failure to read it should not flip
+            # an otherwise healthy connection to disconnected.
+            if was_connected:
+                self.connected = True
             log.trace(f"Did not find a board_info.toml: {result}")
 
     def set_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT):
@@ -404,14 +398,7 @@ class MPRemoteBoard:
 
     def wait_for_restart(self, timeout: int = 10):
         """wait for the board to restart"""
-        for _ in track(
-            range(timeout),
-            description=f"Waiting for the board to restart ({timeout}s)",
-            transient=True,
-            show_speed=False,
-            refresh_per_second=1,
-            total=timeout,
-        ):
+        for _ in range(timeout):
             time.sleep(1)
             with contextlib.suppress(ConnectionError, MPFlashError):
                 self.get_mcu_info(log_errors=False)
@@ -427,11 +414,7 @@ class MPRemoteBoard:
 
         def get_properties(obj):
             """Helper function to get all readable properties."""
-            return {
-                name: getattr(obj, name)
-                for name in dir(obj.__class__)
-                if isinstance(getattr(obj.__class__, name, None), property)
-            }
+            return {name: getattr(obj, name) for name in dir(obj.__class__) if isinstance(getattr(obj.__class__, name, None), property)}
 
         # Combine instance attributes, readable properties, and private attributes
         data = {**self.__dict__, **get_properties(self)}
