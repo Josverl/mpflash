@@ -1,9 +1,7 @@
 """Public flash dispatcher.
 
-This module is now a thin façade over the pluggable backend registry. It
-keeps the historical entry points (:func:`flash_tasks`, :func:`flash_mcu`) so
-existing callers continue to work, but all method-selection logic now lives
-in :mod:`mpflash.flash.registry`.
+This module is  a thin façade over the pluggable backend registry.
+All method-selection logic lives in :mod:`mpflash.flash.registry`.
 
 The auxiliary re-exports (``flash_pyocd``, ``pyocd_info``) are still emitted
 here for backwards compatibility; new code should consume backends through
@@ -24,9 +22,6 @@ from .context import FlashContext, FlashResult, Platform
 from .registry import get_backend, get_backends, select_backend
 from .services import default_services
 from .worklist import FlashTaskList
-
-# Legacy re-exports — keep the old import paths working.
-from .builtins.pyocd.flash import flash_pyocd, pyocd_info  # noqa: F401
 
 
 # Map between the user-facing ``--method`` enum and the backend ``name``.
@@ -323,7 +318,4 @@ __all__ = [
     "get_backend",
     "get_backends",
     "select_backend",
-    # Legacy re-exports
-    "flash_pyocd",
-    "pyocd_info",
 ]
