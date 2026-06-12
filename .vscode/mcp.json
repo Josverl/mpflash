@@ -1,0 +1,9 @@
+{
+    "servers": {
+        "debugmcp": {
+            "type": "http",
+            "url": "http://localhost:3001/mcp",
+            "description": "DebugMCP - Multi-language debugging support"
+        }
+    }
+}

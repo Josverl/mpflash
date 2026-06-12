@@ -8,7 +8,7 @@ help:
 
 # install project in edi mode and install dev dependencies
 sync: 
-  uv sync --extra dev,test
+  uv sync --extra dev,test,pyocd
 
 # run full pytest suite
 test: 
@@ -34,10 +34,27 @@ publish : build
 
 # delete and regen the lockfile - useful in merge conficts
 lock:
-  #!{{shebang}}
   del uv.lock -erroraction ignore
   uv lock
 
+# -----------------------------------------------------------------------------------------------
+# HIL testing 
+# Configure environment for the port and firmware selection in the .env file, then run the test suite 
+# -----------------------------------------------------------------------------------------------
+# export LOGURU_LEVEL := "TRACE"
+export LOGURU_LEVEL := "INFO"
+
+hil_uf2_pico2:
+    uv run pytest -m hw_uf2 tests/hw -v
+
+hil_dfu_pybv11:
+    uv run pytest -m hw_dfu tests/hw -v
+
+hil_pyocd_pybv11:
+  uv run pytest -m hw_pyocd tests/hw -v
+
+hil_esptool_esp32:
+  uv run pytest -m hw_esptool tests/hw -v
 
 # [script('python')]
 # python:

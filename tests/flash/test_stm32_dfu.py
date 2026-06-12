@@ -1,4 +1,4 @@
-"""Tests for mpflash.flash.stm32_dfu - STM32 DFU flashing with .dfu and .bin support."""
+"""Tests for mpflash.flash.builtins.dfu.stm32_dfu - STM32 DFU flashing with .dfu and .bin support."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -29,8 +29,8 @@ def _make_board(port="COM1"):
 class TestDfuInit:
     def test_no_pydfu(self):
         """dfu_init returns None gracefully when pydfu is not available."""
-        with patch("mpflash.flash.stm32_dfu.pydfu", None):
-            from mpflash.flash.stm32_dfu import dfu_init
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", None):
+            from mpflash.flash.builtins.dfu.stm32_dfu import dfu_init
 
             result = dfu_init()
             assert result is None
@@ -40,10 +40,10 @@ class TestDfuInit:
         """On Linux, init_libusb_windows is NOT called."""
         mock_pydfu = MagicMock()
         with (
-            patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu),
-            patch("mpflash.flash.stm32_dfu.init_libusb_windows") as mock_init,
+            patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu),
+            patch("mpflash.flash.builtins.dfu.stm32_dfu.init_libusb_windows") as mock_init,
         ):
-            from mpflash.flash.stm32_dfu import dfu_init
+            from mpflash.flash.builtins.dfu.stm32_dfu import dfu_init
 
             dfu_init()
             mock_init.assert_not_called()
@@ -53,10 +53,10 @@ class TestDfuInit:
         """On Windows, init_libusb_windows is called."""
         mock_pydfu = MagicMock()
         with (
-            patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu),
-            patch("mpflash.flash.stm32_dfu.init_libusb_windows") as mock_init,
+            patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu),
+            patch("mpflash.flash.builtins.dfu.stm32_dfu.init_libusb_windows") as mock_init,
         ):
-            from mpflash.flash.stm32_dfu import dfu_init
+            from mpflash.flash.builtins.dfu.stm32_dfu import dfu_init
 
             dfu_init()
             mock_init.assert_called_once()
@@ -72,8 +72,8 @@ class TestFlashStm32DfuGuards:
         """Returns None when pydfu module is unavailable."""
         fw = tmp_path / "fw.dfu"
         fw.touch()
-        with patch("mpflash.flash.stm32_dfu.pydfu", None):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", None):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
@@ -82,8 +82,8 @@ class TestFlashStm32DfuGuards:
         """Returns None when firmware file does not exist."""
         fw = tmp_path / "missing.dfu"
         mock_pydfu = MagicMock()
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
@@ -93,8 +93,8 @@ class TestFlashStm32DfuGuards:
         fw = tmp_path / "firmware.hex"
         fw.touch()
         mock_pydfu = MagicMock()
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
@@ -105,8 +105,8 @@ class TestFlashStm32DfuGuards:
         fw.touch()
         mock_pydfu = MagicMock()
         mock_pydfu.list_dfu_devices.side_effect = ValueError("Permission denied")
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
             assert result is None
@@ -130,8 +130,8 @@ class TestFlashStm32DfuDfuFile:
         board = _make_board()
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(board, fw)
 
@@ -145,8 +145,8 @@ class TestFlashStm32DfuDfuFile:
         fw.touch()
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw, erase=True)
 
@@ -158,8 +158,8 @@ class TestFlashStm32DfuDfuFile:
         fw.touch()
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw, erase=False)
 
@@ -171,8 +171,8 @@ class TestFlashStm32DfuDfuFile:
         fw.touch()
         mock_pydfu = self._make_mock_pydfu(elements=[])
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
 
@@ -185,8 +185,8 @@ class TestFlashStm32DfuDfuFile:
         mock_pydfu = self._make_mock_pydfu(elements=None)
         mock_pydfu.read_dfu_file.return_value = None
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
 
@@ -213,8 +213,8 @@ class TestFlashStm32DfuBinFile:
         board = _make_board()
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(board, fw)
 
@@ -228,8 +228,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\xde\xad\xbe\xef")
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw)
 
@@ -242,8 +242,8 @@ class TestFlashStm32DfuBinFile:
         mock_pydfu = self._make_mock_pydfu()
         custom_addr = 0x08010000
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw, address=custom_addr)
 
@@ -255,8 +255,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw, erase=True)
 
@@ -268,8 +268,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw, erase=False)
 
@@ -281,8 +281,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu(elements=[])
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             result = flash_stm32_dfu(_make_board(), fw)
 
@@ -294,8 +294,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 16)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw)
 
@@ -308,8 +308,8 @@ class TestFlashStm32DfuBinFile:
         fw.write_bytes(b"\x00" * 4)
         mock_pydfu = self._make_mock_pydfu()
 
-        with patch("mpflash.flash.stm32_dfu.pydfu", mock_pydfu), patch("mpflash.flash.stm32_dfu.dfu_init", return_value=None):
-            from mpflash.flash.stm32_dfu import flash_stm32_dfu
+        with patch("mpflash.flash.builtins.dfu.stm32_dfu.pydfu", mock_pydfu), patch("mpflash.flash.builtins.dfu.stm32_dfu.dfu_init", return_value=None):
+            from mpflash.flash.builtins.dfu.stm32_dfu import flash_stm32_dfu
 
             flash_stm32_dfu(_make_board(), fw)
 

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from esptool import FatalError
 
-from mpflash.flash.esp import _chip_params, flash_esp
+from mpflash.flash.builtins.esp import _chip_params, flash_esp
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -30,10 +30,10 @@ def mock_esptool(mocker):
     mock_cm.__enter__ = MagicMock(return_value=mock_loader)
     mock_cm.__exit__ = MagicMock(return_value=False)
 
-    mocker.patch("mpflash.flash.esp.espcmds.detect_chip", return_value=mock_cm)
-    mocker.patch("mpflash.flash.esp.espcmds.run_stub", return_value=mock_loader)
-    mock_erase = mocker.patch("mpflash.flash.esp.espcmds.erase_flash")
-    mock_write = mocker.patch("mpflash.flash.esp.espcmds.write_flash")
+    mocker.patch("mpflash.flash.builtins.esp.espcmds.detect_chip", return_value=mock_cm)
+    mocker.patch("mpflash.flash.builtins.esp.espcmds.run_stub", return_value=mock_loader)
+    mock_erase = mocker.patch("mpflash.flash.builtins.esp.espcmds.erase_flash")
+    mock_write = mocker.patch("mpflash.flash.builtins.esp.espcmds.write_flash")
 
     return {"loader": mock_loader, "erase": mock_erase, "write": mock_write}
 

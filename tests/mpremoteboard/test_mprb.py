@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import pytest
-from mock import MagicMock
+from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
 
 from mpflash.db.loader import HERE
@@ -257,6 +257,51 @@ def test_mpremoteboard_info_board_id_from_toml(mocker: MockerFixture, session_me
 
     assert mprb.board_id == "MY_CUSTOM_C6"
     assert mprb.connected is True
+
+
+def test_mpremoteboard_info_requires_payload(mocker: MockerFixture):
+    """get_mcu_info must fail when no info dict is present in output.
+
+    This prevents false-positive reconnect detection during reboot windows
+    where mpremote can return rc=0/1 without a parsable payload.
+    """
+    mocker.patch("mpflash.mpremoteboard.run", return_value=(0, []))
+
+    mprb = MPRemoteBoard("COM15")
+
+    with pytest.raises(ConnectionError):
+        MPRemoteBoard.get_mcu_info.__wrapped__(mprb)
+
+    assert mprb.connected is False
+
+
+def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
+    mprb = MPRemoteBoard("COM15")
+    m_get = mocker.patch.object(
+        mprb,
+        "get_mcu_info",
+        side_effect=[ConnectionError("not ready"), None],
+    )
+    mocker.patch("mpflash.mpremoteboard.time.sleep")
+
+    mprb.wait_for_restart(timeout=3)
+
+    assert m_get.call_count == 2
+    assert m_get.call_args_list[0].kwargs.get("log_errors") is False
+    assert m_get.call_args_list[1].kwargs.get("log_errors") is False
+
+
+def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixture):
+    mprb = MPRemoteBoard("COM15")
+    mprb.connected = True
+
+    m_run = mocker.patch.object(mprb, "run_command", return_value=(1, []))
+
+    mprb.get_board_info_toml()
+
+    assert mprb.connected is True
+    assert mprb.toml == {}
+    assert m_run.call_args.kwargs.get("resume") is False
 
 
 def test_mpy_fw_info_keeps_description(monkeypatch):

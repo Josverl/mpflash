@@ -1,24 +1,47 @@
-## Linux permissions for usb devices 
+## Linux permissions for USB devices
 
-In order to flash the firmware to the board, you need to have the correct permissions to access the USB devices.
-The details will depend on the specific USB device and the operating system you are using.
+In order to flash STM32 boards in DFU mode without `sudo`, your user needs
+permission on the DFU USB device node.
 
-You can use the following udev rules to give non-root users access to the USB devices.
+Ready-to-use rule file in this repository:
 
-File: `/etc/udev/rules.d/65-mpflash.rules`
+- `mpflash/udev_rules/65-mpflash-stm32-dfu.rules`
+
+### Install (copy/paste)
+
 ```bash
-# allow non-root users to access to stm32 device in dfu mode (bootloader)
-SUBSYSTEM=="usb", ACTION=="add", ATTR{product}=="STM32  BOOTLOADER", GROUP="plugdev", MODE="0660"
+sudo cp mpflash/udev_rules/65-mpflash-stm32-dfu.rules /etc/udev/rules.d/65-mpflash-stm32-dfu.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
 ```
-reload the udev rules with the following command:
+
+Then unplug/replug the STM32 board (or re-enter DFU mode).
+
+### Rule contents
+
+```udev
+# mpflash STM32 DFU access rule
+# Device: STMicroelectronics STM Device in DFU Mode (0483:df11)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="df11", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+```
+
+### Verify
+
 ```bash
-sudo udevadm control --reload
+lsusb | grep -i "0483:df11"
+groups
 ```
-Unplug and replug the usb device to apply the new rules.
+
+If your user is not in `plugdev`, add it and log out/in once:
+
+```bash
+sudo usermod -aG plugdev "$USER"
+```
 
 
-## to check 
-Enter the stm32 bootloader mode
+## To check
+
+Enter STM32 bootloader mode:
 ``` bash
 mpremote bootloader 
 ```
@@ -49,14 +72,14 @@ List usb devices
         ID 8087:0aaa Intel Corp. Bluetooth 9460/9560 Jefferson Peak (JfP)
         /sys/bus/usb/devices/1-10  /dev/bus/usb/001/003
 ```
-Lookup the stm32 device device path ( /dev/bus/usb/001/022),  
-and check if the group `plugdev` is granted access using `ll`
+Lookup the STM32 device path (`/dev/bus/usb/001/022`), and check if group
+`plugdev` is granted access:
 ```bash
 (.venv) jos@jvnuc:~/projects/mpflash$ ll /dev/bus/usb/001/022
 crw-rw-r-- 1 root plugdev 189, 21 mrt 11 22:38 /dev/bus/usb/001/022
 ```
 
-Check `groups` to see if user is in plugdev group
+Check `groups` to see if user is in `plugdev`:
 ```
 (.venv) jos@jvnuc:~/projects/mpflash$ groups
 jos adm disk dialout cdrom sudo dip plugdev kvm lpadmin lxd sambashare usb
