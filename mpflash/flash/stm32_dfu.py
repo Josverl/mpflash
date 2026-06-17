@@ -29,6 +29,7 @@ def init_libusb_windows():
     _libusb_backend = libusb1.get_backend(find_library=libusb_package_tng.find_library)
     if _libusb_backend is None:
         # Fall back to any OS-provided libusb
+        log.warning("Could not find libusb via libusb-package-tng, falling back to system libusb")
         _libusb_backend = libusb1.get_backend()
     if _libusb_backend is None:
         raise RuntimeError("Could not find a usable libusb backend")
@@ -101,6 +102,10 @@ def flash_stm32_dfu(
     except ValueError as e:
         log.error(f"Insuffient permissions to access usb DFU devices: {e}")
         return None
+    except Exception as e:
+        if "Operation not supported" not in str(e):
+            raise
+        log.debug(f"Skipping DFU device detail listing on this backend: {e}")
 
     # Needs to be a list of serial ports
     log.debug("Inititialize pydfu...")

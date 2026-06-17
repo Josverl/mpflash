@@ -34,10 +34,16 @@ def in_uf2_bootloader(board_id: str) -> bool:
 def in_stm32_bootloader() -> bool:
     """Check if the board is in STM32 bootloader mode"""
     if os.name == "nt":
+        driver_service = get_stm32_bootloader_driver_service()
+        if driver_service and "WINUSB" not in driver_service.upper():
+            log.warning(f"STM32 BOOTLOADER is using driver service '{driver_service}', expected WinUSB.")
+            log.warning("Please use Zadig to install a WinUSB (libusb) driver for VID:PID 0483:DF11.")
+            log.warning("https://github.com/pbatard/libwdi/wiki/Zadig")
+
         driver_installed, status = check_for_stm32_bootloader_device()
         if not driver_installed:
             log.warning("STM32  BOOTLOADER device not found.")
-            return False
+            return check_dfu_devices()
         print()
         if status != "OK":
             log.warning(f"STM32 BOOTLOADER device found, Device status: {status}")
@@ -82,3 +88,18 @@ def check_for_stm32_bootloader_device():
             pass
     # If no matching device was found
     return False, "Not found."
+
+
+def get_stm32_bootloader_driver_service():
+    """Return Windows service name for STM32 ROM DFU device if present."""
+    import win32com.client
+
+    wmi = win32com.client.GetObject("winmgmts:")
+    for usb_device in wmi.InstancesOf("Win32_PnPEntity"):
+        try:
+            pnp_id = str(getattr(usb_device, "PNPDeviceID", "")).upper()
+            if "VID_0483" in pnp_id and "PID_DF11" in pnp_id:
+                return str(getattr(usb_device, "Service", "")).strip()
+        except Exception:
+            pass
+    return None
