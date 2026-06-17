@@ -63,6 +63,97 @@ class TestDfuInit:
 
 
 # ---------------------------------------------------------------------------
+# init_libusb_windows
+# ---------------------------------------------------------------------------
+
+
+class TestInitLibusbWindows:
+    """Tests for init_libusb_windows() – skipped on non-Windows platforms."""
+
+    pytestmark = pytest.mark.win32
+
+    def setup_method(self):
+        """Reset the cached backend before each test."""
+        import mpflash.flash.stm32_dfu as mod
+
+        mod._libusb_backend = None
+
+    def test_uses_libusb_package_tng_find_library(self):
+        """init_libusb_windows passes libusb_package_tng.find_library to get_backend."""
+        mock_backend = MagicMock()
+        mock_tng = MagicMock()
+        mock_tng.find_library = MagicMock()
+
+        with (
+            patch.dict("sys.modules", {"libusb_package_tng": mock_tng}),
+            patch("usb.backend.libusb1.get_backend", return_value=mock_backend) as mock_get,
+        ):
+            from mpflash.flash import stm32_dfu
+
+            stm32_dfu._libusb_backend = None
+            result = stm32_dfu.init_libusb_windows()
+
+        mock_get.assert_called_once_with(find_library=mock_tng.find_library)
+        assert result is mock_backend
+
+    def test_caches_backend_on_second_call(self):
+        """init_libusb_windows returns cached result without re-importing on second call."""
+        mock_backend = MagicMock()
+        mock_tng = MagicMock()
+
+        with (
+            patch.dict("sys.modules", {"libusb_package_tng": mock_tng}),
+            patch("usb.backend.libusb1.get_backend", return_value=mock_backend) as mock_get,
+        ):
+            from mpflash.flash import stm32_dfu
+
+            stm32_dfu._libusb_backend = None
+            first = stm32_dfu.init_libusb_windows()
+            second = stm32_dfu.init_libusb_windows()
+
+        assert first is second
+        # get_backend should only be called once due to caching
+        mock_get.assert_called_once()
+
+    def test_falls_back_to_os_backend_when_tng_returns_none(self):
+        """Falls back to OS-provided libusb when libusb_package_tng returns None."""
+        mock_os_backend = MagicMock()
+        mock_tng = MagicMock()
+
+        def fake_get_backend(find_library=None):
+            if find_library is not None:
+                return None  # tng found nothing
+            return mock_os_backend  # OS fallback
+
+        with (
+            patch.dict("sys.modules", {"libusb_package_tng": mock_tng}),
+            patch("usb.backend.libusb1.get_backend", side_effect=fake_get_backend) as mock_get,
+        ):
+            from mpflash.flash import stm32_dfu
+
+            stm32_dfu._libusb_backend = None
+            result = stm32_dfu.init_libusb_windows()
+
+        assert result is mock_os_backend
+        # get_backend should be called twice: once with find_library (tng), once without (OS fallback)
+        assert mock_get.call_count == 2
+
+    def test_raises_runtime_error_when_no_backend_found(self):
+        """Raises RuntimeError when neither libusb_package_tng nor OS provides a backend."""
+        mock_tng = MagicMock()
+
+        with (
+            patch.dict("sys.modules", {"libusb_package_tng": mock_tng}),
+            patch("usb.backend.libusb1.get_backend", return_value=None),
+        ):
+            from mpflash.flash import stm32_dfu
+
+            stm32_dfu._libusb_backend = None
+            with pytest.raises(RuntimeError, match="libusb backend"):
+                stm32_dfu.init_libusb_windows()
+
+
+# ---------------------------------------------------------------------------
 # flash_stm32_dfu – guard conditions
 # ---------------------------------------------------------------------------
 

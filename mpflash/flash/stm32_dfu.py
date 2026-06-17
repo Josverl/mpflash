@@ -13,6 +13,9 @@ def init_libusb_windows():
     """
     Initializes the libusb backend on Windows and caches it module-wide.
 
+    Uses libusb_package_tng which embeds pre-built libusb binaries and supports
+    Python 3.14+ without requiring per-release package updates.
+
     Returns:
         The usb backend object if successful, None otherwise.
     """
@@ -20,14 +23,15 @@ def init_libusb_windows():
     if _libusb_backend is not None:
         return _libusb_backend
 
-    import libusb  # type: ignore
+    import libusb_package_tng  # type: ignore
     import usb.backend.libusb1 as libusb1
 
-    arch = "x86_64" if platform.architecture()[0] == "64bit" else "x86"
-    libusb1_dll = Path(libusb.__file__).parent / "_platform" / "windows" / arch / "libusb-1.0.dll"
-    if not libusb1_dll.exists():
-        raise FileNotFoundError(f"libusb1.dll not found at {libusb1_dll}")
-    _libusb_backend = libusb1.get_backend(find_library=lambda x: libusb1_dll.as_posix())
+    _libusb_backend = libusb1.get_backend(find_library=libusb_package_tng.find_library)
+    if _libusb_backend is None:
+        # Fall back to any OS-provided libusb
+        _libusb_backend = libusb1.get_backend()
+    if _libusb_backend is None:
+        raise RuntimeError("Could not find a usable libusb backend")
     return _libusb_backend
 
 
