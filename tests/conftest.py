@@ -7,9 +7,14 @@ from unittest.mock import Mock, patch
 
 import peewee
 import pytest
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
 HERE = Path(__file__).parent
+
+# Load repository .env once so pytest CLI, VS Code debug, and just recipes
+# can share the same hardware test variables.
+load_dotenv(dotenv_path=HERE.parent / ".env", override=False)
 
 # Import test fixtures for pyOCD testing
 try:
