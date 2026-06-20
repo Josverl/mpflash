@@ -38,6 +38,23 @@ _METHOD_NAME_MAP = {
 }
 
 
+def _normalize_firmware_file(firmware_file: str) -> str:
+    """Normalize legacy path separators in firmware DB entries."""
+    normalized = (firmware_file or "").replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _resolve_firmware_path(firmware_file: str) -> Path:
+    """Resolve a firmware DB entry to an on-disk path."""
+    normalized = _normalize_firmware_file(firmware_file)
+    candidate = Path(normalized)
+    if candidate.is_absolute():
+        return candidate
+    return config.firmware_folder / normalized
+
+
 def _resolve_backend_name(method: FlashMethod) -> str | None:
     """Translate a :class:`FlashMethod` to a backend name (or ``None`` for AUTO)."""
     if method == FlashMethod.AUTO:
@@ -61,6 +78,8 @@ def flash_tasks(
         if fw_info is None:
             return None
 
+        fw_info.firmware_file = _normalize_firmware_file(fw_info.firmware_file)
+
         requested_name = _resolve_backend_name(method)
         if not requested_name:
             return fw_info
@@ -75,11 +94,14 @@ def flash_tasks(
 
         # Fast path: if a same-stem file with a backend-supported extension
         # exists next to the selected firmware, use it directly.
-        selected_path = config.firmware_folder / fw_info.firmware_file
+        selected_path = _resolve_firmware_path(fw_info.firmware_file)
         for suffix in backend.supported_formats:
             sibling = selected_path.with_suffix(suffix)
             if sibling.exists():
-                rel = sibling.relative_to(config.firmware_folder).as_posix()
+                try:
+                    rel = sibling.relative_to(config.firmware_folder).as_posix()
+                except ValueError:
+                    rel = str(sibling)
                 log.info(
                     f"Using {requested_name} compatible sibling firmware {rel} "
                     f"instead of {fw_info.firmware_file} for {task.board.board} on {task.board.serialport}"
@@ -113,9 +135,21 @@ def flash_tasks(
                         seen_files.add(cand.firmware_file)
                         candidates.append(cand)
 
-            for cand in reversed(candidates):
-                if Path(cand.firmware_file).suffix.lower() in backend.supported_formats:
-                    return cand
+            compatible = []
+            for idx, cand in enumerate(candidates):
+                cand.firmware_file = _normalize_firmware_file(cand.firmware_file)
+                if Path(cand.firmware_file).suffix.lower() not in backend.supported_formats:
+                    continue
+                rank = (
+                    int(_resolve_firmware_path(cand.firmware_file).exists()),
+                    int((cand.source or "").lower() == "mpbuild"),
+                    int(bool(cand.custom)),
+                    int(getattr(cand, "build", 0) or 0),
+                    idx,
+                )
+                compatible.append((rank, cand))
+            if compatible:
+                return max(compatible, key=lambda item: item[0])[1]
             return None
 
         if candidate := _find_supported_candidate():
@@ -153,10 +187,7 @@ def flash_tasks(
                     clean=True,
                 )
             except Exception as exc:  # noqa: BLE001 - fallback to original firmware below
-                log.debug(
-                    f"Backend-compatible firmware refresh failed for {detected_board_id} "
-                    f"{fw_info.version}: {exc}"
-                )
+                log.debug(f"Backend-compatible firmware refresh failed for {detected_board_id} {fw_info.version}: {exc}")
 
             if candidate := _find_supported_candidate():
                 log.info(
@@ -182,7 +213,8 @@ def flash_tasks(
         if not fw_info:
             log.error(f"Firmware not found for {mcu.board} on {mcu.serialport}, skipping")
             continue
-        fw_file = config.firmware_folder / fw_info.firmware_file
+        fw_info.firmware_file = _normalize_firmware_file(fw_info.firmware_file)
+        fw_file = _resolve_firmware_path(fw_info.firmware_file)
         if not fw_file.exists():
             log.error(f"File {fw_file} does not exist, skipping {mcu.board} on {mcu.serialport}")
             continue
@@ -241,20 +273,12 @@ def flash_mcu(
         platform = default_services.current_platform()
         suffix = fw_file.suffix.lower()
         if backend.supported_formats and suffix not in backend.supported_formats:
-            raise MPFlashError(
-                f"Backend 'pyocd' cannot flash {fw_file.name}: unsupported format {suffix or '<none>'}."
-            )
+            raise MPFlashError(f"Backend 'pyocd' cannot flash {fw_file.name}: unsupported format {suffix or '<none>'}.")
         if backend.supported_platforms and platform not in backend.supported_platforms:
-            raise MPFlashError(
-                f"Backend 'pyocd' does not run on {platform.value}."
-            )
+            raise MPFlashError(f"Backend 'pyocd' does not run on {platform.value}.")
         if not backend.is_available():
-            raise MPFlashError(
-                "pyOCD is not installed (install with: uv sync --extra pyocd)."
-            )
-        log.info(
-            f"Using explicit pyOCD target override '{target_override}' for {mcu.board_id or mcu.board}"
-        )
+            raise MPFlashError("pyOCD is not installed (install with: uv sync --extra pyocd).")
+        log.info(f"Using explicit pyOCD target override '{target_override}' for {mcu.board_id or mcu.board}")
     else:
         try:
             backend = select_backend(mcu, fw_file, requested_name=requested)
@@ -280,9 +304,7 @@ def flash_mcu(
         raise
     except Exception as e:  # noqa: BLE001 - normalize for callers
         log.exception(f"Unexpected error while flashing {mcu.board} on {mcu.serialport}")
-        raise MPFlashError(
-            f"Failed to flash {mcu.board} on {mcu.serialport}: {e}"
-        ) from e
+        raise MPFlashError(f"Failed to flash {mcu.board} on {mcu.serialport}: {e}") from e
 
     if not result.success and result.message:
         raise MPFlashError(result.message)
