@@ -54,6 +54,7 @@ dependencies = [
     "pytest-cov>=7.0.0",
     "peewee>=4.0.3",
     "libusb-package>=1.0.26.0; sys_platform == 'win32'",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

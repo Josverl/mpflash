@@ -3,7 +3,19 @@
 import os
 
 import click.exceptions as click_exceptions
+from dotenv import load_dotenv
 from loguru import logger as log
+
+# Load environment variables from a local .env file (if present) before
+# anything else reads os.environ. This lets users configure e.g. MICROPY_DIR
+# for `mpflash flash --build` without exporting it in every shell.
+load_dotenv()
+# Expand ~ in path-style env vars that downstream tools (mpbuild) consume
+# verbatim. mpbuild uses Path(env).resolve() which does not expand ~.
+for _var in ("MICROPY_DIR", "MPFLASH_FIRMWARE"):
+    _val = os.environ.get(_var)
+    if _val and _val.startswith("~"):
+        os.environ[_var] = os.path.expanduser(_val)
 
 from mpflash.errors import MPFlashError
 
