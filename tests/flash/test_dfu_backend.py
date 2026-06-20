@@ -20,21 +20,21 @@ def _mcu(port="COM1"):
 
 def test_is_board_ready_windows_driver_missing(mocker):
     backend = DFUBackend()
-    mocker.patch("mpflash.flash.builtins.dfu_backend.os.name", "nt")
+    mocker.patch("mpflash.flash.builtins.dfu_backend._is_windows", return_value=True)
     mocker.patch("mpflash.flash.builtins.dfu_backend._check_for_stm32_bootloader_device", return_value=(False, "Not found"))
     assert backend.is_board_ready(_mcu()) is False
 
 
 def test_is_board_ready_windows_driver_wrong_status(mocker):
     backend = DFUBackend()
-    mocker.patch("mpflash.flash.builtins.dfu_backend.os.name", "nt")
+    mocker.patch("mpflash.flash.builtins.dfu_backend._is_windows", return_value=True)
     mocker.patch("mpflash.flash.builtins.dfu_backend._check_for_stm32_bootloader_device", return_value=(True, "Error"))
     assert backend.is_board_ready(_mcu()) is False
 
 
 def test_is_board_ready_polls_until_detected(mocker):
     backend = DFUBackend()
-    mocker.patch("mpflash.flash.builtins.dfu_backend.os.name", "posix")
+    mocker.patch("mpflash.flash.builtins.dfu_backend._is_windows", return_value=False)
     m_check = mocker.patch("mpflash.flash.builtins.dfu_backend._check_dfu_devices", side_effect=[False, False, True])
     m_sleep = mocker.patch("time.sleep")
 

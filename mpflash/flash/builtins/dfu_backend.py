@@ -32,7 +32,7 @@ class DFUBackend(FlashBackend):
 
     def is_board_ready(self, mcu: "MPRemoteBoard") -> bool:
         import time
-        if os.name == "nt":
+        if _is_windows():
             driver_installed, status = _check_for_stm32_bootloader_device()
             if not driver_installed:
                 log.warning("STM32  BOOTLOADER device not found.")
@@ -79,6 +79,11 @@ class DFUBackend(FlashBackend):
             mcu=updated,
             backend=self.name,
         )
+
+
+def _is_windows() -> bool:
+    """Return True when running on Windows."""
+    return os.name == "nt"
 
 
 def _check_dfu_devices() -> bool:

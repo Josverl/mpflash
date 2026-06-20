@@ -290,7 +290,9 @@ def test_flash_mcu_pyocd_override_error_paths(tmp_path: Path, monkeypatch):
     with pytest.raises(MPFlashError, match="unsupported format"):
         flash_mcu(mcu, fw_file=tmp_path / "firmware.dfu", method=FlashMethod.PYOCD, target_override="rp2040")
 
-    backend.supported_platforms = frozenset({Platform.WINDOWS})
+    current = flash_mod.default_services.current_platform()
+    other_platform = next(p for p in Platform if p != current)
+    backend.supported_platforms = frozenset({other_platform})
     with pytest.raises(MPFlashError, match="does not run on"):
         flash_mcu(mcu, fw_file=fw, method=FlashMethod.PYOCD, target_override="rp2040")
 

@@ -7,7 +7,7 @@ def test_candidate_mounts_returns_existing_dirs(mocker):
     m_is_dir = mocker.patch("pathlib.Path.is_dir", autospec=True)
 
     def fake_is_dir(self):
-        p = str(self)
+        p = self.as_posix()
         if p == "/mnt":
             return True
         if p in {"/mnt/c", "/mnt/d"}:
