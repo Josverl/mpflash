@@ -205,6 +205,11 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
                 "Try specifying both --board and --serial, or use '--serial *' to auto-detect ports."
             ) from None
 
+    # Track whether the board was explicitly provided on CLI.
+    # This prevents mixed auto-detected board/variant state from multiple
+    # connected devices when only --serial was specified.
+    board_specified = kwargs.get("board") is not None
+
     # version to versions, board to boards
     kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
     if kwargs["board"] is None:
@@ -249,8 +254,8 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
             ignore=params.ignore,
             bluetooth=params.bluetooth,
         )
-        if variants and len(variants) >= 1:
-            params.variant = variants[0]
+        # Do not auto-pick a variant from a set of connected boards; this can
+        # leak a variant from another attached device (e.g. ESP32 SPIRAM).
         if params.boards == []:
             # No MicroPython boards detected, but it could be unflashed or in bootloader mode
             # Ask for serial port and board_id to flash
@@ -322,6 +327,26 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
             connected_comports=all_boards,
             include_ports=params.serial,
             ignore_ports=params.ignore,
+        )
+    elif params.versions[0] and params.serial and not board_specified:
+        # Serial port(s) were explicitly provided, but board_id was not.
+        # Build tasks from per-port auto-detection to avoid cross-device board/variant mixing.
+        # IMPORTANT: honor explicit serial targets exactly. Do not broaden with
+        # include/ignore set logic, otherwise unrelated attached boards can leak
+        # into this run.
+        specified = [p for p in params.serial if p and p != "*"]
+        ignored = set(params.ignore or [])
+        comports = [p for p in specified if p not in ignored]
+        if not comports:
+            serial_filter = ", ".join(params.serial)
+            raise click.UsageError(
+                f"No serial ports matched: {serial_filter}. Check the port name, "
+                "or use '--serial *' to auto-detect."
+            )
+        connected_comports = [MPRemoteBoard(port, update=True) for port in comports]
+        tasks = _create_worklist_or_fail(
+            params.versions[0],
+            connected_comports=connected_comports,
         )
     elif params.versions[0] and params.boards and params.serial:
         # Manual specification of serial ports + board

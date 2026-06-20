@@ -16,6 +16,7 @@ from pathlib import Path
 
 from mpflash.common import BootloaderMethod, FlashMethod
 from mpflash.config import config
+from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 
@@ -52,10 +53,76 @@ def flash_tasks(
     **kwargs,
 ):
     """Flash every entry in ``tasks`` and return the updated boards."""
+
+    def _pick_backend_compatible_firmware(task, fw_info):
+        """Pick a firmware image matching the explicit backend's supported formats."""
+        if fw_info is None:
+            return None
+
+        requested_name = _resolve_backend_name(method)
+        if not requested_name:
+            return fw_info
+
+        backend = get_backend(requested_name)
+        if backend is None or not backend.supported_formats:
+            return fw_info
+
+        current_suffix = Path(fw_info.firmware_file).suffix.lower()
+        if current_suffix in backend.supported_formats:
+            return fw_info
+
+        # Fast path: if a same-stem file with a backend-supported extension
+        # exists next to the selected firmware, use it directly.
+        selected_path = config.firmware_folder / fw_info.firmware_file
+        for suffix in backend.supported_formats:
+            sibling = selected_path.with_suffix(suffix)
+            if sibling.exists():
+                rel = sibling.relative_to(config.firmware_folder).as_posix()
+                log.info(
+                    f"Using {requested_name} compatible sibling firmware {rel} "
+                    f"instead of {fw_info.firmware_file} for {task.board.board} on {task.board.serialport}"
+                )
+                fw_info.firmware_file = rel
+                return fw_info
+
+        board = task.board
+        detected_board_id = f"{board.board}-{board.variant}" if board.variant else board.board
+        board_ids = [getattr(fw_info, "board_id", ""), detected_board_id]
+
+        candidates = []
+        seen_files = set()
+        for bid in board_ids:
+            if not bid:
+                continue
+            # First prefer exact port match, then broaden to any port.
+            for cand in find_downloaded_firmware(
+                board_id=bid,
+                version=fw_info.version,
+                port=board.port,
+                custom=bool(fw_info.custom),
+            ) + find_downloaded_firmware(
+                board_id=bid,
+                version=fw_info.version,
+                port="",
+                custom=bool(fw_info.custom),
+            ):
+                if cand.firmware_file not in seen_files:
+                    seen_files.add(cand.firmware_file)
+                    candidates.append(cand)
+
+        for cand in reversed(candidates):
+            if Path(cand.firmware_file).suffix.lower() in backend.supported_formats:
+                log.info(
+                    f"Using {requested_name} compatible firmware {cand.firmware_file} "
+                    f"instead of {fw_info.firmware_file} for {board.board} on {board.serialport}"
+                )
+                return cand
+        return fw_info
+
     flashed = []
     for task in tasks:
         mcu = task.board
-        fw_info = task.firmware
+        fw_info = _pick_backend_compatible_firmware(task, task.firmware)
         if not fw_info:
             log.error(f"Firmware not found for {mcu.board} on {mcu.serialport}, skipping")
             continue
