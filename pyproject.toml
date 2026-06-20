@@ -37,7 +37,6 @@ dependencies = [
     "questionary>=2.0.0",
     "jsonlines>=4.0.0",
     "jsons>=1.6.3",
-    "libusb>=1.0.27; sys_platform == 'win32'",
     "pywin32>=310; sys_platform == 'win32'",
     "loguru>=0.7.2",
     "mpremote>=1.22.0",
@@ -54,6 +53,7 @@ dependencies = [
     "tomli>=2.2.1",
     "pytest-cov>=7.0.0",
     "peewee>=4.0.3",
+    "libusb-package>=1.0.26.0; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
