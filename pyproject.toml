@@ -58,8 +58,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "ipykernel>=6.29.5",
-    "tornado>=6.5",
     "keyring>=25.6.0",
 ]
 test = [
