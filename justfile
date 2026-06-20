@@ -8,7 +8,7 @@ help:
 
 # install project in edi mode and install dev dependencies
 sync: 
-  uv sync --extra dev,test
+  uv sync --extra dev,test,pyocd
 
 # run full pytest suite
 test: 
@@ -34,7 +34,6 @@ publish : build
 
 # delete and regen the lockfile - useful in merge conficts
 lock:
-  #!{{shebang}}
   del uv.lock -erroraction ignore
   uv lock
 
