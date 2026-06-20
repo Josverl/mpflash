@@ -53,6 +53,8 @@ hil_dfu_pybv11:
 hil_pyocd_pybv11:
   uv run pytest -m hw_pyocd tests/hw -v
 
+hil_esptool_esp32:
+  uv run pytest -m hw_esptool tests/hw -v
 
 # [script('python')]
 # python:
