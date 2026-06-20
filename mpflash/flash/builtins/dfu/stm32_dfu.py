@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger as log
+from mpflash.common import udev_rules_error_message
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # Module-level cached backend for Windows libusb
@@ -13,26 +14,27 @@ def init_libusb_windows():
     """
     Initializes the libusb backend on Windows and caches it module-wide.
 
+    Uses libusb_package, which bundles pre-built libusb shared libraries and
+    exposes a ready-to-use pyusb backend, removing the need to locate the DLL.
+
     Returns:
         The usb backend object if successful, None otherwise.
     """
     global _libusb_backend
     if _libusb_backend is not None:
         return _libusb_backend
+    try:
+        import libusb_package  # type: ignore
+    except ImportError:
+        log.error("libusb_package not found, please install it with 'pip install libusb-package'")
+        return None
 
-    import libusb  # type: ignore
-    import usb.backend.libusb1 as libusb1
-
-    arch = "x86_64" if platform.architecture()[0] == "64bit" else "x86"
-    libusb1_dll = Path(libusb.__file__).parent / "_platform" / "windows" / arch / "libusb-1.0.dll"
-    if not libusb1_dll.exists():
-        raise FileNotFoundError(f"libusb1.dll not found at {libusb1_dll}")
-    _libusb_backend = libusb1.get_backend(find_library=lambda x: libusb1_dll.as_posix())
+    _libusb_backend = libusb_package.get_libusb1_backend()
     return _libusb_backend
 
 
 try:
-    from ..vendor import pydfu as pydfu
+    from mpflash.vendor import pydfu as pydfu
 except ImportError:
     pydfu = None
 
@@ -91,15 +93,33 @@ def flash_stm32_dfu(
     if backend is not None:
         kwargs["backend"] = backend
 
-    log.debug("List SPECIFIED DFU devices...")
-    try:
-        pydfu.list_dfu_devices(**kwargs)
-    except ValueError as e:
-        log.error(f"Insuffient permissions to access usb DFU devices: {e}")
-        return None
+    import time
+
+    max_wait = 3.0  # seconds
+    poll_interval = 0.25
+    waited = 0.0
+    while True:
+        try:
+            log.debug(f"Polling for DFU device (waited {waited:.1f}s)...")
+            pydfu.list_dfu_devices(**kwargs)
+            break  # Device found
+        except ValueError as e:
+            if waited >= max_wait:
+                log.error(
+                    udev_rules_error_message(
+                        "mpflash.udev_rules",
+                        "65-mpflash-stm32-dfu.rules",
+                        device_label="STM32 DFU USB devices",
+                        next_step="Then replug your STM32 board or re-enter DFU mode.",
+                    )
+                    + f"\nDetails: {e}"
+                )
+                return None
+            time.sleep(poll_interval)
+            waited += poll_interval
 
     # Needs to be a list of serial ports
-    log.debug("Inititialize pydfu...")
+    log.debug("Initialize pydfu...")
     pydfu.init(**kwargs)
 
     if erase:

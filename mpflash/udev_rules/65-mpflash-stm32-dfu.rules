@@ -1,0 +1,4 @@
+# mpflash STM32 DFU access rule
+# Grants non-root users access to STM32 devices in DFU bootloader mode.
+# Device: STMicroelectronics STM Device in DFU Mode (0483:df11)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="df11", MODE="0660", GROUP="plugdev", TAG+="uaccess"

@@ -66,14 +66,14 @@ jobs:
             #----------------------------------------------
             # install project
             #----------------------------------------------
-            - name: Install mpflash & test dependencies
-              run: uv sync --extra test
+            - name: Install mpflash & test dependencies (all extras)
+              run: uv sync --all-extras
 
             - name: Test mpflash
               run: |
                   # run once to bootstrap database (test hack)
                   uv run mpflash download --board RPI_PICO
-                  uv run pytest --cov --cov-branch --cov-report=xml
+                  uv run pytest --cov --cov-branch --cov-report=xml --junitxml=results/junit.xml -o junit_family=legacy
 
             #----------------------------------------------
             # upload coverage stats
@@ -81,13 +81,18 @@ jobs:
             #----------------------------------------------
 
             - name: Upload coverage-mpflash-*.xml to Codecov
-              if: always() # ignore errors
+              if:  ${{ !cancelled() }}
               continue-on-error: true
               uses: codecov/codecov-action@v7
               with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
-                  # fail_ci_if_error: false
-                  # file: results/coverage-mpflash-${{ matrix.python-version }}-${{ matrix.os }}.xml
-                  # flags: mpflash
+                token: ${{ secrets.CODECOV_TOKEN }}
+                fail_ci_if_error: false
 
+            - name: Upload test results to Codecov
+              if: ${{ !cancelled() }}
+              uses: codecov/test-results-action@v1
+              with:
+                token: ${{ secrets.CODECOV_TOKEN }}
+                files: results/junit.xml
+                fail_ci_if_error: false
 

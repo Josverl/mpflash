@@ -1,11 +1,11 @@
 # import pytest
 # from unittest import mock
-# from mpflash.flash.uf2.uf2disk import UF2Disk
-# from mpflash.flash.uf2.linux import get_uf2_drives
+# from mpflash.flash.builtins.uf2.uf2disk import UF2Disk
+# from mpflash.flash.builtins.uf2.linux import get_uf2_drives
 
 # @pytest.fixture
 # def mock_blkinfo():
-#     with mock.patch("mpflash.flash.uf2.linux.BlkDiskInfo") as mock_blkinfo_cls:
+#     with mock.patch("mpflash.flash.builtins.uf2.linux.BlkDiskInfo") as mock_blkinfo_cls:
 #         yield mock_blkinfo_cls
 
 # def test_get_uf2_drives_no_disks(mock_blkinfo):
