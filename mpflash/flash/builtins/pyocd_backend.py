@@ -37,7 +37,7 @@ class PyOCDBackend(FlashBackend):
 
     def is_available(self) -> bool:
         try:
-            from mpflash.flash.pyocd_core import is_pyocd_available
+            from mpflash.flash.builtins.pyocd.core import is_pyocd_available
         except ImportError:
             return False
         return bool(is_pyocd_available())
@@ -61,7 +61,7 @@ class PyOCDBackend(FlashBackend):
                 "dependency",
                 "pyOCD is not installed (install with: uv sync --extra pyocd)",
             )
-        from mpflash.flash.pyocd_core import is_pyocd_supported
+        from mpflash.flash.builtins.pyocd.core import is_pyocd_supported
 
         if not is_pyocd_supported(mcu):
             return Reason(
@@ -72,7 +72,7 @@ class PyOCDBackend(FlashBackend):
         return None
 
     def flash(self, ctx: FlashContext) -> FlashResult:
-        from mpflash.flash.pyocd_flash import flash_pyocd
+        from mpflash.flash.builtins.pyocd.flash import flash_pyocd
 
         passthrough = {
             k: ctx.options[k]

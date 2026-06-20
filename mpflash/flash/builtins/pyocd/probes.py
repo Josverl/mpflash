@@ -100,7 +100,7 @@ def is_debug_programming_available() -> bool:
 # below to avoid pulling pyOCD into ``mpflash`` startup when the extra is not
 # installed.
 try:
-    from mpflash.flash.pyocd_flash import PyOCDProbe  # noqa: E402
+    from mpflash.flash.builtins.pyocd.flash import PyOCDProbe  # noqa: E402
 
     register_probe_implementation("pyocd", PyOCDProbe)
 except ImportError:

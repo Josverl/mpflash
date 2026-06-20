@@ -25,7 +25,7 @@ from .services import default_services
 from .worklist import FlashTaskList
 
 # Legacy re-exports — keep the old import paths working.
-from .pyocd_flash import flash_pyocd, pyocd_info  # noqa: F401
+from .builtins.pyocd.flash import flash_pyocd, pyocd_info  # noqa: F401
 
 
 # Map between the user-facing ``--method`` enum and the backend ``name``.

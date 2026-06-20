@@ -24,7 +24,7 @@ class EsptoolBackend(FlashBackend):
     priority = 10
 
     def flash(self, ctx: FlashContext) -> FlashResult:
-        from mpflash.flash.esp import flash_esp
+        from mpflash.flash.builtins.esp import flash_esp
 
         # Pull only the keys the esp backend understands from options to avoid
         # smuggling unrelated kwargs through.

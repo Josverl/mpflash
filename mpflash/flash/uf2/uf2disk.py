@@ -1,12 +1,4 @@
-"""Info to support mounting and unmounting of UF2 drives on linux and macos"""
+"""Compatibility shim — see :mod:`mpflash.flash.builtins.uf2.uf2disk`."""
 
-
-class UF2Disk:
-    """Info to support mounting and unmounting of UF2 drives on linux"""
-
-    device_path: str
-    label: str
-    mountpoint: str
-
-    def __repr__(self):
-        return repr(self.__dict__)
+from mpflash.flash.builtins.uf2.uf2disk import *  # noqa: F401,F403
+from mpflash.flash.builtins.uf2.uf2disk import UF2Disk  # noqa: F401

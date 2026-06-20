@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 
 # Import the modules under test
-from mpflash.flash.pyocd_core import (
+from mpflash.flash.builtins.pyocd.core import (
     parse_mcu_info,
     fuzzy_match_target,
     detect_pyocd_target,
@@ -167,16 +167,18 @@ class TestPyOCDTargetDiscovery:
         mock_subprocess.return_value = mock_result
 
         # Mock API failure to force subprocess path
-        with patch("mpflash.flash.pyocd_core.get_pyocd_targets") as mock_get_targets:
+        with patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets") as mock_get_targets:
             # This will use the actual implementation, so we need to mock the API import
-            with patch("mpflash.flash.pyocd_core._ensure_pyocd"):
+            with patch("mpflash.flash.builtins.pyocd.core._ensure_pyocd"):
                 with patch("pyocd.target.BUILTIN_TARGETS", side_effect=ImportError):
                     # Call the actual function which should fall back to subprocess
                     pass  # Skip complex mocking for this simplified test
 
     def test_pyocd_not_available(self):
         """Test behavior when pyOCD is not installed."""
-        with patch("mpflash.flash.pyocd_core._ensure_pyocd", side_effect=MPFlashError("pyOCD not installed")):
+        # Clear the lru_cache so _ensure_pyocd is actually invoked
+        get_pyocd_targets.cache_clear()
+        with patch("mpflash.flash.builtins.pyocd.core._ensure_pyocd", side_effect=MPFlashError("pyOCD not installed")):
             with pytest.raises(MPFlashError):
                 get_pyocd_targets()
 
@@ -184,7 +186,7 @@ class TestPyOCDTargetDiscovery:
 class TestDynamicTargetDetection:
     """Test the main dynamic target detection function."""
 
-    @patch("mpflash.flash.pyocd_core.get_pyocd_targets")
+    @patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets")
     def test_successful_fuzzy_match(self, mock_get_targets):
         """Test successful target detection via fuzzy matching."""
         mock_get_targets.return_value = ALL_PYOCD_TARGETS
@@ -194,7 +196,7 @@ class TestDynamicTargetDetection:
 
         assert result == "stm32wb55xg"
 
-    @patch("mpflash.flash.pyocd_core.get_pyocd_targets")
+    @patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets")
     def test_no_match_without_pack_install(self, mock_get_targets):
         """Test no match found when pack installation disabled."""
         # Only return builtin targets (no H563 support)
@@ -213,8 +215,8 @@ class TestDynamicTargetDetection:
     # mpflash/flash/pyocd_core.py:detect_pyocd_target and update the patch target
     # / assertion to match the actual pack-install code path.
     @pytest.mark.xfail(reason="pyOCD PR test: assertion on auto_install_pack_for_target call args does not match current implementation")
-    @patch("mpflash.flash.pyocd_core.get_pyocd_targets")
-    @patch("mpflash.flash.pyocd_core.auto_install_pack_for_target")
+    @patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets")
+    @patch("mpflash.flash.builtins.pyocd.core.auto_install_pack_for_target")
     def test_successful_pack_installation(self, mock_install_pack, mock_get_targets):
         """Test successful target detection after pack installation."""
         # First call returns empty targets to force pack installation
@@ -231,8 +233,8 @@ class TestDynamicTargetDetection:
     # TODO(pyocd-rebase): Same issue as test_successful_pack_installation -
     # auto_install_pack_for_target invocation does not match expectations.
     @pytest.mark.xfail(reason="pyOCD PR test: auto_install_pack_for_target call assertion does not match current implementation")
-    @patch("mpflash.flash.pyocd_core.get_pyocd_targets")
-    @patch("mpflash.flash.pyocd_core.auto_install_pack_for_target")
+    @patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets")
+    @patch("mpflash.flash.builtins.pyocd.core.auto_install_pack_for_target")
     def test_failed_pack_installation(self, mock_install_pack, mock_get_targets):
         """Test behavior when pack installation fails."""
         mock_get_targets.return_value = {}  # No targets available
@@ -266,7 +268,7 @@ class TestPackInstallation:
 
         mock_subprocess.side_effect = [find_result, install_result]
 
-        with patch("mpflash.flash.pyocd_core.get_pyocd_targets") as mock_cache:
+        with patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets") as mock_cache:
             mock_cache.cache_clear = Mock()
             result = auto_install_pack_for_target("STM32H563")
 
@@ -304,7 +306,7 @@ class TestPackInstallation:
 
         assert result is False
 
-    @patch("mpflash.flash.pyocd_core._run_pyocd_command")
+    @patch("mpflash.flash.builtins.pyocd.core._run_pyocd_command")
     def test_no_packs_to_install(self, mock_run_command):
         """Test when all packs are already installed."""
         # Mock output showing all packs installed
@@ -340,7 +342,7 @@ class TestCaching:
         """Test that cached lookup returns consistent results."""
         mcu_id = MCUIdentifier("TEST_BOARD", "STM32F429", "Test MCU", "stm32")
 
-        with patch("mpflash.flash.pyocd_core.detect_pyocd_target") as mock_dynamic:
+        with patch("mpflash.flash.builtins.pyocd.core.detect_pyocd_target") as mock_dynamic:
             mock_dynamic.return_value = "stm32f429xi"
 
             result1 = cached_target_lookup(mcu_id)
@@ -371,7 +373,7 @@ class TestErrorHandling:
         """Test that exceptions in target detection are handled gracefully."""
         mcu = MOCK_MCUS["stm32wb55"]
 
-        with patch("mpflash.flash.pyocd_core.get_pyocd_targets", side_effect=Exception("API Error")):
+        with patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets", side_effect=Exception("API Error")):
             result = detect_pyocd_target(mcu)
             assert result is None  # Should not crash
 
@@ -384,7 +386,7 @@ class TestErrorHandling:
 
     def test_malformed_subprocess_output(self):
         """Test handling of malformed subprocess output."""
-        with patch("mpflash.flash.pyocd_core.subprocess.run") as mock_subprocess:
+        with patch("mpflash.flash.builtins.pyocd.core.subprocess.run") as mock_subprocess:
             mock_result = Mock()
             mock_result.returncode = 0
             mock_result.stdout = "Malformed output\nNot a proper table"

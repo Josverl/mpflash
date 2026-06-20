@@ -63,9 +63,9 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
 @pytest.mark.parametrize("bootloader", [BootloaderMethod.NONE, BootloaderMethod.MPY])
 @pytest.mark.parametrize("port", ["esp32", "esp8266", "rp2", "stm32", "samd"])
 def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port):
-    m_flash_uf2 = mocker.patch("mpflash.flash.uf2.flash_uf2")
-    m_flash_stm32 = mocker.patch("mpflash.flash.stm32.flash_stm32")
-    m_flash_esp = mocker.patch("mpflash.flash.esp.flash_esp")
+    m_flash_uf2 = mocker.patch("mpflash.flash.builtins.uf2.flash_uf2")
+    m_flash_stm32 = mocker.patch("mpflash.flash.builtins.dfu.flash_stm32")
+    m_flash_esp = mocker.patch("mpflash.flash.builtins.esp.flash_esp")
     m_mpr_run = mocker.patch("mpflash.bootloader.micropython.MPRemoteBoard.run_command")  # type: ignore
     m_bootloader = mocker.patch("mpflash.bootloader.activate.enter_bootloader")
     # use

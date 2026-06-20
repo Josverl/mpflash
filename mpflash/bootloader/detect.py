@@ -3,7 +3,7 @@
 import os
 
 from mpflash.common import PORT_FWTYPES
-from mpflash.flash.uf2 import waitfor_uf2
+from mpflash.flash.builtins.uf2 import waitfor_uf2
 from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
 
@@ -49,7 +49,7 @@ def in_stm32_bootloader() -> bool:
 def check_dfu_devices():
     """Check if there are any DFU devices connected"""
     # JIT import
-    from mpflash.flash.stm32_dfu import dfu_init
+    from mpflash.flash.builtins.dfu.stm32_dfu import dfu_init
     from mpflash.vendor.pydfu import get_dfu_devices
 
     # need to init on windows to get the right usb backend

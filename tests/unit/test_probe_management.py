@@ -11,7 +11,7 @@ from pathlib import Path
 import tempfile
 
 # Import modules under test
-from mpflash.flash.debug_probe import (
+from mpflash.flash.builtins.pyocd.probes import (
     DebugProbe,
     register_probe_implementation,
     get_debug_probes,
@@ -19,7 +19,7 @@ from mpflash.flash.debug_probe import (
     is_debug_programming_available,
     _probe_implementations,
 )
-from mpflash.flash.pyocd_flash import PyOCDProbe, PyOCDFlash, flash_pyocd
+from mpflash.flash.builtins.pyocd.flash import PyOCDProbe, PyOCDFlash, flash_pyocd
 from mpflash.errors import MPFlashError
 
 # Import test fixtures
@@ -208,7 +208,7 @@ class TestProbeFinding:
 class TestPyOCDProbeIntegration:
     """Test PyOCD probe implementation details."""
 
-    @patch("mpflash.flash.pyocd_flash._ensure_pyocd")
+    @patch("mpflash.flash.builtins.pyocd.flash._ensure_pyocd")
     def test_pyocd_probe_is_available(self, mock_ensure):
         """Test checking if pyOCD is available."""
         mock_ensure.return_value = {"ConnectHelper": Mock()}
@@ -216,7 +216,7 @@ class TestPyOCDProbeIntegration:
         available = PyOCDProbe.is_implementation_available()
         assert available is True
 
-    @patch("mpflash.flash.pyocd_flash._ensure_pyocd")
+    @patch("mpflash.flash.builtins.pyocd.flash._ensure_pyocd")
     def test_pyocd_probe_not_available(self, mock_ensure):
         """Test behavior when pyOCD is not available."""
         mock_ensure.side_effect = MPFlashError("pyOCD not installed")
@@ -224,7 +224,7 @@ class TestPyOCDProbeIntegration:
         available = PyOCDProbe.is_implementation_available()
         assert available is False
 
-    @patch("mpflash.flash.pyocd_flash._ensure_pyocd")
+    @patch("mpflash.flash.builtins.pyocd.flash._ensure_pyocd")
     def test_pyocd_probe_discovery(self, mock_ensure):
         """Test PyOCD probe discovery."""
         # Mock pyOCD ConnectHelper
@@ -257,8 +257,8 @@ class TestPyOCDFlash:
         self.test_firmware = Path(tempfile.gettempdir()) / "test_firmware.bin"
         self.test_firmware.parent.mkdir(parents=True, exist_ok=True)
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_pyocd_flash_init_success(self, mock_detect, mock_available):
         """Test successful PyOCDFlash initialization."""
         mock_available.return_value = True
@@ -269,8 +269,8 @@ class TestPyOCDFlash:
         assert flasher.mcu == self.mock_mcu
         assert flasher.target_type == "stm32wb55xg"
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_pyocd_flash_init_no_debug_support(self, mock_detect, mock_available):
         """Test PyOCDFlash initialization when pyOCD is not available."""
         mock_detect.return_value = "stm32wb55xg"
@@ -279,9 +279,9 @@ class TestPyOCDFlash:
         with pytest.raises(MPFlashError, match="No debug probe support available"):
             PyOCDFlash(self.mock_mcu)
 
-    @patch("mpflash.flash.pyocd_flash.get_unsupported_reason")
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.get_unsupported_reason")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_pyocd_flash_init_unsupported_target(self, mock_detect, mock_available, mock_reason):
         """Test PyOCDFlash initialization with unsupported target."""
         mock_available.return_value = True
@@ -291,9 +291,9 @@ class TestPyOCDFlash:
         with pytest.raises(MPFlashError, match="not supported by pyOCD"):
             PyOCDFlash(self.mock_mcu)
 
-    @patch("mpflash.flash.pyocd_flash.find_pyocd_probe")
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.find_pyocd_probe")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_flash_firmware_success(self, mock_detect, mock_available, mock_find_probe):
         """Test successful firmware flashing."""
         mock_available.return_value = True
@@ -320,8 +320,8 @@ class TestPyOCDFlash:
         finally:
             self.test_firmware.unlink(missing_ok=True)
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_flash_firmware_file_not_found(self, mock_detect, mock_available):
         """Test error when firmware file doesn't exist."""
         mock_available.return_value = True
@@ -332,9 +332,9 @@ class TestPyOCDFlash:
         with pytest.raises(MPFlashError, match="Firmware file not found"):
             flasher.flash_firmware(Path("/nonexistent/firmware.bin"))
 
-    @patch("mpflash.flash.pyocd_flash.find_pyocd_probe")
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_available")
-    @patch("mpflash.flash.pyocd_flash.detect_pyocd_target")
+    @patch("mpflash.flash.builtins.pyocd.flash.find_pyocd_probe")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
     def test_flash_firmware_no_probe(self, mock_detect, mock_available, mock_find_probe):
         """Test error when no probe is found."""
         mock_available.return_value = True
@@ -366,8 +366,8 @@ class TestFlashPyOCDFunction:
         self.test_firmware = Path(tempfile.gettempdir()) / "test_firmware.bin"
         self.test_firmware.parent.mkdir(parents=True, exist_ok=True)
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_supported")
-    @patch("mpflash.flash.pyocd_flash.PyOCDFlash")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_supported")
+    @patch("mpflash.flash.builtins.pyocd.flash.PyOCDFlash")
     def test_flash_pyocd_success(self, mock_flasher_class, mock_supported):
         """Test successful flash_pyocd function call."""
         mock_supported.return_value = True
@@ -387,8 +387,8 @@ class TestFlashPyOCDFunction:
         finally:
             self.test_firmware.unlink(missing_ok=True)
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_supported")
-    @patch("mpflash.flash.pyocd_flash.get_unsupported_reason")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_supported")
+    @patch("mpflash.flash.builtins.pyocd.flash.get_unsupported_reason")
     def test_flash_pyocd_unsupported(self, mock_reason, mock_supported):
         """Test flash_pyocd with unsupported MCU."""
         mock_supported.return_value = False
@@ -397,8 +397,8 @@ class TestFlashPyOCDFunction:
         with pytest.raises(MPFlashError, match="PyOCD flash not supported"):
             flash_pyocd(self.mock_mcu, self.test_firmware)
 
-    @patch("mpflash.flash.pyocd_flash.is_pyocd_supported")
-    @patch("mpflash.flash.pyocd_flash.PyOCDFlash")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_supported")
+    @patch("mpflash.flash.builtins.pyocd.flash.PyOCDFlash")
     def test_flash_pyocd_no_probe(self, mock_flasher_class, mock_supported):
         """Test flash_pyocd when no suitable probe is found.
 
