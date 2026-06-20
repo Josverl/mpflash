@@ -8,6 +8,7 @@ without requiring actual hardware.
 import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 from pathlib import Path
+import tempfile
 
 # Import modules under test
 from mpflash.flash.debug_probe import (
@@ -257,7 +258,8 @@ class TestPyOCDFlash:
     def setup_method(self):
         """Set up mocks for testing."""
         self.mock_mcu = MOCK_MCUS["stm32wb55"]
-        self.test_firmware = Path("/tmp/test_firmware.bin")
+        self.test_firmware = Path(tempfile.gettempdir()) / "test_firmware.bin"
+        self.test_firmware.parent.mkdir(parents=True, exist_ok=True)
 
     @patch('mpflash.flash.pyocd_flash.is_pyocd_available')
     @patch('mpflash.flash.pyocd_flash.detect_pyocd_target')
@@ -365,7 +367,8 @@ class TestFlashPyOCDFunction:
 
     def setup_method(self):
         self.mock_mcu = MOCK_MCUS["stm32wb55"]
-        self.test_firmware = Path("/tmp/test_firmware.bin")
+        self.test_firmware = Path(tempfile.gettempdir()) / "test_firmware.bin"
+        self.test_firmware.parent.mkdir(parents=True, exist_ok=True)
 
     @patch('mpflash.flash.pyocd_flash.is_pyocd_supported')
     @patch('mpflash.flash.pyocd_flash.PyOCDFlash')
