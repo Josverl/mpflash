@@ -334,7 +334,9 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         # IMPORTANT: honor explicit serial targets exactly. Do not broaden with
         # include/ignore set logic, otherwise unrelated attached boards can leak
         # into this run.
-        specified = [p for p in params.serial if p and p != "*"]
+        # Exclude wildcard and interactive sentinel values. Passing "?" through
+        # to pyserial's list_ports.grep() causes a regex parse error.
+        specified = [p for p in params.serial if p and p not in {"*", "?"}]
         ignored = set(params.ignore or [])
         comports = [p for p in specified if p not in ignored]
         if not comports:
