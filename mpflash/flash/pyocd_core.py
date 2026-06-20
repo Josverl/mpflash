@@ -22,13 +22,13 @@ from mpflash.mpremoteboard import MPRemoteBoard
 # =============================================================================
 
 KNOWN_DEPENDENCY_ISSUES = {
-    "python_3_14_libusb": {
-        "python_versions": ["3.14"],
-        "affected_package": "libusb-package",
-        "root_cause": "libusb-package does not provide pre-built wheels for Python 3.14+",
-        "affected_by": ["pyocd"],
-        "workaround": "Use Python 3.10-3.13, or install libusb separately and build from source",
-    }
+    # "python_3_14_libusb": {
+    #     "python_versions": ["3.14"],
+    #     "affected_package": "libusb-package",
+    #     "root_cause": "libusb-package does not provide pre-built wheels for Python 3.14+",
+    #     "affected_by": ["pyocd"],
+    #     "workaround": "Use Python 3.10-3.13, or install libusb separately and build from source",
+    # }
 }
 
 
