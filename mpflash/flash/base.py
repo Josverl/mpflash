@@ -1,8 +1,11 @@
 """Abstract base class for pluggable flash backends.
 
-A backend declares which MicroPython ports it supports, which firmware file
-formats it understands (in preference order), and which host OS platforms it
-runs on. Backends are discovered either by being imported in
+A backend declares:
+ -  which MicroPython ports it supports
+ -  which firmware file formats it understands (in preference order)
+ -  which host OS platforms it runs on
+
+Backends are discovered either by being imported in
 ``mpflash.flash.builtins`` or via the ``mpflash.flash_plugins`` entry-point
 group. Built-ins and third-party plugins use the same contract.
 """
@@ -61,7 +64,10 @@ class FlashBackend(ABC):
         return True
 
     def supports(
-        self, mcu: "MPRemoteBoard", fw_file: Path, platform: Platform
+        self,
+        mcu: "MPRemoteBoard",
+        fw_file: Path,
+        platform: Platform,
     ) -> Optional[Reason]:
         """Return ``None`` if the backend can flash this combination.
 
