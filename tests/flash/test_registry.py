@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
+import types
 
 import pytest
 
@@ -215,3 +216,117 @@ def test_supports_returns_reason_for_wrong_format(tmp_path: Path):
     reason = UF2Backend().supports(mcu, fw, Platform.LINUX)
     assert isinstance(reason, Reason)
     assert reason.kind == "format"
+
+
+def test_register_backend_without_name_raises():
+    class _Nameless(FlashBackend):
+        name = ""
+
+        def flash(self, ctx: FlashContext) -> FlashResult:
+            return FlashResult(success=True, mcu=ctx.mcu, backend="")
+
+    with pytest.raises(ValueError, match="has no 'name'"):
+        register(_Nameless())
+
+
+def test_discover_entry_points_old_api_and_failure_paths(mocker):
+    import mpflash.flash.registry as reg
+
+    class _EP:
+        def __init__(self, name, loaded=None, exc=None):
+            self.name = name
+            self._loaded = loaded
+            self._exc = exc
+
+        def load(self):
+            if self._exc:
+                raise self._exc
+            return self._loaded
+
+    good_backend = _ToyBackend
+    eps = [
+        _EP("bad-load", exc=RuntimeError("boom")),
+        _EP("good", loaded=good_backend),
+        _EP("bad-register", loaded=object()),
+    ]
+
+    def fake_entry_points(*args, **kwargs):
+        if kwargs:
+            raise TypeError("old API")
+        return {"mpflash.flash_plugins": eps}
+
+    mocker.patch("importlib.metadata.entry_points", side_effect=fake_entry_points)
+    reg._entry_points_loaded = False
+
+    reg.discover_entry_points()
+    assert reg.get_backend("toy") is not None
+    unregister("toy")
+
+
+def test_flash_mcu_pyocd_override_error_paths(tmp_path: Path, monkeypatch):
+    import mpflash.flash as flash_mod
+
+    mcu = _fake_mcu(port="rp2", board_id="RPI_PICO", cpu="RP2040")
+    fw = tmp_path / "firmware.elf"
+    fw.write_bytes(b"x")
+
+    class _Backend:
+        name = "pyocd"
+        supported_formats = (".bin", ".hex", ".elf", ".axf")
+        supported_platforms = frozenset({Platform.LINUX})
+
+        def is_available(self):
+            return True
+
+        def flash(self, ctx):
+            return FlashResult(success=True, mcu=ctx.mcu, backend=self.name)
+
+    monkeypatch.setattr(flash_mod, "get_backend", lambda name: None)
+    with pytest.raises(MPFlashError, match="Unknown flash method 'pyocd'"):
+        flash_mcu(mcu, fw_file=fw, method=FlashMethod.PYOCD, target_override="rp2040")
+
+    backend = _Backend()
+    monkeypatch.setattr(flash_mod, "get_backend", lambda name: backend)
+    with pytest.raises(MPFlashError, match="unsupported format"):
+        flash_mcu(mcu, fw_file=tmp_path / "firmware.dfu", method=FlashMethod.PYOCD, target_override="rp2040")
+
+    backend.supported_platforms = frozenset({Platform.WINDOWS})
+    with pytest.raises(MPFlashError, match="does not run on"):
+        flash_mcu(mcu, fw_file=fw, method=FlashMethod.PYOCD, target_override="rp2040")
+
+    backend.supported_platforms = frozenset({flash_mod.default_services.current_platform()})
+    backend.is_available = lambda: False
+    with pytest.raises(MPFlashError, match="pyOCD is not installed"):
+        flash_mcu(mcu, fw_file=fw, method=FlashMethod.PYOCD, target_override="rp2040")
+
+
+def test_flash_mcu_wraps_select_and_backend_errors(tmp_path: Path, monkeypatch):
+    import mpflash.flash as flash_mod
+
+    mcu = _fake_mcu(port="rp2", board_id="RPI_PICO", cpu="RP2040")
+    fw = tmp_path / "firmware.uf2"
+    fw.write_bytes(b"x")
+
+    monkeypatch.setattr(flash_mod, "select_backend", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("explode")))
+    with pytest.raises(MPFlashError, match="Failed to select flash backend"):
+        flash_mcu(mcu, fw_file=fw)
+
+    class _Backend:
+        name = "uf2"
+
+        def flash(self, ctx):
+            raise RuntimeError("flash exploded")
+
+    monkeypatch.setattr(flash_mod, "select_backend", lambda *a, **k: _Backend())
+    with pytest.raises(MPFlashError, match="Failed to flash"):
+        flash_mcu(mcu, fw_file=fw)
+
+    class _BackendResult:
+        name = "uf2"
+
+        def flash(self, ctx):
+            return FlashResult(success=False, mcu=None, backend=self.name, message="bad")
+
+    monkeypatch.setattr(flash_mod, "select_backend", lambda *a, **k: _BackendResult())
+    with pytest.raises(MPFlashError, match="bad"):
+        flash_mcu(mcu, fw_file=fw)
