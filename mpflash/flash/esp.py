@@ -212,9 +212,7 @@ def flash_esp(
         log.error(f"Failed to flash {mcu.board} on {mcu.serialport}: {first_exc}")
         if not retry_on_error:
             return None
-        log.warning(
-            f"Retrying at {retry_baud} baud with flash_mode={retry_flash_mode!r}..."
-        )
+        log.warning(f"Retrying at {retry_baud} baud with flash_mode={retry_flash_mode!r}...")
         try:
             _attempt_flash(mcu, chip, start_addr, retry_baud, fw_file, retry_flash_mode, flash_size, erase=erase)
         except Exception as retry_exc:
