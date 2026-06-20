@@ -55,6 +55,7 @@ dependencies = [
     "peewee>=4.0.3",
     "libusb-package>=1.0.26.0; sys_platform == 'win32'",
     "python-dotenv>=1.0.0",
+    "libusb-package>=1.0.26.0; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
