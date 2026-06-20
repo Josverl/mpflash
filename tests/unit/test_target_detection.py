@@ -217,6 +217,29 @@ class TestDynamicTargetDetection:
         if result:
             assert "h563" not in result.lower()  # Should not find H563 specific target
 
+    @patch("mpflash.flash.builtins.pyocd.core.fuzzy_match_target")
+    @patch("mpflash.flash.builtins.pyocd.core.get_pyocd_targets")
+    def test_rp2_fallback_prefers_core0_target(self, mock_get_targets, mock_fuzzy_match):
+        """Test RP2 fallback maps Pico boards to rp2040 family targets."""
+        mock_fuzzy_match.return_value = None
+        mock_get_targets.return_value = {
+            "rp2040_core0": {
+                "vendor": "Raspberry Pi",
+                "part_number": "RP2040Core0",
+                "source": "builtin",
+            },
+            "rp2040_core1": {
+                "vendor": "Raspberry Pi",
+                "part_number": "RP2040Core1",
+                "source": "builtin",
+            },
+        }
+
+        mcu = MOCK_MCUS["rp2040"]
+        result = detect_pyocd_target(mcu, auto_install_packs=False)
+
+        assert result == "rp2040_core0"
+
     # TODO(pyocd-rebase): detect_pyocd_target does not call auto_install_pack_for_target
     # the way this test expects (mock not invoked, or argument differs). Inspect
     # mpflash/flash/pyocd_core.py:detect_pyocd_target and update the patch target

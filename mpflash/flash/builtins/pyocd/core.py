@@ -355,15 +355,16 @@ def get_pyocd_targets() -> Dict[str, Dict[str, str]]:
 
                     subprocess_targets[target_name] = {"vendor": vendor, "part_number": part_number, "source": source}
 
-            # Merge subprocess results (subprocess is authoritative)
-            if len(subprocess_targets) > len(targets):
-                targets = subprocess_targets
-                log.debug(f"Subprocess method loaded {len(targets)} total targets")
-            else:
-                # Supplement API results with any pack targets from subprocess
-                pack_targets = {k: v for k, v in subprocess_targets.items() if v["source"] == "pack" and k not in targets}
-                targets.update(pack_targets)
-                log.debug(f"Added {len(pack_targets)} pack targets from subprocess")
+            # Merge API + subprocess results.
+            # Some pyOCD installations omit certain builtins in CLI output
+            # (RP2040 is one observed example), so never discard API targets.
+            if subprocess_targets:
+                added = len([k for k in subprocess_targets if k not in targets])
+                targets.update(subprocess_targets)
+                log.debug(
+                    f"Merged {len(subprocess_targets)} subprocess targets "
+                    f"({added} new, {len(subprocess_targets) - added} updated)"
+                )
 
     except Exception as subprocess_error:
         log.debug(f"Subprocess target discovery failed: {subprocess_error}")
@@ -630,6 +631,32 @@ def detect_pyocd_target(mcu: MPRemoteBoard, auto_install_packs: bool = True) -> 
             log.debug(f"Target detection: {mcu.board_id} -> {target}")
             _target_cache[cache_key] = target
             return target
+
+        # RP2 fallback: pyOCD supports RP2040/RP2350 families but target names
+        # may vary across versions (rp2040, rp2040_core0, rp2350, ...).
+        if not target and mcu_info.get("port", "").lower() == "rp2":
+            board_id = (mcu.board_id or "").upper()
+            cpu = (mcu.cpu or "").upper()
+            if "RP2350" in cpu or "PICO2" in board_id:
+                rp_family = "rp2350"
+            else:
+                rp_family = "rp2040"
+
+            # Prefer exact family target, then core0, then any same-family target.
+            if rp_family in pyocd_targets:
+                target = rp_family
+            elif f"{rp_family}_core0" in pyocd_targets:
+                target = f"{rp_family}_core0"
+            else:
+                for candidate in pyocd_targets:
+                    if candidate.lower().startswith(rp_family):
+                        target = candidate
+                        break
+
+            if target:
+                log.info(f"RP2 fallback target match: {mcu.board_id} -> {target}")
+                _target_cache[cache_key] = target
+                return target
 
         # No target found - try automatic pack installation if enabled
         if auto_install_packs and chip_family:

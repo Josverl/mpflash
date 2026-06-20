@@ -136,6 +136,13 @@ from mpflash.versions import clean_version
     help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
 )
 @click.option(
+    "--target",
+    "pyocd_target",
+    default=None,
+    help="""Explicit pyOCD target override (for --method pyocd), e.g. rp2040 or r7fa4m1ab.""",
+    metavar="PYOCD_TARGET",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
@@ -225,6 +232,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     # Extract pyOCD options
     probe_id = kwargs.pop("probe_id", None)
     auto_install_packs = kwargs.pop("auto_install_packs", True)
+    pyocd_target = kwargs.pop("pyocd_target", None)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -383,6 +391,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         method=flash_method,
         probe_id=probe_id,
         auto_install_packs=auto_install_packs,
+        target_override=pyocd_target,
         flash_mode=params.flash_mode,
         retry_on_error=params.retry_on_error,
         retry_baud=params.retry_baud,

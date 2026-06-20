@@ -54,6 +54,8 @@ def flash_tasks(
 ):
     """Flash every entry in ``tasks`` and return the updated boards."""
 
+    attempted_backend_downloads: set[tuple[str, str, str, str, bool]] = set()
+
     def _pick_backend_compatible_firmware(task, fw_info):
         """Pick a firmware image matching the explicit backend's supported formats."""
         if fw_info is None:
@@ -89,34 +91,88 @@ def flash_tasks(
         detected_board_id = f"{board.board}-{board.variant}" if board.variant else board.board
         board_ids = [getattr(fw_info, "board_id", ""), detected_board_id]
 
-        candidates = []
-        seen_files = set()
-        for bid in board_ids:
-            if not bid:
-                continue
-            # First prefer exact port match, then broaden to any port.
-            for cand in find_downloaded_firmware(
-                board_id=bid,
-                version=fw_info.version,
-                port=board.port,
-                custom=bool(fw_info.custom),
-            ) + find_downloaded_firmware(
-                board_id=bid,
-                version=fw_info.version,
-                port="",
-                custom=bool(fw_info.custom),
-            ):
-                if cand.firmware_file not in seen_files:
-                    seen_files.add(cand.firmware_file)
-                    candidates.append(cand)
+        def _find_supported_candidate():
+            candidates = []
+            seen_files = set()
+            for bid in board_ids:
+                if not bid:
+                    continue
+                # First prefer exact port match, then broaden to any port.
+                for cand in find_downloaded_firmware(
+                    board_id=bid,
+                    version=fw_info.version,
+                    port=board.port,
+                    custom=bool(fw_info.custom),
+                ) + find_downloaded_firmware(
+                    board_id=bid,
+                    version=fw_info.version,
+                    port="",
+                    custom=bool(fw_info.custom),
+                ):
+                    if cand.firmware_file not in seen_files:
+                        seen_files.add(cand.firmware_file)
+                        candidates.append(cand)
 
-        for cand in reversed(candidates):
-            if Path(cand.firmware_file).suffix.lower() in backend.supported_formats:
+            for cand in reversed(candidates):
+                if Path(cand.firmware_file).suffix.lower() in backend.supported_formats:
+                    return cand
+            return None
+
+        if candidate := _find_supported_candidate():
+            log.info(
+                f"Using {requested_name} compatible firmware {candidate.firmware_file} "
+                f"instead of {fw_info.firmware_file} for {board.board} on {board.serialport}"
+            )
+            return candidate
+
+        # No local firmware matches backend-supported file types; try one
+        # targeted download refresh before handing off to backend selection.
+        download_key = (
+            requested_name,
+            detected_board_id,
+            fw_info.version,
+            board.port or "",
+            bool(fw_info.custom),
+        )
+        if download_key not in attempted_backend_downloads:
+            attempted_backend_downloads.add(download_key)
+            try:
+                from mpflash.download import download
+                from mpflash.mpboard_id.alternate import alternate_board_names
+
                 log.info(
-                    f"Using {requested_name} compatible firmware {cand.firmware_file} "
+                    f"No local {requested_name} firmware with suffix in "
+                    f"{list(backend.supported_formats)} for {board.board} on {board.serialport}; "
+                    "trying firmware download refresh"
+                )
+                download(
+                    ports=[board.port] if board.port else [],
+                    boards=alternate_board_names(detected_board_id, board.port),
+                    versions=[fw_info.version],
+                    force=True,
+                    clean=True,
+                )
+            except Exception as exc:  # noqa: BLE001 - fallback to original firmware below
+                log.debug(
+                    f"Backend-compatible firmware refresh failed for {detected_board_id} "
+                    f"{fw_info.version}: {exc}"
+                )
+
+            if candidate := _find_supported_candidate():
+                log.info(
+                    f"Using downloaded {requested_name} compatible firmware {candidate.firmware_file} "
                     f"instead of {fw_info.firmware_file} for {board.board} on {board.serialport}"
                 )
-                return cand
+                return candidate
+
+        raise MPFlashError(
+            f"No firmware matching backend {requested_name!r} for "
+            f"{detected_board_id!r} {fw_info.version}. "
+            f"Selected firmware is {fw_info.firmware_file!r} ({current_suffix or '<none>'}), "
+            f"but {requested_name} supports {list(backend.supported_formats)}. "
+            "A download refresh was attempted but no compatible firmware was found."
+        )
+
         return fw_info
 
     flashed = []
@@ -174,12 +230,38 @@ def flash_mcu(
     :attr:`FlashContext.options` for the backend to consume.
     """
     requested = _resolve_backend_name(method)
-    try:
-        backend = select_backend(mcu, fw_file, requested_name=requested)
-    except MPFlashError:
-        raise
-    except Exception as e:  # noqa: BLE001 - selection should never crash callers
-        raise MPFlashError(f"Failed to select flash backend: {e}") from e
+    target_override = kwargs.get("target_override")
+
+    # When the user explicitly provides a pyOCD target override, skip
+    # capability probing that depends on MCU metadata-derived target matching.
+    if requested == "pyocd" and target_override:
+        backend = get_backend("pyocd")
+        if backend is None:
+            raise MPFlashError("Unknown flash method 'pyocd'.")
+        platform = default_services.current_platform()
+        suffix = fw_file.suffix.lower()
+        if backend.supported_formats and suffix not in backend.supported_formats:
+            raise MPFlashError(
+                f"Backend 'pyocd' cannot flash {fw_file.name}: unsupported format {suffix or '<none>'}."
+            )
+        if backend.supported_platforms and platform not in backend.supported_platforms:
+            raise MPFlashError(
+                f"Backend 'pyocd' does not run on {platform.value}."
+            )
+        if not backend.is_available():
+            raise MPFlashError(
+                "pyOCD is not installed (install with: uv sync --extra pyocd)."
+            )
+        log.info(
+            f"Using explicit pyOCD target override '{target_override}' for {mcu.board_id or mcu.board}"
+        )
+    else:
+        try:
+            backend = select_backend(mcu, fw_file, requested_name=requested)
+        except MPFlashError:
+            raise
+        except Exception as e:  # noqa: BLE001 - selection should never crash callers
+            raise MPFlashError(f"Failed to select flash backend: {e}") from e
 
     log.debug(f"Using flash backend: {backend.name} for {mcu.board_id}")
 
