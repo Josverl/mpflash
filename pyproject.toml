@@ -84,7 +84,8 @@ pyocd = [
     "libusb-package==1.0.26.1; python_version >= '3.14'",
 ]
 build = [
-    "mpbuild>=0.5.0",  # Requires Python 3.10+ due to union type syntax
+    "mpbuild>=1.0.0; python_version >= '3.12'",
+    "mpbuild>=0.5.0,<1.0.0; python_version < '3.12'",  # Keep 0.5.x fallback for older Pythons
 ]
 
 [project.scripts]
