@@ -25,7 +25,7 @@ class PyOCDBackend(FlashBackend):
 
     name = "pyocd"
     # No fixed port set — pyOCD's CMSIS-pack catalog decides; we delegate
-    # final say to ``mpflash.flash.pyocd_core.is_pyocd_supported``.
+    # final say to ``mpflash.flash.builtins.pyocd.core.is_pyocd_supported``.
     supported_ports: frozenset = frozenset()
     supported_formats = (".bin", ".hex", ".elf", ".axf")
     supported_platforms = frozenset(
