@@ -90,6 +90,36 @@ class FlashParams(Params):
 ParamType = Union[DownloadParams, FlashParams]
 
 
+def udev_rules_error_message(
+    rule_package: str,
+    rule_name: str,
+    *,
+    device_label: str,
+    destination_name: Optional[str] = None,
+    next_step: str = "Then reconnect the device and try again.",
+) -> str:
+    """Build a reusable Linux udev permissions help message.
+
+    The rule path is resolved from the installed package when possible so the
+    message works for both development checkouts and installed distributions.
+    """
+    try:
+        import importlib.resources
+
+        rules_path = importlib.resources.files(rule_package).joinpath(rule_name)
+    except Exception:
+        rules_path = f"<installed package>/{rule_name}"
+
+    target_name = destination_name or rule_name
+    return (
+        f"Insufficient permissions to access {device_label}.\n\n"
+        f"Install the udev rule:\n\n"
+        f"sudo cp {rules_path} /etc/udev/rules.d/{target_name}\n"
+        f"sudo udevadm control --reload-rules && sudo udevadm trigger\n\n"
+        f"{next_step}"
+    )
+
+
 def filtered_comports(
     ignore: Optional[List[str]] = None,
     include: Optional[List[str]] = None,
