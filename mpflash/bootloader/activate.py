@@ -90,4 +90,4 @@ def enter_bootloader(
         if in_bootloader(mcu, backend=backend):
             return True
 
-    return result
+    return False

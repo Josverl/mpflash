@@ -10,7 +10,7 @@ Ready-to-use rule file in this repository:
 ### Install (copy/paste)
 
 ```bash
-sudo cp /home/jos/mpflash/mpflash/udev_rules/65-mpflash-stm32-dfu.rules /etc/udev/rules.d/65-mpflash-stm32-dfu.rules
+sudo cp mpflash/udev_rules/65-mpflash-stm32-dfu.rules /etc/udev/rules.d/65-mpflash-stm32-dfu.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```

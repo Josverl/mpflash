@@ -55,7 +55,7 @@ def cli_list_probes(detect_targets: bool) -> int:
     for SWD/JTAG programming with the --method pyocd option.
     """
     if not PYOCD_AVAILABLE:
-        log.error("pyOCD is not installed. Install with: uv add pyocd")
+        log.error("pyOCD is not installed. Install with: uv sync --extra pyocd")
         return 1
 
     if not is_pyocd_available():
@@ -134,7 +134,7 @@ def cli_pyocd_info() -> int:
         console.print(f"✅ pyOCD is installed (version: {info.get('version', 'unknown')})")
     else:
         console.print("❌ pyOCD is not installed")
-        console.print("   Install with: uv add pyocd")
+        console.print("   Install with: uv sync --extra pyocd")
         return 1
 
     # Debug Probes
@@ -191,7 +191,7 @@ def cli_pyocd_targets(board_filter: str, target_filter: str) -> int:
     and what target type pyOCD will use for each board.
     """
     if not PYOCD_AVAILABLE:
-        log.error("pyOCD is not installed. Install with: uv add pyocd")
+        log.error("pyOCD is not installed. Install with: uv sync --extra pyocd")
         return 1
 
     try:

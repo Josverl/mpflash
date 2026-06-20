@@ -2,6 +2,7 @@
 Module to run mpremote commands, and retry on failure or timeout
 """
 
+import ast
 import contextlib
 import re
 import sys
@@ -215,7 +216,7 @@ class MPRemoteBoard:
             raise ConnectionError(f"Failed to parse mcu_info for {self.serialport}")
 
         try:
-            info = eval(raw_info)
+            info = ast.literal_eval(raw_info)
             self.family = info["family"]
             self.version = info["version"]
             self.build = info["build"]
