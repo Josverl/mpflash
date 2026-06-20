@@ -958,7 +958,7 @@ dev = [
     { name = "keyring" },
 ]
 pyocd = [
-    { name = "pyocd" },
+    { name = "pyocd", marker = "python_full_version < '3.14'" },
 ]
 test = [
     { name = "coverage" },
@@ -1006,7 +1006,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.0.0,<8.0.0" },
     { name = "pygithub", specifier = ">=2.1.1" },
     { name = "pyinstrument", marker = "extra == 'test'", specifier = ">=5.1.0" },
-    { name = "pyocd", marker = "extra == 'pyocd'", specifier = ">=0.36.0" },
+    { name = "pyocd", marker = "python_full_version < '3.14' and extra == 'pyocd'", specifier = ">=0.36.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.1.2,<10.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=6.0.0" },
