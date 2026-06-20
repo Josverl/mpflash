@@ -183,12 +183,13 @@ class MPRemoteBoard:
         return sorted(output)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT):
+    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT, *, log_errors: bool = True):
         """
         Get MCU information from the connected board.
 
         Parameters:
         - timeout (int): The timeout value in seconds. Default is 2.
+        - log_errors (bool): Whether to log command stderr/error output.
 
         Raises:
         - ConnectionError: If failed to get mcu_info for the serial port.
@@ -199,15 +200,16 @@ class MPRemoteBoard:
             no_info=True,
             timeout=timeout,
             resume=False,  # Avoid restarts
+            log_errors=log_errors,
         )
         if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
             log.debug(f"rc: {rc}, result: {result}")
             raise ConnectionError(f"Failed to get mcu_info for {self.serialport}")
         # log raw output for debugging
         if result:
-            log.debug(f"mpy_fw_info output for {self.serialport}:")
+            log.trace(f"mpy_fw_info output for {self.serialport}:")
             for line in result:
-                log.debug(f"  {line.rstrip()}")
+                log.trace(f"  {line.rstrip()}")
         # Ok we have the info, now parse it — search all lines for the dict
         raw_info = ""
         for line in result:
@@ -215,7 +217,12 @@ class MPRemoteBoard:
             if stripped.startswith("{") and stripped.endswith("}"):
                 raw_info = stripped
                 break
-        if raw_info.startswith("{") and raw_info.endswith("}"):
+        if not (raw_info.startswith("{") and raw_info.endswith("}")):
+            log.trace(f"No mpy_fw_info payload found for {self.serialport}; result: {result}")
+            self.connected = False
+            raise ConnectionError(f"Failed to parse mcu_info for {self.serialport}")
+
+        try:
             info = eval(raw_info)
             self.family = info["family"]
             self.version = info["version"]
@@ -224,7 +231,7 @@ class MPRemoteBoard:
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]
-            self.description = descr = info["description"] if 'description' in info else info["board"]
+            self.description = descr = info["description"] if "description" in info else info["board"]
             pos = descr.rfind(" with")
             short_descr = descr[:pos].strip() if pos != -1 else ""
             if info.get("board_id", None):
@@ -247,6 +254,9 @@ class MPRemoteBoard:
             if toml_board_id:
                 log.debug(f"Using board_id from board_info.toml: {toml_board_id!r}")
                 self.board_id = toml_board_id
+        except Exception as e:
+            self.connected = False
+            raise ConnectionError(f"Failed to parse mcu_info for {self.serialport}") from e
         # now we know the board is connected
         self.connected = True
 
@@ -370,7 +380,7 @@ class MPRemoteBoard:
         if (resume != False) and self.connected or resume:
             prefix += ["resume"]
         cmd = prefix + cmd
-        log.debug(" ".join(cmd))
+        log.trace(" ".join(cmd))
         result = run(cmd, timeout, log_errors, no_info, **kwargs)
         self.connected = result[0] == OK
         return result
@@ -404,7 +414,7 @@ class MPRemoteBoard:
         ):
             time.sleep(1)
             with contextlib.suppress(ConnectionError, MPFlashError):
-                self.get_mcu_info()
+                self.get_mcu_info(log_errors=False)
                 break
 
     def to_dict(self) -> dict:

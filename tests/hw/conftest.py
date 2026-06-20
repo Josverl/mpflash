@@ -32,6 +32,8 @@ def _env_fw(name: str) -> Optional[Path]:
     if not value:
         return None
     p = Path(value)
+    if not p.exists():
+        print(f"Warning: firmware file {p} does not exist")
     return p if p.is_file() else None
 
 
@@ -53,6 +55,7 @@ def hw_uf2_firmware() -> Path:
     fw = _env_fw("MPFLASH_HW_UF2_FW")
     if fw is None:
         pytest.skip("Set MPFLASH_HW_UF2_FW to a .uf2 firmware file")
+    
     return fw
 
 
