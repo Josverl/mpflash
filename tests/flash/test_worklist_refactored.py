@@ -218,6 +218,45 @@ class TestFindFirmwareForBoard:
         assert result.firmware_file == "esp32/new.bin"
 
     @patch("mpflash.flash.worklist.find_downloaded_firmware")
+    def test_multiple_firmwares_prefers_port_compatible_extension(
+        self,
+        mock_find_firmware,
+        tmp_path,
+        monkeypatch,
+    ):
+        firmware_hex = Firmware(
+            board_id="ESP8266_GENERIC",
+            version="v1.28.0",
+            port="esp8266",
+            firmware_file="builds/cache/ESP8266_GENERIC-v1.28.0.hex",
+            source="mpbuild",
+        )
+        firmware_bin = Firmware(
+            board_id="ESP8266_GENERIC",
+            version="v1.28.0",
+            port="esp8266",
+            firmware_file="builds/cache/ESP8266_GENERIC-v1.28.0.bin",
+            source="mpbuild",
+        )
+        mock_find_firmware.return_value = [firmware_hex, firmware_bin]
+
+        hex_file = tmp_path / "builds" / "cache" / "ESP8266_GENERIC-v1.28.0.hex"
+        bin_file = tmp_path / "builds" / "cache" / "ESP8266_GENERIC-v1.28.0.bin"
+        hex_file.parent.mkdir(parents=True, exist_ok=True)
+        hex_file.write_bytes(b"hex")
+        bin_file.write_bytes(b"bin")
+        monkeypatch.setattr("mpflash.flash.worklist.config._firmware_folder", tmp_path)
+
+        board = MPRemoteBoard("/dev/ttyUSB0")
+        board.board = "ESP8266_GENERIC"
+        board.port = "esp8266"
+
+        result = _find_firmware_for_board(board, "v1.28.0", False)
+
+        assert result == firmware_bin
+        assert result.firmware_file.endswith(".bin")
+
+    @patch("mpflash.flash.worklist.find_downloaded_firmware")
     @patch("mpflash.flash.worklist.log")
     def test_single_firmware_found(self, mock_log, mock_find_firmware):
         """Test when single firmware is found."""
