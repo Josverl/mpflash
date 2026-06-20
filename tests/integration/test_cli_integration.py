@@ -408,7 +408,9 @@ class TestCLIHelpAndDocumentation:
 
         # Should include all valid methods in help
         assert "auto" in result.output
-        assert "serial" in result.output
+        assert "uf2" in result.output
+        assert "dfu" in result.output
+        assert "esptool" in result.output
 
 
 if __name__ == "__main__":

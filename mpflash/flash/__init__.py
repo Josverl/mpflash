@@ -39,8 +39,8 @@ _METHOD_NAME_MAP = {
 
 
 def _resolve_backend_name(method: FlashMethod) -> str | None:
-    """Translate a :class:`FlashMethod` to a backend name (or ``None`` for AUTO/SERIAL)."""
-    if method in (FlashMethod.AUTO, FlashMethod.SERIAL):
+    """Translate a :class:`FlashMethod` to a backend name (or ``None`` for AUTO)."""
+    if method == FlashMethod.AUTO:
         return None
     return _METHOD_NAME_MAP.get(method)
 
@@ -169,9 +169,8 @@ def flash_mcu(
 ):
     """Flash a single MCU using the appropriate registered backend.
 
-    ``method`` may be :class:`FlashMethod.AUTO` (let the registry pick),
-    :class:`FlashMethod.SERIAL` (alias for auto, kept for backwards
-    compatibility) or any concrete method. Any extra ``kwargs`` flow into
+    ``method`` may be :class:`FlashMethod.AUTO` (let the registry pick) or
+    any concrete method. Any extra ``kwargs`` flow into
     :attr:`FlashContext.options` for the backend to consume.
     """
     requested = _resolve_backend_name(method)
