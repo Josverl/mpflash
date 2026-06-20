@@ -87,6 +87,14 @@ pyocd = [
 [project.scripts]
 mpflash = "mpflash.cli_main:mpflash"
 
+# Entry-point group used by third-party packages to register additional flash
+# backends. Each entry must point at a FlashBackend subclass or instance.
+# Built-in backends are imported directly by ``mpflash.flash.builtins`` and do
+# not need to be listed here.
+[project.entry-points."mpflash.flash_plugins"]
+# Example (commented out):
+# my-backend = "mypkg.backend:MyBackend"
+
 [project.urls]
 Homepage = "https://github.com/Josverl/mpflash"
 Documentation = "https://github.com/Josverl/mpflash/blob/main/README.md"
@@ -147,6 +155,12 @@ markers = [
     "win32: run test only on Windows",
     "linux: run test only on linux",
     "darwin: run test only on Mac",
+    # Hardware-in-the-loop markers — see tests/hw/conftest.py.
+    "hardware: hardware-in-the-loop tests (require physical board)",
+    "hw_uf2: requires a UF2-capable board attached",
+    "hw_dfu: requires an STM32 board in DFU mode attached",
+    "hw_esptool: requires an ESP32/ESP8266 board attached",
+    "hw_pyocd: requires a CMSIS-DAP / J-Link probe + target attached",
     # micropython version dependencies 
 
 

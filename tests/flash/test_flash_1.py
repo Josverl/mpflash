@@ -73,6 +73,21 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
     board = MPRemoteBoard("COM1")
     board.port = "esp32"
 
+    # Pick a firmware path with the right extension for the port so the
+    # pluggable registry can route to the correct backend.
+    port_fw = {
+        "esp32": ("esp32", "ESP32_GENERIC-v1.22.2.bin"),
+        "esp8266": ("esp32", "ESP32_GENERIC-v1.22.2.bin"),
+        "rp2": ("rp2", "RPI_PICO_W-v1.22.2.uf2"),
+        "samd": ("samd", "SEEED_WIO_TERMINAL-v1.22.2.uf2"),
+        "stm32": ("stm32", "PYBV11-v1.22.2.dfu"),
+    }
+    fw_subdir, fw_name = port_fw[port]
+    fw_full = test_fw_path / fw_subdir / fw_name
+    fw_full.parent.mkdir(parents=True, exist_ok=True)
+    if not fw_full.exists():
+        fw_full.write_bytes(b"\x00")
+
     # Create FlashTask instead of WorkList tuple
     task = FlashTask(
         board=board,
@@ -81,7 +96,7 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
             port="esp32",
             version="1.22.2",
             build="0",
-            firmware_file="rp2/RPI_PICO_W-v1.22.2.uf2",  # Bit of a Hack : uf2 test depend on a .uf2 file
+            firmware_file=f"{fw_subdir}/{fw_name}",
         ),
     )
     tasks: FlashTaskList = [task]

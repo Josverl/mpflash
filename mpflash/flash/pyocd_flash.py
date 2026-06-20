@@ -4,6 +4,12 @@ PyOCD flash programming implementation for MPFlash.
 This module provides SWD/JTAG flash programming using pyOCD as an alternative
 to serial bootloader methods. Includes probe discovery, target detection,
 and flash programming operations.
+
+.. note::
+    The :func:`flash_pyocd` helper here is now the internal implementation of
+    :class:`mpflash.flash.builtins.pyocd_backend.PyOCDBackend`. New code
+    should call :func:`mpflash.flash.flash_mcu` with
+    ``method=FlashMethod.PYOCD``.
 """
 
 from typing import List, Optional, Dict, Any
@@ -13,7 +19,7 @@ import traceback
 from mpflash.logger import log
 from mpflash.errors import MPFlashError
 from mpflash.mpremoteboard import MPRemoteBoard
-from .debug_probe import DebugProbe
+from mpflash.flash.builtins.pyocd.probes import DebugProbe
 from .pyocd_core import detect_pyocd_target, is_pyocd_supported, get_unsupported_reason, is_pyocd_available
 
 

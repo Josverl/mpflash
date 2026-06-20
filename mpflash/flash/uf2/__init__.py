@@ -1,5 +1,8 @@
-"""
-Flash SAMD and RP2 via UF2
+"""Flash SAMD / RP2 / nRF boards over UF2.
+
+This helper is now the internal implementation of
+:class:`mpflash.flash.builtins.uf2_backend.UF2Backend`. New code should call
+:func:`mpflash.flash.flash_mcu` with ``method=FlashMethod.UF2``.
 """
 
 import shutil
