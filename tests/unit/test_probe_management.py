@@ -26,6 +26,12 @@ from mpflash.errors import MPFlashError
 from tests.fixtures.mock_pyocd_data import MOCK_PROBES, MOCK_MCUS, ERROR_SCENARIOS
 
 
+@pytest.fixture(autouse=True)
+def disable_builtin_probe_autoregistration(mocker):
+    """Keep unit tests deterministic regardless of local pyOCD/hardware state."""
+    mocker.patch("mpflash.flash.builtins.pyocd.probes._ensure_builtin_registrations", autospec=True)
+
+
 class MockPyOCDProbe(DebugProbe):
     """Mock PyOCD probe for testing without pyOCD dependency."""
 
