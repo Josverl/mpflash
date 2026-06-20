@@ -98,6 +98,32 @@ class FlashBackend(ABC):
             )
         return None
 
+    #: Ordered tuple of bootloader-activator names this backend prefers
+    #: (e.g. ``("touch1200", "mpy", "manual")``). Used by ``enter_bootloader``
+    #: when the caller picks ``BootloaderMethod.AUTO``. Override either this
+    #: class attribute or :meth:`get_preferred_bootloaders` when the order
+    #: depends on the MCU.
+    preferred_bootloaders: Tuple[str, ...] = ()
+
+    def get_preferred_bootloaders(self, mcu: "MPRemoteBoard") -> Tuple[str, ...]:
+        """Return the activator names this backend prefers for ``mcu``.
+
+        Default returns :attr:`preferred_bootloaders`. Override when the
+        ordering depends on ``mcu.port`` (e.g. UF2 prefers ``mpy`` on rp2 but
+        ``touch1200`` on samd).
+        """
+        return self.preferred_bootloaders
+
+    def is_board_ready(self, mcu: "MPRemoteBoard") -> bool:
+        """Return ``True`` when the board is ready for this backend to flash.
+
+        Used by :func:`mpflash.bootloader.activate.enter_bootloader` to
+        confirm that a chosen activator actually got the board into the
+        expected state. Backends that drive the board directly over the
+        regular serial port (esptool, pyOCD) can leave the default ``True``.
+        """
+        return True
+
     @abstractmethod
     def flash(self, ctx: FlashContext) -> FlashResult:
         """Perform the flash operation described by ``ctx``."""
