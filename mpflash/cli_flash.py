@@ -22,10 +22,10 @@ from mpflash.versions import clean_version
     "--version",
     "-v",
     "version",  # single version
-    default="stable",
+    default=None,
     multiple=False,
-    show_default=True,
-    help="The version of MicroPython to flash.",
+    show_default=False,
+    help="The version of MicroPython to flash. Defaults to 'stable', or 'preview' with --build",
     metavar="SEMVER, 'stable', 'preview' or '?'",
 )
 @click.option(
@@ -157,6 +157,12 @@ from mpflash.versions import clean_version
     help="""Build MicroPython firmware locally using mpbuild before flashing. Generates all formats (.dfu, .hex, .bin, .elf). Requires Docker.""",
 )
 @click.option(
+    "--clean",
+    default=False,
+    is_flag=True,
+    help="""When used with --build, run 'mpbuild clean' for the selected board before building.""",
+)
+@click.option(
     "--flash_mode",
     "--fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
@@ -223,8 +229,15 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     # connected devices when only --serial was specified.
     board_specified = kwargs.get("board") is not None
 
+    # Extract mpbuild options early so default version can depend on --build.
+    build_firmware = kwargs.pop("build", False)
+    clean_build = kwargs.pop("clean", False)
+
     # version to versions, board to boards
-    kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
+    requested_version = kwargs.pop("version")
+    if requested_version is None:
+        requested_version = "preview" if build_firmware else "stable"
+    kwargs["versions"] = [requested_version]
     if kwargs["board"] is None:
         kwargs["boards"] = []
         kwargs.pop("board")
@@ -240,9 +253,6 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     auto_install_packs = kwargs.pop("auto_install_packs", True)
     pyocd_target = kwargs.pop("pyocd_target", None)
 
-    # Extract mpbuild option
-    build_firmware = kwargs.pop("build", False)
-
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
     params.ports = list(params.ports)
@@ -251,6 +261,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     params.ignore = list(params.ignore)
     params.volumes = list(params.volumes)
     params.bootloader = BootloaderMethod(params.bootloader)
+    reflash_commands: List[str] = []
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
     if params.boards == ["?"] or params.serial == "?":  #  or params.variant == "?":
@@ -299,7 +310,15 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
 
     # Handle --build flag: build firmware locally before flashing
     if build_firmware:
-        from mpflash.build import build_firmware as build_fw, is_build_available, get_build_unavailable_reason, import_firmware_to_database
+        from mpflash.build import (
+            build_firmware as build_fw,
+            clean_firmware,
+            detect_port_from_board_id,
+            get_build_unavailable_reason,
+            get_port_preferred_suffixes,
+            import_firmware_to_database,
+            is_build_available,
+        )
 
         if not is_build_available():
             reason = get_build_unavailable_reason()
@@ -310,22 +329,49 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         for board_id in params.boards:
             full_board_id = f"{board_id}-{params.variant}" if params.variant else board_id
             version = params.versions[0] if params.versions else "latest"
+            board_port = params.ports[0] if params.ports else detect_port_from_board_id(full_board_id)
 
             try:
+                if clean_build:
+                    clean_firmware(full_board_id)
                 log.info(f"Building firmware for {full_board_id} version {version}")
-                firmware_files = build_fw(full_board_id, version, force=params.force)
-                log.info(f"Build complete: {len(firmware_files)} files generated")
+                preferred_suffixes = set()
+                if flash_method == FlashMethod.ESPTOOL:
+                    preferred_suffixes = {".bin"}
+                elif flash_method == FlashMethod.UF2:
+                    preferred_suffixes = {".uf2"}
+                elif flash_method == FlashMethod.DFU:
+                    preferred_suffixes = {".dfu", ".bin"}
+                elif flash_method == FlashMethod.PYOCD:
+                    preferred_suffixes = {".bin", ".hex", ".elf", ".axf"}
+                elif board_port:
+                    preferred_suffixes = get_port_preferred_suffixes(board_port)
+
+                firmware_files = build_fw(
+                    full_board_id,
+                    version,
+                    force=True,
+                    preferred_suffixes=preferred_suffixes or None,
+                )
 
                 # Import built firmware files into mpflash database
                 if firmware_files:
-                    imported_count = import_firmware_to_database(firmware_files, full_board_id, version)
+                    imported_count = import_firmware_to_database(
+                        firmware_files,
+                        full_board_id,
+                        version,
+                        port=board_port,
+                    )
                     log.info(f"Imported {imported_count} firmware files into database")
+                    reflash_commands.append(f"mpflash flash --board {full_board_id} --version {version}")
                 else:
                     log.warning(f"No firmware files generated for {full_board_id}")
 
             except Exception as e:
                 log.error(f"Build failed for {full_board_id}: {e}")
                 return 1
+    elif clean_build:
+        log.warning("--clean only applies when --build is enabled; ignoring --clean")
 
     tasks = []
 
@@ -438,6 +484,11 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")
+        if build_firmware and reflash_commands:
+            click.echo()
+            click.echo("To flash this built firmware again without rebuilding:")
+            for command in dict.fromkeys(reflash_commands):
+                click.echo(f"  {command}")
         ctx.exit(0)
     else:
         log.error("No boards were flashed")
