@@ -151,6 +151,12 @@ from mpflash.versions import clean_version
     help="""Force download of firmware even if it already exists.""",
 )
 @click.option(
+    "--build",
+    default=False,
+    is_flag=True,
+    help="""Build MicroPython firmware locally using mpbuild before flashing. Generates all formats (.dfu, .hex, .bin, .elf). Requires Docker.""",
+)
+@click.option(
     "--flash_mode",
     "--fm",
     type=click.Choice(["keep", "qio", "qout", "dio", "dout"]),
@@ -234,6 +240,9 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     auto_install_packs = kwargs.pop("auto_install_packs", True)
     pyocd_target = kwargs.pop("pyocd_target", None)
 
+    # Extract mpbuild option
+    build_firmware = kwargs.pop("build", False)
+
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
     params.ports = list(params.ports)
@@ -257,8 +266,10 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     all_boards = []
     if not params.boards:
         # nothing specified - detect connected boards
+        # Respect an explicit --serial filter instead of scanning all ports.
+        include_ports = params.serial if params.serial != ["*"] else params.ports
         params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
-            include=params.ports,
+            include=include_ports,
             ignore=params.ignore,
             bluetooth=params.bluetooth,
         )
@@ -285,6 +296,37 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         raise MPFlashError("Only one version can be flashed at a time")
 
     params.versions = [clean_version(v) for v in params.versions]
+
+    # Handle --build flag: build firmware locally before flashing
+    if build_firmware:
+        from mpflash.build import build_firmware as build_fw, is_build_available, get_build_unavailable_reason, import_firmware_to_database
+
+        if not is_build_available():
+            reason = get_build_unavailable_reason()
+            log.error(f"Build functionality not available: {reason}")
+            return 1
+
+        # Build firmware for each requested board
+        for board_id in params.boards:
+            full_board_id = f"{board_id}-{params.variant}" if params.variant else board_id
+            version = params.versions[0] if params.versions else "latest"
+
+            try:
+                log.info(f"Building firmware for {full_board_id} version {version}")
+                firmware_files = build_fw(full_board_id, version, force=params.force)
+                log.info(f"Build complete: {len(firmware_files)} files generated")
+
+                # Import built firmware files into mpflash database
+                if firmware_files:
+                    imported_count = import_firmware_to_database(firmware_files, full_board_id, version)
+                    log.info(f"Imported {imported_count} firmware files into database")
+                else:
+                    log.warning(f"No firmware files generated for {full_board_id}")
+
+            except Exception as e:
+                log.error(f"Build failed for {full_board_id}: {e}")
+                return 1
+
     tasks = []
 
     # Normalize volume paths: accept both Windows backslashes and POSIX forward slashes
@@ -349,10 +391,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         comports = [p for p in specified if p not in ignored]
         if not comports:
             serial_filter = ", ".join(params.serial)
-            raise click.UsageError(
-                f"No serial ports matched: {serial_filter}. Check the port name, "
-                "or use '--serial *' to auto-detect."
-            )
+            raise click.UsageError(f"No serial ports matched: {serial_filter}. Check the port name, or use '--serial *' to auto-detect.")
         connected_comports = [MPRemoteBoard(port, update=True) for port in comports]
         tasks = _create_worklist_or_fail(
             params.versions[0],
