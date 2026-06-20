@@ -53,7 +53,7 @@ def test_import_firmware_to_database_creates_board_and_firmware_records(session_
     firmware_rows = list(Firmware.select().where((Firmware.board_id == "ESP8266_GENERIC") & (Firmware.version == "v1.26.0")))
     assert len(firmware_rows) == 2
     assert any(fw.firmware_file == "esp8266/ESP8266_GENERIC-v1.26.0.bin" for fw in firmware_rows)
-    assert any(fw.firmware_file == str(outside_file) for fw in firmware_rows)
+    assert any(fw.firmware_file == outside_file.as_posix() for fw in firmware_rows)
 
 
 def test_import_firmware_to_database_upserts_existing_firmware(session_fx, tmp_path, monkeypatch):

@@ -512,9 +512,9 @@ def import_firmware_to_database(firmware_files: List[Path], board_id: str, versi
             for fw_file in firmware_files:
                 # Store paths relative to the configured firmware folder when possible.
                 try:
-                    firmware_path = str(fw_file.relative_to(config.firmware_folder))
+                    firmware_path = fw_file.relative_to(config.firmware_folder).as_posix()
                 except ValueError:
-                    firmware_path = str(fw_file)
+                    firmware_path = fw_file.as_posix()
 
                 firmware_data = {
                     "board_id": board_id,
