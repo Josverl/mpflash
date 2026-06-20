@@ -32,6 +32,19 @@ KNOWN_DEPENDENCY_ISSUES = {
 }
 
 
+def _preview_output(text: str, max_lines: int = 12, max_chars: int = 2000) -> str:
+    """Return a bounded preview of command output for debug logging."""
+    if not text:
+        return ""
+    lines = text.splitlines()
+    if len(lines) > max_lines:
+        lines = lines[:max_lines] + [f"... ({len(text.splitlines()) - max_lines} more lines)"]
+    preview = "\n".join(lines)
+    if len(preview) > max_chars:
+        preview = f"{preview[:max_chars]}... (truncated)"
+    return preview
+
+
 def _check_known_dependency_issues() -> Optional[str]:
     """Check for known dependency chain issues on this Python version.
     
@@ -78,10 +91,11 @@ def _run_pyocd_command(args: List[str], timeout: int = 30) -> subprocess.Complet
         if not re.match(r'^[a-zA-Z0-9._-]+$', arg):
             raise MPFlashError(f"Invalid argument format: {arg}")
     
-    cmd = ['pyocd'] + args
+    cmd = ["pyocd"] + args
     
     try:
-        log.debug(f"Running command: {' '.join(cmd)}")
+        cmd_str = " ".join(cmd)
+        log.debug(f"Running command: {cmd_str} (timeout={timeout}s)")
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -89,6 +103,19 @@ def _run_pyocd_command(args: List[str], timeout: int = 30) -> subprocess.Complet
             timeout=timeout,
             check=False  # Don't raise on non-zero exit
         )
+
+        stdout_preview = _preview_output(result.stdout)
+        stderr_preview = _preview_output(result.stderr)
+        log.debug(
+            f"Command finished: {cmd_str} -> returncode={result.returncode}, "
+            f"stdout_lines={len(result.stdout.splitlines())}, "
+            f"stderr_lines={len(result.stderr.splitlines())}"
+        )
+        if stdout_preview:
+            log.debug(f"Command stdout preview:\n{stdout_preview}")
+        if stderr_preview:
+            log.debug(f"Command stderr preview:\n{stderr_preview}")
+
         return result
         
     except subprocess.TimeoutExpired:
@@ -384,26 +411,38 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
         log.debug("No chip family found for fuzzy matching")
         return None
     
+    chip_full = (chip_family + chip_variant).lower()
     log.debug(f"Fuzzy matching for chip: {chip_family}{chip_variant}, port: {port}")
-    
+
+    # 0. Fast path: exact match against target name or part number
+    if chip_full:
+        for target_name, target_info in pyocd_targets.items():
+            if target_name.lower() == chip_full or target_info.get("part_number", "").upper() == chip_full.upper():
+                log.info(f"Exact target match: {target_name}")
+                return target_name
+        # Try chip_family alone as exact match (e.g. STM32F405RG)
+        if chip_family.lower() in pyocd_targets:
+            log.info(f"Exact family target match: {chip_family.lower()}")
+            return chip_family.lower()
+
     best_match = None
     best_score = 0.0
     matches = []
-    
+
     for target_name, target_info in pyocd_targets.items():
         target_lower = target_name.lower()
         part_number = target_info.get("part_number", "").upper()
-        
+
         # Calculate similarity scores
         scores = []
-        
+
         # 1. Direct chip family match
         if chip_family.lower() in target_lower:
             family_score = 1.0
         else:
             family_score = SequenceMatcher(None, chip_family.lower(), target_lower).ratio()
         scores.append(("family", family_score * 0.5))
-        
+
         # 2. Part number match (if available)
         if part_number and chip_family in part_number:
             part_score = 1.0
@@ -412,7 +451,7 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
         else:
             part_score = 0.0
         scores.append(("part", part_score * 0.3))
-        
+
         # 3. Port/platform match
         port_score = 0.0
         if port == "stm32" and target_lower.startswith("stm32"):
@@ -422,6 +461,14 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
         elif port == "samd" and "samd" in target_lower:
             port_score = 0.2
         scores.append(("port", port_score))
+
+        # 4. Variant proximity bonus: prefer targets whose name starts with chip_full.
+        # Helps disambiguate e.g. STM32F405RG vs many other STM32F4xx targets.
+        if chip_full and target_lower.startswith(chip_full):
+            scores.append(("variant", 0.3))
+        elif chip_full and chip_full[:9] and target_lower.startswith(chip_full[:9]):
+            # First 9 chars covers full family like 'stm32f405'
+            scores.append(("variant", 0.15))
         
         # Calculate total score
         total_score = sum(score for _, score in scores)
