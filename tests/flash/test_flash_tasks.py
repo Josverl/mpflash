@@ -231,6 +231,43 @@ def test_flash_tasks_custom_firmware(mock_config, mock_flash_mcu):
 
 @patch("mpflash.flash.flash_mcu")
 @patch("mpflash.flash.config")
+def test_flash_tasks_custom_firmware_without_custom_id(mock_config, mock_flash_mcu):
+    """None custom_id should not be written to TOML metadata."""
+    mock_config.firmware_folder = Path("/test/firmware")
+    updated_board = MagicMock()
+    mock_flash_mcu.return_value = updated_board
+
+    board = MPRemoteBoard("COM1")
+    board.board_id = "ESP32_GENERIC"
+    board.serialport = "COM1"
+    board.get_board_info_toml = MagicMock()
+    board.set_board_info_toml = MagicMock()
+    board.toml = {}
+
+    fw = Firmware(
+        board_id="ESP32_GENERIC",
+        version="1.23.0",
+        port="esp32",
+        firmware_file="custom.bin",
+        custom=True,
+        description="Custom firmware",
+        custom_id=None,
+    )
+    task = FlashTask(board=board, firmware=fw)
+
+    with patch("pathlib.Path.exists", return_value=True):
+        result = flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert len(result) == 1
+    board.get_board_info_toml.assert_called_once()
+    board.set_board_info_toml.assert_called_once()
+    assert board.toml["description"] == "Custom firmware"
+    assert board.toml["mpflash"]["board_id"] == "ESP32_GENERIC"
+    assert "custom_id" not in board.toml["mpflash"]
+
+
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
 def test_flash_tasks_downloads_backend_compatible_firmware_before_flash(
     mock_config,
     mock_flash_mcu,

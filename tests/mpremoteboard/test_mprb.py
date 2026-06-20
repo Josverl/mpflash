@@ -291,6 +291,19 @@ def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
     assert m_get.call_args_list[1].kwargs.get("log_errors") is False
 
 
+def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixture):
+    mprb = MPRemoteBoard("COM15")
+    mprb.connected = True
+
+    m_run = mocker.patch.object(mprb, "run_command", return_value=(1, []))
+
+    mprb.get_board_info_toml()
+
+    assert mprb.connected is True
+    assert mprb.toml == {}
+    assert m_run.call_args.kwargs.get("resume") is False
+
+
 def test_mpy_fw_info_keeps_description(monkeypatch):
     from mpflash.mpremoteboard import mpy_fw_info as mpy_info
 
