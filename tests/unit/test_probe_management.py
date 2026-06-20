@@ -248,6 +248,30 @@ class TestPyOCDProbeIntegration:
         assert probes[0].unique_id == "TEST123"
         assert probes[0].description == "Test Probe"
 
+    @patch("mpflash.flash.builtins.pyocd.flash._ensure_pyocd")
+    def test_pyocd_probe_connect_retries_with_halt(self, mock_ensure):
+        """Test pyOCD probe connect retries with halt after under-reset fails."""
+        mock_helper = Mock()
+        successful_session = Mock()
+
+        def session_with_probe(*, unique_id, options):
+            if options.get("connect_mode") == "under-reset":
+                raise Exception("Debug power error")
+            return successful_session
+
+        mock_helper.session_with_chosen_probe.side_effect = session_with_probe
+        mock_ensure.return_value = {"ConnectHelper": mock_helper}
+
+        probe = PyOCDProbe(unique_id="TEST123", description="Test Probe")
+
+        assert probe.connect(target_type="r7fa4m1ab", frequency=1_000_000) is True
+        successful_session.open.assert_called_once()
+        connect_modes = [
+            call.kwargs["options"].get("connect_mode")
+            for call in mock_helper.session_with_chosen_probe.call_args_list
+        ]
+        assert connect_modes[:2] == ["under-reset", "halt"]
+
 
 # Tests for the PyOCDFlash class.
 # PyOCDFlash.__init__ calls detect_pyocd_target() and is_pyocd_available()
@@ -285,14 +309,18 @@ class TestPyOCDFlash:
         with pytest.raises(MPFlashError, match="No debug probe support available"):
             PyOCDFlash(self.mock_mcu)
 
+    @patch("mpflash.flash.builtins.pyocd.flash.find_pyocd_probe")
     @patch("mpflash.flash.builtins.pyocd.flash.get_unsupported_reason")
     @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
     @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
-    def test_pyocd_flash_init_unsupported_target(self, mock_detect, mock_available, mock_reason):
+    def test_pyocd_flash_init_unsupported_target(
+        self, mock_detect, mock_available, mock_reason, mock_find_probe
+    ):
         """Test PyOCDFlash initialization with unsupported target."""
         mock_available.return_value = True
         mock_detect.return_value = None  # No target found
         mock_reason.return_value = "board not in CMSIS pack database"
+        mock_find_probe.return_value = None
 
         with pytest.raises(MPFlashError, match="not supported by pyOCD"):
             PyOCDFlash(self.mock_mcu)
@@ -354,6 +382,34 @@ class TestPyOCDFlash:
 
             with pytest.raises(MPFlashError, match="No PyOCD debug probes available"):
                 flasher.flash_firmware(self.test_firmware)
+        finally:
+            self.test_firmware.unlink(missing_ok=True)
+
+    @patch("mpflash.flash.builtins.pyocd.flash.find_pyocd_probe")
+    @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
+    @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
+    def test_flash_firmware_ra4m1_uses_halt_connect_mode(
+        self, mock_detect, mock_available, mock_find_probe
+    ):
+        """Test RA4M1 flashing uses the pyOCD load default connect mode."""
+        mock_available.return_value = True
+        mock_detect.return_value = "r7fa4m1ab"
+
+        mock_probe = Mock(spec=PyOCDProbe)
+        mock_probe.description = "Mock probe"
+        mock_probe.program_flash.return_value = True
+        mock_find_probe.return_value = mock_probe
+
+        self.test_firmware.touch()
+
+        try:
+            flasher = PyOCDFlash(self.mock_mcu)
+            result = flasher.flash_firmware(self.test_firmware)
+
+            assert result is True
+            _, kwargs = mock_probe.program_flash.call_args
+            assert kwargs["frequency"] == 1_000_000
+            assert kwargs["connect_mode"] == "halt"
         finally:
             self.test_firmware.unlink(missing_ok=True)
 

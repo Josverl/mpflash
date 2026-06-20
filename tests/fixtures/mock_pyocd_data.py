@@ -15,6 +15,7 @@ SAMPLE_MCU_DESCRIPTIONS = {
     "stm32f412": "NUCLEO-F412ZG with STM32F412ZG",
     "rp2040": "Raspberry Pi Pico with RP2040",
     "samd51": "Adafruit Metro M4 with SAMD51J19A",
+    "ek_ra4m1": "EK-RA4M1 with RA4M1",
     "esp32": "ESP32-DevKitC with ESP32-WROOM-32",
     "malformed": "Invalid Format",
     "empty": "",
@@ -27,6 +28,7 @@ BUILTIN_PYOCD_TARGETS = {
     "stm32wb55xg": {"vendor": "STMicroelectronics", "part_number": "STM32WB55XG", "source": "builtin"},
     "rp2040": {"vendor": "Raspberry Pi", "part_number": "RP2040", "source": "builtin"},
     "samd51j19a": {"vendor": "Microchip", "part_number": "SAMD51J19A", "source": "builtin"},
+    "r7fa4m1ab": {"vendor": "Renesas", "part_number": "R7FA4M1AB", "source": "pack"},
 }
 
 # Sample pack targets (from CMSIS packs)
@@ -102,6 +104,7 @@ EXPECTED_FUZZY_MATCHES = {
     "STM32H563": "stm32h563zitx",  # From pack
     "RP2040": "rp2040",
     "SAMD51": "samd51j19a",
+    "RA4M1": "r7fa4m1ab",
     "ESP32": None,  # Not supported by pyOCD
     "UNKNOWN": None,
 }
@@ -148,6 +151,7 @@ MOCK_MCUS = {
     "stm32h563": MockMCU("NUCLEO_H563ZI", "STM32H563ZI", "NUCLEO-H563ZI with STM32H563ZI", "stm32"),
     "rp2040": MockMCU("RPI_PICO", "RP2040", "Raspberry Pi Pico with RP2040", "rp2"),
     "samd51": MockMCU("METRO_M4", "SAMD51J19A", "Adafruit Metro M4 with SAMD51J19A", "samd"),
+    "ek_ra4m1": MockMCU("EK_RA4M1", "ra4m1", "EK-RA4M1 with RA4M1", "renesas-ra"),
     "esp32": MockMCU("ESP32_DEV", "ESP32", "ESP32-DevKitC with ESP32-WROOM-32", "esp32"),
     "malformed": MockMCU("UNKNOWN", "UNKNOWN", "Invalid Format", "unknown"),
 }
