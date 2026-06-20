@@ -114,7 +114,9 @@ def test_mpflash_connected_comports(
         return_value=(ports, boards, variants, [MPRemoteBoard(p) for p in serialports]),
         autospec=True,
     )
-    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=None, autospec=True)  # type: ignore
+    flashed = [MPRemoteBoard(p) for p in serialports] if serialports else None
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=flashed, autospec=True)
+    mocker.patch("mpflash.list.show_mcus", autospec=True)
     m_ask_missing_params = mocker.patch(
         "mpflash.ask_input.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
