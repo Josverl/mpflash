@@ -44,8 +44,14 @@ lock:
 # export LOGURU_LEVEL := "TRACE"
 export LOGURU_LEVEL := "INFO"
 
-hil_pico2:
+hil_uf2_pico2:
     uv run pytest -m hw_uf2 tests/hw -v
+
+hil_dfu_pybv11:
+    uv run pytest -m hw_dfu tests/hw -v
+
+hil_pyocd_pybv11:
+  uv run pytest -m hw_pyocd tests/hw -v
 
 
 # [script('python')]

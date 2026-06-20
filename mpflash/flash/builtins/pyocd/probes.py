@@ -48,6 +48,23 @@ class DebugProbe(ABC):
 _probe_implementations: "dict[str, type]" = {}
 
 
+def _ensure_builtin_registrations() -> None:
+    """Lazily register built-in probe implementations.
+
+    Avoids import-order side effects and circular-import noise during module
+    import while keeping the legacy probe registry functional.
+    """
+    if "pyocd" in _probe_implementations:
+        return
+    try:
+        from mpflash.flash.builtins.pyocd.flash import PyOCDProbe
+
+        register_probe_implementation("pyocd", PyOCDProbe)
+    except Exception:
+        # Best-effort only: pyOCD backend may be unavailable in this env.
+        pass
+
+
 def register_probe_implementation(name: str, probe_class: type) -> None:
     """Register a probe implementation for discovery."""
     if not issubclass(probe_class, DebugProbe):
@@ -58,6 +75,7 @@ def register_probe_implementation(name: str, probe_class: type) -> None:
 
 def get_debug_probes() -> List[DebugProbe]:
     """Discover all available debug probes across all implementations."""
+    _ensure_builtin_registrations()
     probes: List[DebugProbe] = []
     for name, probe_class in _probe_implementations.items():
         try:
@@ -93,15 +111,5 @@ def find_debug_probe(probe_id: Optional[str] = None) -> Optional[DebugProbe]:
 
 def is_debug_programming_available() -> bool:
     """Check if any registered debug probe implementation is usable."""
+    _ensure_builtin_registrations()
     return any(impl.is_implementation_available() for impl in _probe_implementations.values())
-
-
-# Auto-register pyOCD when its implementation is importable. We import lazily
-# below to avoid pulling pyOCD into ``mpflash`` startup when the extra is not
-# installed.
-try:
-    from mpflash.flash.builtins.pyocd.flash import PyOCDProbe  # noqa: E402
-
-    register_probe_implementation("pyocd", PyOCDProbe)
-except ImportError:
-    log.debug("pyOCD probe implementation not available")
