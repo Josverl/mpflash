@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.10"
+resolution-markers = [
+    "python_full_version >= '3.14'",
+    "python_full_version < '3.14'",
+]
 
 [[package]]
 name = "appdirs"
@@ -852,20 +856,30 @@ wheels = [
 
 [[package]]
 name = "libusb-package"
-version = "1.0.26.4"
+version = "1.0.26.1"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "importlib-resources" },
-]
+sdist = { url = "https://files.pythonhosted.org/packages/46/eb/4640c50f990f0b7433803f3553a08bbdf8b0d2d121704297b6b4708579bc/libusb-package-1.0.26.1.tar.gz", hash = "sha256:5a586744a59e3870791c28f964568e211f5f44bb398ccb51b25f3565dd4666ad", size = 3267835, upload-time = "2022-12-18T21:50:45.117Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/34/fd042950325366cb8f01e1873cd87f8aa99e773586377a8e670d6127dc8e/libusb_package-1.0.26.4-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:ce3711a82a2b4b9936a6268c9cbad794c34ae3b1b2c5cc9aeced8340db678668", size = 63859, upload-time = "2026-06-19T11:04:23.822Z" },
-    { url = "https://files.pythonhosted.org/packages/4e/49/bcc1e79a0d86f3da7cc3494093b4973cb1c74852d7356ce533bb1bd58342/libusb_package-1.0.26.4-py3-none-macosx_11_0_arm64.whl", hash = "sha256:4ef4accbadd40f8a054b0298604555d8175ebd376a87978302a83d0311a0b116", size = 58009, upload-time = "2026-06-19T11:04:25.013Z" },
-    { url = "https://files.pythonhosted.org/packages/04/44/68c96f634d96edbfa792ff5f695a144ffddc146e581eaa9a25ab6d5c0f6d/libusb_package-1.0.26.4-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:41cf65507337277bd2a5b9ce3b4f4744214a3c42cdca7b31cade824b168f34cb", size = 70574, upload-time = "2026-06-19T11:04:25.881Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/d0/ef347f6a283c1bde984af5aae3ba71ebf612d022c0a3cd1458ae58cc3c66/libusb_package-1.0.26.4-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:44baf60d639f97e61d2091212295b9f34e7ca58082c355f5fab44ad46ac4595e", size = 70759, upload-time = "2026-06-19T11:04:26.745Z" },
-    { url = "https://files.pythonhosted.org/packages/e3/bd/d4f95fa0dcb361a52db973dd449110abe29bd82c9f035fc5ed870940576d/libusb_package-1.0.26.4-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:7ce9d8754b3531b4562ed209a807d80b8b6b82b1a6191726be1b9e5478b36a25", size = 71583, upload-time = "2026-06-19T11:04:27.725Z" },
-    { url = "https://files.pythonhosted.org/packages/ca/a0/8feafd54179c5c92b4d77adf43a91c8f13b45830d7e72c12707542309953/libusb_package-1.0.26.4-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:dad68fc57d3e0562c2bd705ab8cbafbf27047b86bff74643c01f084b00a48557", size = 71112, upload-time = "2026-06-19T11:04:28.546Z" },
-    { url = "https://files.pythonhosted.org/packages/3a/c3/3e4a5891c8bec95ff856fadbffc84b8158703df7c09e7bd16d09f475d8f7/libusb_package-1.0.26.4-py3-none-win32.whl", hash = "sha256:9d1f5c925e11ecc9f0b9af888d45fd696fd96cf666b42694ee8c8628b5b4cd9a", size = 77716, upload-time = "2026-06-19T11:04:29.557Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/fc/8c42060a9acf016a6dcb0ca352c9c0d6a993e64eecb1c9869fb59bbb4702/libusb_package-1.0.26.4-py3-none-win_amd64.whl", hash = "sha256:cd8c1f5df3906444ba6eff82ef44a75515b0444b76bba8abf21cc8569637af63", size = 90665, upload-time = "2026-06-19T11:04:30.541Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/cf/d2ab7830af76923a319a11b247035078c15d5931d36b5fcf10d620a5ea41/libusb_package-1.0.26.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:31409a52880caa1d0c083bd8286043f2505f34c30be7c6f575fd0867cc249371", size = 63323, upload-time = "2022-12-18T21:49:21.645Z" },
+    { url = "https://files.pythonhosted.org/packages/67/2d/7ab1c9a3484476342b0e827e204538461cd69e0ae111e8a2f5a4f1bf85f3/libusb_package-1.0.26.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:4c5ba36d46a6669405fb1f47e862e2c12dd7cfe94b91c1dd43ce6c877e16a00c", size = 60618, upload-time = "2022-12-18T21:49:23.817Z" },
+    { url = "https://files.pythonhosted.org/packages/80/f9/8ac02a033fc7f03857eaffe4e7221d075aef86228a68aa817700e78ef494/libusb_package-1.0.26.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:006357d9433c6ec94898745e99f9045d5c3a20a87729b069c26fc231eb3ef0df", size = 69961, upload-time = "2022-12-18T21:49:25.096Z" },
+    { url = "https://files.pythonhosted.org/packages/02/e7/3ac5e35343db850c643a2efede24f6860f6a1090c728550c05336460f1d2/libusb_package-1.0.26.1-cp310-cp310-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:8282fd34fb1855aca782d58704b78cf072b18b43ba8e18892caf931110c7873c", size = 74247, upload-time = "2022-12-18T21:49:26.704Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/65/4a1072d7f82fe61008d4cd8e8cee820b1a8f46a662d4f73b0126d4651de6/libusb_package-1.0.26.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:35ce31a46878f0d721851be5b061212c45b710dd9e89d51a1e9c1a57850e0dee", size = 70362, upload-time = "2022-12-18T21:49:28.118Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/04/84b2809e02a1049efa8e700760584bfd41a991e2168436f833fbd0b5559c/libusb_package-1.0.26.1-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:3671b1fff3841b9036c444e878df0c52eac3017c49365cf6dfb497a240b1f518", size = 71146, upload-time = "2022-12-18T21:49:29.671Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/47/7b0db234546734f42041e243574446e6aaf81720dd0340da507f30df8dcc/libusb_package-1.0.26.1-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:0a34dd8f43e559fdc199bdd41aa017ce4f16eaa864596f11bf53822d83e2b992", size = 75497, upload-time = "2022-12-18T21:49:31.497Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/84/91714da69c01e606c82912b65bd2e8509a10f1709e40411d69bfccce8fbd/libusb_package-1.0.26.1-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:209f2188ee93574029633b61d9c3a42af18444091d2da0bc6aefeb0d9976c93d", size = 71234, upload-time = "2022-12-18T21:49:33.089Z" },
+    { url = "https://files.pythonhosted.org/packages/65/36/10e3a117c9d14ec58c8f8234d33960652574e70740986748e9204b7b84e9/libusb_package-1.0.26.1-cp310-cp310-win32.whl", hash = "sha256:0604f645645ab80aa2d9cca633a2f847cef015ef98f57a9c34a4c4ded056c017", size = 77383, upload-time = "2022-12-18T21:49:34.231Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/36/c3116723c68005e8ae34cc8b084f0480967b9caa169bbea5a19861c4c348/libusb_package-1.0.26.1-cp310-cp310-win_amd64.whl", hash = "sha256:bc591d5b321d1eba4514235423d22abd9916690b0a58204efc6fa8ed3611d5f2", size = 90343, upload-time = "2022-12-18T21:49:35.253Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/cb/c5f0e57cbc1682463b02c6acc996e4c402730910a465b1faba50e55e9e04/libusb_package-1.0.26.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:389789a4441f775eb6194cad920aa2183bb815467c20dbf0dfea79ea7f4447c0", size = 63324, upload-time = "2022-12-18T21:49:36.236Z" },
+    { url = "https://files.pythonhosted.org/packages/70/51/9e6dfce862ea6267cf6961d2b49e7240e5b4a12806ee95290babdf855d29/libusb_package-1.0.26.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:bfd673364dad5b61b5af749043e0f964b789a989771ac98b4ba12401557c6392", size = 60620, upload-time = "2022-12-18T21:49:37.452Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/0d/1b33534cb568d2716d677faa193f1538b1682fc37dd00e2c13826f6389c2/libusb_package-1.0.26.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:be716fcb9653b525c7b9a30241b29c4d5fef6bbe6273cbcb1a37cbb87cbb0f42", size = 69958, upload-time = "2022-12-18T21:49:39.191Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/e4/1207dcc5fcd164633f5c7078761532d11edeef3f20d024a2d08897928113/libusb_package-1.0.26.1-cp311-cp311-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:473679bc3743dfcfdf64779a61fb02f10c16fb466b7c133739f8fb7352c3c8e0", size = 74244, upload-time = "2022-12-18T21:49:40.22Z" },
+    { url = "https://files.pythonhosted.org/packages/88/ba/8697db5697441894a5199386fc5beaf2b51a3f844a2ad3005dcbcc85dea1/libusb_package-1.0.26.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c2aa8afd85b3845e6c697490bbff3ad36be9cc71e81ab5c97b6b88721fb34d68", size = 70362, upload-time = "2022-12-18T21:49:41.462Z" },
+    { url = "https://files.pythonhosted.org/packages/48/18/3deeddbed8ada326ff76a508d613ae4740e4028756606f4801f59b2f89ed/libusb_package-1.0.26.1-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:bd0409c4095f4253fe42876b6d0dbbf0587425c6899d86c7a1a514928271033c", size = 71147, upload-time = "2022-12-18T21:49:42.78Z" },
+    { url = "https://files.pythonhosted.org/packages/62/fc/04f5583b6d8164c91d5d4194cf58e994d00aaf5ce3d676aa7a72ece879f2/libusb_package-1.0.26.1-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:46cb5ea0fc6e1d38575b8faad7c5b54aa3c2c476579bd936bff3d594fe18c379", size = 75497, upload-time = "2022-12-18T21:49:44.086Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/d4/8981bf93ed68b9d7b77dc2a60b3d3cebe281eac51ed1440c3b010975eaa7/libusb_package-1.0.26.1-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:0f95eae9622715e702f4c83cd935b5699fa865df10084f67902c5338e948f5a2", size = 71234, upload-time = "2022-12-18T21:49:45.683Z" },
+    { url = "https://files.pythonhosted.org/packages/29/c5/1fbd71a5691551d1e771aa5eb086fae6a45db556a84a2a4e057feb6aed11/libusb_package-1.0.26.1-cp311-cp311-win32.whl", hash = "sha256:e33177f37e3d0ba4a541c60d7da1d26ce6e6f9cf8b91c6f20f09751fe7e9a4a6", size = 77383, upload-time = "2022-12-18T21:49:47.181Z" },
+    { url = "https://files.pythonhosted.org/packages/38/d7/41aa36af724903bbfcfb5c8c21f80572d1e135ffbaaecfc0048ad79ffe6c/libusb_package-1.0.26.1-cp311-cp311-win_amd64.whl", hash = "sha256:a6e3525f5865fac7c635987eff726970792e71402e758ed7a44ef89ce0025546", size = 90342, upload-time = "2022-12-18T21:49:48.179Z" },
 ]
 
 [[package]]
@@ -958,7 +972,8 @@ dev = [
     { name = "keyring" },
 ]
 pyocd = [
-    { name = "pyocd", marker = "python_full_version < '3.14'" },
+    { name = "libusb-package", marker = "python_full_version >= '3.14'" },
+    { name = "pyocd" },
 ]
 test = [
     { name = "coverage" },
@@ -996,6 +1011,7 @@ requires-dist = [
     { name = "jsonlines", specifier = ">=4.0.0" },
     { name = "jsons", specifier = ">=1.6.3" },
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=25.6.0" },
+    { name = "libusb-package", marker = "python_full_version >= '3.14' and extra == 'pyocd'", specifier = "==1.0.26.1" },
     { name = "libusb-package", marker = "sys_platform == 'win32'", specifier = ">=1.0.26.0" },
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "mock", marker = "extra == 'test'", specifier = ">=4.0.3,<6.0.0" },
@@ -1006,7 +1022,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.0.0,<8.0.0" },
     { name = "pygithub", specifier = ">=2.1.1" },
     { name = "pyinstrument", marker = "extra == 'test'", specifier = ">=5.1.0" },
-    { name = "pyocd", marker = "python_full_version < '3.14' and extra == 'pyocd'", specifier = ">=0.36.0" },
+    { name = "pyocd", marker = "extra == 'pyocd'", specifier = ">=0.44.1" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.1.2,<10.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=6.0.0" },
