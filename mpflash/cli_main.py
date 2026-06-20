@@ -12,6 +12,7 @@ from .cli_download import cli_download
 from .cli_flash import cli_flash_board
 from .cli_group import cli
 from .cli_list import cli_list_mcus
+from . import cli_pyocd  # noqa: F401 - registers pyOCD subcommands via @cli.command
 from .db.core import migrate_database
 
 
