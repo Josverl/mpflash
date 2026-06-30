@@ -836,7 +836,7 @@ wheels = [
 
 [[package]]
 name = "mpflash"
-version = "1.28.1.dev1"
+version = "1.28.1.dev2"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
