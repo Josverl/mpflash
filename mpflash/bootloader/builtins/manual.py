@@ -1,4 +1,6 @@
-"""Manual bootloader mode entry for various MCUs."""
+"""Manual bootloader mode entry via rich prompt."""
+
+from __future__ import annotations
 
 from click.exceptions import Abort
 from rich.console import Console
@@ -7,7 +9,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.theme import Theme
 
-# from mpflash.logger import console, log
+from mpflash.bootloader.base import BootloaderActivator
+from mpflash.bootloader.registry import register
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -98,3 +101,15 @@ Please put your {mcu.port.upper()} device into bootloader mode by:
     except Abort:
         return False
     return answer in ["y", "Y", True]
+
+
+class ManualActivator(BootloaderActivator):
+    """Ask the user to put the board into bootloader mode and confirm."""
+
+    name = "manual"
+
+    def activate(self, mcu: MPRemoteBoard, *, timeout: int = 10) -> bool:
+        return enter_bootloader_manual(mcu, timeout=timeout)
+
+
+register(ManualActivator())
