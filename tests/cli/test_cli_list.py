@@ -40,3 +40,47 @@ def test_mpflash_list(id, ex_code, args: List[str], mocker: MockerFixture):
         m_print.assert_called_once()
     if "--no-progress" not in args and "--json" not in args:
         m_show_mcus.assert_called_once()
+
+
+def test_mpflash_list_reset_family_specific_commands(mocker: MockerFixture):
+    class _Mcu:
+        def __init__(self, family):
+            self.family = family
+            self.toml = {}
+            self.run_command = mocker.Mock()
+
+        def to_dict(self):
+            return {"family": self.family}
+
+    cp = _Mcu("circuitpython")
+    unknown = _Mcu("unknown")
+    mpy = _Mcu("micropython")
+
+    mocker.patch("mpflash.connected.list_mcus", return_value=[cp, unknown, mpy], autospec=True)
+    mocker.patch("mpflash.list.show_mcus", return_value=None, autospec=True)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, ["list", "--no-progress", "--reset"], standalone_mode=True)
+
+    assert result.exit_code == 0
+    cp.run_command.assert_called_once()
+    unknown.run_command.assert_not_called()
+    mpy.run_command.assert_called_once_with("reset")
+
+
+def test_mpflash_list_returns_one_when_all_ignored(mocker: MockerFixture):
+    class _Mcu:
+        family = "micropython"
+        toml = {"mpflash": {"ignore": True}}
+
+        def to_dict(self):
+            return {}
+
+    mocker.patch("mpflash.connected.list_mcus", return_value=[_Mcu()], autospec=True)
+    mocker.patch("mpflash.list.show_mcus", return_value=None, autospec=True)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, ["list", "--no-progress", "--no-reset"], standalone_mode=False)
+
+    assert result.exit_code == 0
+    assert result.return_value == 1

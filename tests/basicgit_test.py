@@ -5,7 +5,7 @@ from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
-from mock import MagicMock
+from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
 
 pytestmark = [pytest.mark.mpflash, pytest.mark.basicgit]
