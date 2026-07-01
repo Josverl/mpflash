@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger as log
+from mpflash.common import udev_rules_error_message
 from mpflash.mpremoteboard import MPRemoteBoard
 
 # Module-level cached backend for Windows libusb
@@ -33,7 +34,7 @@ def init_libusb_windows():
 
 
 try:
-    from ..vendor import pydfu as pydfu
+    from mpflash.vendor import pydfu as pydfu
 except ImportError:
     pydfu = None
 
@@ -92,12 +93,30 @@ def flash_stm32_dfu(
     if backend is not None:
         kwargs["backend"] = backend
 
-    log.debug("List SPECIFIED DFU devices...")
-    try:
-        pydfu.list_dfu_devices(**kwargs)
-    except ValueError as e:
-        log.error(f"Insufficient permissions to access usb DFU devices: {e}")
-        return None
+    import time
+
+    max_wait = 3.0  # seconds
+    poll_interval = 0.25
+    waited = 0.0
+    while True:
+        try:
+            log.debug(f"Polling for DFU device (waited {waited:.1f}s)...")
+            pydfu.list_dfu_devices(**kwargs)
+            break  # Device found
+        except ValueError as e:
+            if waited >= max_wait:
+                log.error(
+                    udev_rules_error_message(
+                        "mpflash.udev_rules",
+                        "65-mpflash-stm32-dfu.rules",
+                        device_label="STM32 DFU USB devices",
+                        next_step="Then replug your STM32 board or re-enter DFU mode.",
+                    )
+                    + f"\nDetails: {e}"
+                )
+                return None
+            time.sleep(poll_interval)
+            waited += poll_interval
 
     # Needs to be a list of serial ports
     log.debug("Initialize pydfu...")
