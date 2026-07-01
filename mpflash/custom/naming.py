@@ -22,9 +22,7 @@ def custom_fw_from_path(fw_path: Path) -> Dict[str, Union[str, int, bool]]:
         # Fallback: use the filename stem as the board_id so we never crash on
         # firmware files that do not follow the standard MicroPython build layout.
         board_id = fw_path.stem
-        log.warning(
-            f"Could not determine board_id from path; using filename stem as board_id: {board_id!r}"
-        )
+        log.warning(f"Could not determine board_id from path; using filename stem as board_id: {board_id!r}")
     if not port:
         log.warning(f"Could not determine port from path: {fw_path}; using empty port.")
         port = ""
