@@ -53,7 +53,7 @@ jobs:
             # uv is not in the default image
             #----------------------------------------------
             - name: Install the latest version of uv
-              uses: astral-sh/setup-uv@v8.2.0
+              uses: astral-sh/setup-uv@v7
               with:
                   version: "latest"
 
