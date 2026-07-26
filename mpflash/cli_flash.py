@@ -5,7 +5,7 @@ import rich_click as click
 from loguru import logger as log
 
 from mpflash.cli_group import cli
-from mpflash.common import BootloaderMethod, FlashParams, UF2_PORTS, filtered_comports
+from mpflash.common import BootloaderMethod, FlashMethod, FlashParams, UF2_PORTS, filtered_comports
 from mpflash.errors import MPFlashError
 from mpflash.versions import clean_version
 
@@ -22,10 +22,10 @@ from mpflash.versions import clean_version
     "--version",
     "-v",
     "version",  # single version
-    default="stable",
+    default=None,
     multiple=False,
-    show_default=True,
-    help="The version of MicroPython to flash.",
+    show_default=False,
+    help="The version of MicroPython to flash. Defaults to 'stable', or 'preview' with --build",
     metavar="SEMVER, 'stable', 'preview' or '?'",
 )
 @click.option(
@@ -115,12 +115,52 @@ from mpflash.versions import clean_version
     help="""How to enter the (MicroPython) bootloader before flashing.""",
 )
 @click.option(
+    "--method",
+    "--flash-method",
+    "flash_method",
+    type=click.Choice([e.value for e in FlashMethod]),
+    default="auto",
+    show_default=True,
+    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+)
+@click.option(
+    "--probe",
+    "--probe-id",  # Keep as alias for backwards compatibility
+    "probe_id",
+    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    metavar="PROBE_ID",
+)
+@click.option(
+    "--auto-install-packs/--no-auto-install-packs",
+    default=True,
+    help="""Automatically install CMSIS packs for missing pyOCD targets. Default: enabled.""",
+)
+@click.option(
+    "--target",
+    "pyocd_target",
+    default=None,
+    help="""Explicit pyOCD target override (for --method pyocd), e.g. rp2040 or r7fa4m1ab.""",
+    metavar="PYOCD_TARGET",
+)
+@click.option(
     "--force",
     "-f",
     default=False,
     is_flag=True,
     show_default=True,
     help="""Force download of firmware even if it already exists.""",
+)
+@click.option(
+    "--build",
+    default=False,
+    is_flag=True,
+    help="""Build MicroPython firmware locally using mpbuild before flashing. Generates all formats (.dfu, .hex, .bin, .elf). Requires Docker.""",
+)
+@click.option(
+    "--clean",
+    default=False,
+    is_flag=True,
+    help="""When used with --build, run 'mpbuild clean' for the selected board before building.""",
 )
 @click.option(
     "--flash_mode",
@@ -162,7 +202,8 @@ from mpflash.versions import clean_version
     show_default=True,
     help="""Flash a custom firmware""",
 )
-def cli_flash_board(**kwargs) -> int:
+@click.pass_context
+def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     import mpflash.download.jid as jid
     import mpflash.mpboard_id as mpboard_id
     from mpflash.ask_input import ask_missing_params
@@ -183,13 +224,34 @@ def cli_flash_board(**kwargs) -> int:
                 "Try specifying both --board and --serial, or use '--serial *' to auto-detect ports."
             ) from None
 
+    # Track whether the board was explicitly provided on CLI.
+    # This prevents mixed auto-detected board/variant state from multiple
+    # connected devices when only --serial was specified.
+    board_specified = kwargs.get("board") is not None
+
+    # Extract mpbuild options early so default version can depend on --build.
+    build_firmware = kwargs.pop("build", False)
+    clean_build = kwargs.pop("clean", False)
+
     # version to versions, board to boards
-    kwargs["versions"] = [kwargs.pop("version")] if kwargs["version"] is not None else []
+    requested_version = kwargs.pop("version")
+    if requested_version is None:
+        requested_version = "preview" if build_firmware else "stable"
+    kwargs["versions"] = [requested_version]
     if kwargs["board"] is None:
         kwargs["boards"] = []
         kwargs.pop("board")
     else:
         kwargs["boards"] = [kwargs.pop("board")]
+
+    # Convert flash_method to method and convert to enum
+    flash_method_str = kwargs.pop("flash_method", "auto")
+    flash_method = FlashMethod(flash_method_str)
+
+    # Extract pyOCD options
+    probe_id = kwargs.pop("probe_id", None)
+    auto_install_packs = kwargs.pop("auto_install_packs", True)
+    pyocd_target = kwargs.pop("pyocd_target", None)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -199,6 +261,7 @@ def cli_flash_board(**kwargs) -> int:
     params.ignore = list(params.ignore)
     params.volumes = list(params.volumes)
     params.bootloader = BootloaderMethod(params.bootloader)
+    reflash_commands: List[str] = []
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
     if params.boards == ["?"] or params.serial == "?":  #  or params.variant == "?":
@@ -214,13 +277,15 @@ def cli_flash_board(**kwargs) -> int:
     all_boards = []
     if not params.boards:
         # nothing specified - detect connected boards
+        # Respect an explicit --serial filter instead of scanning all ports.
+        include_ports = params.serial if params.serial != ["*"] else params.ports
         params.ports, params.boards, variants, all_boards = connected_ports_boards_variants(
-            include=params.ports,
+            include=include_ports,
             ignore=params.ignore,
             bluetooth=params.bluetooth,
         )
-        if variants and len(variants) >= 1:
-            params.variant = variants[0]
+        # Do not auto-pick a variant from a set of connected boards; this can
+        # leak a variant from another attached device (e.g. ESP32 SPIRAM).
         if params.boards == []:
             # No MicroPython boards detected, but it could be unflashed or in bootloader mode
             # Ask for serial port and board_id to flash
@@ -234,7 +299,7 @@ def cli_flash_board(**kwargs) -> int:
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
-        return 2
+        ctx.exit(2)
     assert isinstance(params, FlashParams)
 
     if len(params.versions) > 1:
@@ -242,6 +307,72 @@ def cli_flash_board(**kwargs) -> int:
         raise MPFlashError("Only one version can be flashed at a time")
 
     params.versions = [clean_version(v) for v in params.versions]
+
+    # Handle --build flag: build firmware locally before flashing
+    if build_firmware:
+        from mpflash.build import (
+            build_firmware as build_fw,
+            clean_firmware,
+            detect_port_from_board_id,
+            get_build_unavailable_reason,
+            get_port_preferred_suffixes,
+            import_firmware_to_database,
+            is_build_available,
+        )
+
+        if not is_build_available():
+            reason = get_build_unavailable_reason()
+            log.error(f"Build functionality not available: {reason}")
+            return 1
+
+        # Build firmware for each requested board
+        for board_id in params.boards:
+            full_board_id = f"{board_id}-{params.variant}" if params.variant else board_id
+            version = params.versions[0] if params.versions else "latest"
+            board_port = params.ports[0] if params.ports else detect_port_from_board_id(full_board_id)
+
+            try:
+                if clean_build:
+                    clean_firmware(full_board_id)
+                log.info(f"Building firmware for {full_board_id} version {version}")
+                preferred_suffixes = set()
+                if flash_method == FlashMethod.ESPTOOL:
+                    preferred_suffixes = {".bin"}
+                elif flash_method == FlashMethod.UF2:
+                    preferred_suffixes = {".uf2"}
+                elif flash_method == FlashMethod.DFU:
+                    preferred_suffixes = {".dfu", ".bin"}
+                elif flash_method == FlashMethod.PYOCD:
+                    preferred_suffixes = {".bin", ".hex", ".elf", ".axf"}
+                elif board_port:
+                    preferred_suffixes = get_port_preferred_suffixes(board_port)
+
+                firmware_files = build_fw(
+                    full_board_id,
+                    version,
+                    force=True,
+                    preferred_suffixes=preferred_suffixes or None,
+                )
+
+                # Import built firmware files into mpflash database
+                if firmware_files:
+                    imported_count = import_firmware_to_database(
+                        firmware_files,
+                        full_board_id,
+                        version,
+                        port=board_port,
+                    )
+                    log.info(f"Imported {imported_count} firmware files into database")
+                    reflash_commands.append(f"mpflash flash --board {full_board_id} --version {version}")
+                else:
+                    log.warning(f"No firmware files generated for {full_board_id}")
+
+            except Exception as e:
+                log.error(f"Build failed for {full_board_id}: {e}")
+                return 1
+    elif clean_build:
+        log.warning("--clean only applies when --build is enabled; ignoring --clean")
+
     tasks = []
 
     # Normalize volume paths: accept both Windows backslashes and POSIX forward slashes
@@ -293,6 +424,25 @@ def cli_flash_board(**kwargs) -> int:
             include_ports=params.serial,
             ignore_ports=params.ignore,
         )
+    elif params.versions[0] and params.serial and not board_specified:
+        # Serial port(s) were explicitly provided, but board_id was not.
+        # Build tasks from per-port auto-detection to avoid cross-device board/variant mixing.
+        # IMPORTANT: honor explicit serial targets exactly. Do not broaden with
+        # include/ignore set logic, otherwise unrelated attached boards can leak
+        # into this run.
+        # Exclude wildcard and interactive sentinel values. Passing "?" through
+        # to pyserial's list_ports.grep() causes a regex parse error.
+        specified = [p for p in params.serial if p and p not in {"*", "?"}]
+        ignored = set(params.ignore or [])
+        comports = [p for p in specified if p not in ignored]
+        if not comports:
+            serial_filter = ", ".join(params.serial)
+            raise click.UsageError(f"No serial ports matched: {serial_filter}. Check the port name, or use '--serial *' to auto-detect.")
+        connected_comports = [MPRemoteBoard(port, update=True) for port in comports]
+        tasks = _create_worklist_or_fail(
+            params.versions[0],
+            connected_comports=connected_comports,
+        )
     elif params.versions[0] and params.boards and params.serial:
         # Manual specification of serial ports + board
         comports = filtered_comports(
@@ -323,6 +473,10 @@ def cli_flash_board(**kwargs) -> int:
         tasks,
         params.erase,
         params.bootloader,
+        method=flash_method,
+        probe_id=probe_id,
+        auto_install_packs=auto_install_packs,
+        target_override=pyocd_target,
         flash_mode=params.flash_mode,
         retry_on_error=params.retry_on_error,
         retry_baud=params.retry_baud,
@@ -330,7 +484,12 @@ def cli_flash_board(**kwargs) -> int:
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")
-        return 0
+        if build_firmware and reflash_commands:
+            click.echo()
+            click.echo("To flash this built firmware again without rebuilding:")
+            for command in dict.fromkeys(reflash_commands):
+                click.echo(f"  {command}")
+        ctx.exit(0)
     else:
         log.error("No boards were flashed")
-        return 1
+        ctx.exit(1)
