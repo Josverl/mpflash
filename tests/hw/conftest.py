@@ -61,6 +61,20 @@ def hw_uf2_firmware() -> Path:
 
 
 @pytest.fixture
+def mpflash_db():
+    """Initialise the mpflash board database (the CLI does this at startup).
+
+    Hardware tests call ``get_mcu_info`` / ``wait_for_restart`` which query the
+    board database via ``best_matching_port``; without initialisation Peewee
+    raises "database must be initialized before opening a connection".
+    """
+    from mpflash.db.core import _init_database
+
+    _init_database()
+    yield
+
+
+@pytest.fixture
 def hw_dfu_port() -> str:
     port = _env_port("MPFLASH_HW_DFU_PORT")
     if not port:
