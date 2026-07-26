@@ -2,8 +2,9 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import tenacity
 
-from mpflash.flash.builtins.uf2 import flash_uf2
+from mpflash.flash.builtins.uf2 import copy_firmware_to_uf2, flash_uf2
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -37,6 +38,37 @@ def mock_destination():
     info_file.exists.return_value = True
     destination.__truediv__ = mock.Mock(return_value=info_file)
     return destination
+
+
+def test_copy_firmware_to_uf2_copies_data_without_metadata(mocker):
+    """Avoid metadata writes after a UF2 volume consumes the firmware."""
+    firmware = Path("firmware.uf2")
+    destination = Path("E:/")
+    copyfile = mocker.patch(
+        "mpflash.flash.builtins.uf2.shutil.copyfile",
+        return_value=destination / firmware.name,
+    )
+
+    result = copy_firmware_to_uf2(firmware, destination)
+
+    assert result == destination / firmware.name
+    copyfile.assert_called_once_with(firmware, destination / firmware.name)
+
+
+def test_copy_firmware_to_uf2_retries_write_failure(mocker):
+    """Retry transient failures while the UF2 volume remains available."""
+    firmware = Path("firmware.uf2")
+    destination = Path("E:/")
+    copyfile = mocker.patch(
+        "mpflash.flash.builtins.uf2.shutil.copyfile",
+        side_effect=[OSError("device busy"), destination / firmware.name],
+    )
+    copy = copy_firmware_to_uf2.retry_with(wait=tenacity.wait_none())
+
+    result = copy(firmware, destination)
+
+    assert result == destination / firmware.name
+    assert copyfile.call_count == 2
 
 
 def test_flash_uf2_unsupported_port(mock_mcu, mock_fw_file):

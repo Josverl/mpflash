@@ -170,9 +170,12 @@ def waitfor_uf2(board_id: str):
 @tenacity.retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=False)
 def copy_firmware_to_uf2(fw_file: Path, destination: Path):
     """
-    Copy the firmware file to the destination,
-    Retry 3 times with 1s delay
+    Copy firmware data to the destination without preserving metadata.
+
+    UF2 volumes may disappear as soon as the data is consumed, so metadata
+    operations after the copy can report a false failure. Transient data-copy
+    failures are retried 3 times with a 1-second delay.
     """
     log.trace(f"Firmware: {fw_file}")
     log.info(f"Copying {fw_file.name} to {destination}.")
-    return shutil.copy(fw_file, destination)
+    return shutil.copyfile(fw_file, destination / fw_file.name)
