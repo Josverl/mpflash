@@ -90,4 +90,29 @@ def enter_bootloader(
         if in_bootloader(mcu, backend=backend):
             return True
 
+        serialport = mcu.serialport
+        if serialport and serialport.lower() != "auto":
+            try:
+                connected = {port.casefold() for port in MPRemoteBoard.connected_comports()}
+            except OSError:
+                connected = {serialport.casefold()}
+            if serialport.casefold() not in connected:
+                # The serial port vanished, so the board reset into its UF2
+                # bootloader. Do not fall through to touch-1200 (which would
+                # try to open a port that no longer exists). Give the UF2
+                # volume extra time to mount and confirm it is actually there
+                # before reporting success — otherwise the flash backend will
+                # abort with "Board is not in bootloader mode".
+                log.debug(
+                    f"Serial port {serialport} disappeared after {name}; "
+                    "waiting for the UF2 drive to mount"
+                )
+                if in_bootloader(mcu, backend=backend):
+                    return True
+                log.warning(
+                    f"{serialport} reset into bootloader but the UF2 drive "
+                    "was not detected"
+                )
+                continue
+
     return False

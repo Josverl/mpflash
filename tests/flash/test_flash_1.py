@@ -14,7 +14,7 @@ from mpflash.mpremoteboard import MPRemoteBoard
 pytestmark = [pytest.mark.mpflash]
 
 
-@pytest.mark.parametrize("bl_method", iter(BootloaderMethod))
+@pytest.mark.parametrize("bl_method", list(BootloaderMethod))
 def test_enter_bootloader(mocker: MockerFixture, bl_method):
     # test if each of the bootloaders can be called
     # test enter_bootloader
@@ -58,6 +58,41 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
     assert m_bl_man.call_count == 1
 
     m_sleep.assert_called_once_with(2)
+
+
+def test_enter_bootloader_stops_fallbacks_when_serial_port_disappears(
+    mocker: MockerFixture,
+):
+    """Let the backend finish waiting after an expected USB transition."""
+    board = MPRemoteBoard("COM30")
+    board.port = "rp2"
+    m_bl_mpy = mocker.patch(
+        "mpflash.bootloader.builtins.mpy.enter_bootloader_mpy",
+        return_value=True,
+    )
+    m_bl_tch = mocker.patch(
+        "mpflash.bootloader.builtins.touch1200.enter_bootloader_touch_1200bps",
+        return_value=True,
+    )
+    m_bl_man = mocker.patch(
+        "mpflash.bootloader.builtins.manual.enter_bootloader_manual",
+        return_value=True,
+    )
+    # First readiness check fails (drive not mounted yet); after the serial
+    # port disappears the UF2 volume mounts and the retry succeeds.
+    mocker.patch(
+        "mpflash.bootloader.activate.in_bootloader",
+        side_effect=[False, True],
+    )
+    mocker.patch.object(MPRemoteBoard, "connected_comports", return_value=[])
+    mocker.patch("mpflash.bootloader.activate.time.sleep")
+
+    result = enter_bootloader(board, method=BootloaderMethod.AUTO)
+
+    assert result is True
+    m_bl_mpy.assert_called_once()
+    m_bl_tch.assert_not_called()
+    m_bl_man.assert_not_called()
 
 
 @pytest.mark.parametrize("bootloader", [BootloaderMethod.NONE, BootloaderMethod.MPY])
