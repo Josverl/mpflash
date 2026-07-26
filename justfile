@@ -31,7 +31,26 @@ bump bump="patch":
 build:
   uv build
 
-# publish the project to PyPI
+# -----------------------------------------------------------------------------------------------
+# Release process
+# Pushing a `v*` tag triggers .github/workflows/release.yml, which builds the sdist + wheel,
+# publishes to PyPI using trusted publishing (OIDC, no token) and creates a GitHub release
+# with auto-generated notes. Use `just release` to cut a release; do not publish manually.
+# -----------------------------------------------------------------------------------------------
+
+# run tests, bump the version, then commit, tag and push - triggering the PyPI release
+# bump = major | minor | patch (default) | stable | alpha | beta | rc | post | dev
+[confirm("Run tests, bump the version and push a new tag? This triggers a PyPI release. Continue?")]
+release bump="patch":
+  uv run pytest
+  uv version --bump {{bump}}
+  git add pyproject.toml uv.lock
+  git commit -m "Release v$(uv version --short)"
+  git tag -a "v$(uv version --short)" -m "Release v$(uv version --short)"
+  git push --follow-tags
+
+# manual fallback: publish to PyPI directly (normally handled by GitHub Actions on tag push)
+[confirm("Are you sure you want to publish to PyPI directly? This is normally handled by GitHub Actions on tag push. Continue?")]
 publish : build
   uv publish
 
