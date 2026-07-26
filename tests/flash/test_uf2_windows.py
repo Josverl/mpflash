@@ -3,24 +3,24 @@ from unittest import mock
 
 import pytest
 
-from mpflash.flash.uf2.windows import wait_for_UF2_windows
+from mpflash.flash.builtins.uf2.windows import wait_for_UF2_windows
 
 
 @pytest.fixture
 def mock_psutil_disk_partitions():
-    with mock.patch("mpflash.flash.uf2.windows.psutil.disk_partitions") as mock_disk_partitions:
+    with mock.patch("mpflash.flash.builtins.uf2.windows.psutil.disk_partitions") as mock_disk_partitions:
         yield mock_disk_partitions
 
 
 @pytest.fixture
 def mock_get_board_id():
-    with mock.patch("mpflash.flash.uf2.windows.get_board_id") as mock_get_board_id:
+    with mock.patch("mpflash.flash.builtins.uf2.windows.get_board_id") as mock_get_board_id:
         yield mock_get_board_id
 
 
 @pytest.fixture
 def mock_time_sleep():
-    with mock.patch("mpflash.flash.uf2.windows.time.sleep") as mock_sleep:
+    with mock.patch("mpflash.flash.builtins.uf2.windows.time.sleep") as mock_sleep:
         yield mock_sleep
 
 

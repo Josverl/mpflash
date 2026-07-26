@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from mpflash.flash.uf2.boardid import get_board_id
+from mpflash.flash.builtins.uf2.boardid import get_board_id
 
 # filepath: d:\mypython\mpflash\mpflash\flash\uf2\test_boardid.py
 

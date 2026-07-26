@@ -3,7 +3,7 @@ from pathlib import Path
 
 import peewee
 import pytest
-from mock import MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock
 from mpflash.config import MPFlashConfig
 
 from mpflash.db.core import (

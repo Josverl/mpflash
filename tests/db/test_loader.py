@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from mock import MagicMock
+from unittest.mock import MagicMock
 
 from mpflash.db.core import create_database, migrate_database
 from mpflash.db.loader import load_data_from_zip, load_jsonl_to_db, update_boards

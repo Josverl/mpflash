@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from mpflash.common import BootloaderMethod
+from mpflash.common import FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.download.jid import ensure_firmware_downloaded_tasks
 from mpflash.errors import MPFlashError
@@ -122,6 +123,36 @@ def test_flash_tasks_file_not_exists(mock_config, mock_flash_mcu):
 
 
 @patch("mpflash.flash.flash_mcu")
+def test_flash_tasks_normalizes_legacy_backslash_paths(mock_flash_mcu, tmp_path, monkeypatch):
+    """Legacy Windows-style firmware paths should resolve on POSIX hosts."""
+    monkeypatch.setattr("mpflash.flash.config._firmware_folder", tmp_path)
+    mock_flash_mcu.return_value = MagicMock()
+
+    board = MPRemoteBoard("/dev/ttyUSB0")
+    board.board_id = "ESP8266_GENERIC"
+    board.board = "ESP8266_GENERIC"
+    board.serialport = "/dev/ttyUSB0"
+
+    fw_file = tmp_path / "esp8266" / "ESP8266_GENERIC-v1.28.0.bin"
+    fw_file.parent.mkdir(parents=True, exist_ok=True)
+    fw_file.write_bytes(b"bin")
+
+    fw = Firmware(
+        board_id="ESP8266_GENERIC",
+        version="1.28.0",
+        port="esp8266",
+        firmware_file="esp8266\\ESP8266_GENERIC-v1.28.0.bin",
+    )
+    task = FlashTask(board=board, firmware=fw)
+
+    result = flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert len(result) == 1
+    _, kwargs = mock_flash_mcu.call_args
+    assert kwargs["fw_file"] == fw_file
+
+
+@patch("mpflash.flash.flash_mcu")
 @patch("mpflash.flash.config")
 def test_flash_tasks_flash_error(mock_config, mock_flash_mcu):
     """Test handling flash errors."""
@@ -196,6 +227,158 @@ def test_flash_tasks_custom_firmware(mock_config, mock_flash_mcu):
     assert board.toml["description"] == "Custom firmware"
     assert board.toml["mpflash"]["board_id"] == "ESP32_GENERIC"
     assert board.toml["mpflash"]["custom_id"] == "custom_123"
+
+
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
+def test_flash_tasks_custom_firmware_without_custom_id(mock_config, mock_flash_mcu):
+    """None custom_id should not be written to TOML metadata."""
+    mock_config.firmware_folder = Path("/test/firmware")
+    updated_board = MagicMock()
+    mock_flash_mcu.return_value = updated_board
+
+    board = MPRemoteBoard("COM1")
+    board.board_id = "ESP32_GENERIC"
+    board.serialport = "COM1"
+    board.get_board_info_toml = MagicMock()
+    board.set_board_info_toml = MagicMock()
+    board.toml = {}
+
+    fw = Firmware(
+        board_id="ESP32_GENERIC",
+        version="1.23.0",
+        port="esp32",
+        firmware_file="custom.bin",
+        custom=True,
+        description="Custom firmware",
+        custom_id=None,
+    )
+    task = FlashTask(board=board, firmware=fw)
+
+    with patch("pathlib.Path.exists", return_value=True):
+        result = flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO)
+
+    assert len(result) == 1
+    board.get_board_info_toml.assert_called_once()
+    board.set_board_info_toml.assert_called_once()
+    assert board.toml["description"] == "Custom firmware"
+    assert board.toml["mpflash"]["board_id"] == "ESP32_GENERIC"
+    assert "custom_id" not in board.toml["mpflash"]
+
+
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
+def test_flash_tasks_downloads_backend_compatible_firmware_before_flash(
+    mock_config,
+    mock_flash_mcu,
+):
+    """If firmware suffix is incompatible, refresh downloads before backend handoff."""
+    mock_config.firmware_folder = Path("/test/firmware")
+    mock_flash_mcu.return_value = MagicMock()
+
+    board = MPRemoteBoard("COM1")
+    board.board = "RPI_PICO"
+    board.board_id = "RPI_PICO"
+    board.port = "rp2"
+    board.serialport = "COM1"
+
+    fw_uf2 = Firmware(
+        board_id="RPI_PICO",
+        version="1.28.0",
+        port="rp2",
+        firmware_file="rp2/RPI_PICO-v1.28.0-main.uf2",
+    )
+    task = FlashTask(board=board, firmware=fw_uf2)
+
+    backend = MagicMock()
+    backend.supported_formats = (".bin", ".hex", ".elf", ".axf")
+
+    fw_elf = Firmware(
+        board_id="RPI_PICO",
+        version="1.28.0",
+        port="rp2",
+        firmware_file="rp2/RPI_PICO-v1.28.0.elf",
+    )
+
+    find_calls = {"count": 0}
+
+    def fake_find_downloaded_firmware(*args, **kwargs):
+        # First lookup pass returns no compatible files; second pass (after
+        # download refresh) returns an .elf candidate.
+        find_calls["count"] += 1
+        if find_calls["count"] <= 4:
+            return []
+        return [fw_elf]
+
+    def fake_exists(path_obj: Path):
+        path_str = str(path_obj)
+        # Block sibling fast-path files derived from the initially selected UF2.
+        if "RPI_PICO-v1.28.0-main" in path_str:
+            return False
+        return True
+
+    with (
+        patch("mpflash.flash.get_backend", return_value=backend),
+        patch(
+            "mpflash.flash.find_downloaded_firmware",
+            side_effect=fake_find_downloaded_firmware,
+        ),
+        patch("mpflash.download.download", return_value=1) as mock_download,
+        patch("pathlib.Path.exists", autospec=True, side_effect=fake_exists),
+    ):
+        result = flash_tasks(
+            [task],
+            erase=False,
+            bootloader=BootloaderMethod.AUTO,
+            method=FlashMethod.PYOCD,
+        )
+
+    assert len(result) == 1
+    mock_download.assert_called_once()
+    _, kwargs = mock_flash_mcu.call_args
+    assert kwargs["fw_file"].name.endswith(".elf")
+
+
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
+def test_flash_tasks_raises_when_backend_has_no_compatible_firmware(
+    mock_config,
+    mock_flash_mcu,
+):
+    """Explicit backend should fail before handoff if no compatible firmware exists."""
+    mock_config.firmware_folder = Path("/test/firmware")
+
+    board = MPRemoteBoard("COM1")
+    board.board = "RPI_PICO"
+    board.board_id = "RPI_PICO"
+    board.port = "rp2"
+    board.serialport = "COM1"
+
+    fw_uf2 = Firmware(
+        board_id="RPI_PICO",
+        version="1.28.0",
+        port="rp2",
+        firmware_file="rp2/RPI_PICO-v1.28.0.uf2",
+    )
+    task = FlashTask(board=board, firmware=fw_uf2)
+
+    backend = MagicMock()
+    backend.supported_formats = (".bin", ".hex", ".elf", ".axf")
+
+    with (
+        patch("mpflash.flash.get_backend", return_value=backend),
+        patch("mpflash.flash.find_downloaded_firmware", return_value=[]),
+        patch("mpflash.download.download", return_value=1),
+    ):
+        with pytest.raises(MPFlashError, match="No firmware matching backend"):
+            flash_tasks(
+                [task],
+                erase=False,
+                bootloader=BootloaderMethod.AUTO,
+                method=FlashMethod.PYOCD,
+            )
+
+    mock_flash_mcu.assert_not_called()
 
 
 @patch("mpflash.download.jid.find_downloaded_firmware")
