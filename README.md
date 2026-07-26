@@ -18,38 +18,22 @@ The interactive prompts use [**rich-inquirer**](https://pypi.org/project/rich-in
     - `esp32`, using `.bin`, using esptool,
     - `esp8266`, using `.bin`, using esptool
     - `stm32`, using ` .dfu`, using pydfu (also in Windows) 
+    - `nrf`, using `.uf2`, using filecopy
 
-Not yet implemented: `nrf`, `cc3200`, `mimxrt`, `renesas`
+Not yet implemented: `alif`, `mimxrt`, `psoc-edge`, `renesas-ra`, `zephyr`
+Not planned: `cc3200`, `pic16bit`
 
-## Release v1.25.0(.post2)
-
-This release includes several new features and improvements:
-- **New features:**
-  - Added support for `--variant` option to specify a specific variant of the board when flashing.
-  - mpflash now uses a slqlite database to store information on all possible micropython firmwares, and the management of the downloaded firmware files.
-  - This allows for a better identification of boards, and matches to the correct firmware.
-  - Use the MicroPython v1.25.0 `sys.implementation._build` to as board_id when avaialable
-  - Automatically try to download firmware if not yet available locally. No lonmger need to specify the `--download` option.
-  - Restructured mpboard_id to use a SQLite db to be able to ID more boards and variants
-  - vendored and adapted `board_database.py` from mpflash, kudos @mattytrentini
-
-## ⚠️ Breaking API Changes (v1.26+)
-
-**Important for Library Users**: The worklist module API has been completely refactored with breaking changes. 
-Legacy worklist functions have been **removed**.
-
-- **Removed Functions**: `auto_update_worklist()`, `manual_worklist()`, `manual_board()`, `single_auto_worklist()`, `full_auto_worklist()`, `filter_boards()`
-- **New API**: Modern interface with `create_worklist()`, `FlashTask` dataclass, and `WorklistConfig` objects
-- **CLI Unchanged**: Command-line interface remains fully compatible
-
-See [API Documentation](docs/api-reference.md) for complete migration guide.
-
- 
 ## Features
- 1. List the connected boards including their firmware details, in a tabular or json format
- 2. Download MicroPython firmware for versions, and matching a specified board or matches your current attached board.
- 3. Flash one or all connected MicroPython boards with a specific firmware or version.  
- 
+
+ - **List connected boards** — show firmware details for all attached boards in a table or JSON format.
+ - **Download firmware** — fetch MicroPython firmware for a version, matched to a specified board or your attached board(s).
+ - **Flash boards** — flash one or all connected boards with a specific firmware or version, downloading it if needed.
+ - **Flash via a debug probe (pyOCD)** — program `stm32`, `rp2` and `samd` targets over SWD/JTAG using a CMSIS-DAP / ST-Link / J-Link probe with `mpflash flash --method pyocd`. CMSIS packs for missing targets are installed automatically. Install with `pip install "mpflash[pyocd]"`.
+ - **Build firmware locally (mpbuild)** — use `mpflash flash --build` to compile MicroPython with [mpbuild](https://pypi.org/project/mpbuild/) (requires Docker) right before flashing.
+ - **Pluggable flash & bootloader backends** — flashing and bootloader activation are selectable, port-agnostic plugins, and third-party backends can register their own. List them with `mpflash plugins`.
+ - **Filesystem erase over serial** — `--erase` wipes the MicroPython filesystem via its block device.
+ - **Probe & target info** — inspect probes and supported targets with `mpflash list-probes`, `mpflash pyocd-info` and `mpflash pyocd-targets`.
+
 ## Installation
 To install mpflash, you can use either of the following commands: 
 - `uv tool install mpflash`
