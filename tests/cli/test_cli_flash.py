@@ -192,7 +192,7 @@ def test_mpflash_no_detected_boards(
 
 def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: MockerFixture):
     """Show a user-friendly CLI error when no serial port matches the filter."""
-    args = ["flash", "--board", "RPI_PICO2", "--bootloader", "none", "--serial", "COM8"]
+    args = ["flash", "--board", "RPI_PICO2", "--bootloader", "none", "--serial", "COM99"]
 
     mocker.patch(
         "mpflash.ask_input.ask_missing_params",
