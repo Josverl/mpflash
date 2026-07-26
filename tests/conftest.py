@@ -1,5 +1,6 @@
 """Shared Pytest configuration and fixtures for mpflash tests."""
 
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -37,6 +38,36 @@ def test_fw_path():
 
 # https://docs.pytest.org/en/stable/example/markers.html#marking-platform-specific-tests-with-pytest
 ALL_OS = set("win32 linux darwin".split())
+
+
+def pytest_addoption(parser):
+    """Add ``--HIL <port>`` to run only hardware-in-the-loop tests."""
+    parser.addoption(
+        "--HIL",
+        action="store",
+        default=None,
+        metavar="PORT",
+        help=(
+            "Run only hardware-in-the-loop (hardware-marked) tests against the "
+            "given serial port, e.g. --HIL COM31. Sets MPFLASH_HW_UF2_PORT so "
+            "the hw_uf2 fixtures resolve to that board."
+        ),
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """When --HIL is given, deselect everything except hardware tests."""
+    if not config.getoption("--HIL"):
+        return
+    selected, deselected = [], []
+    for item in items:
+        if item.get_closest_marker("hardware"):
+            selected.append(item)
+        else:
+            deselected.append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
 
 
 def pytest_runtest_setup(item):
@@ -230,3 +261,8 @@ def pytest_configure(config):
     """Configure pytest markers."""
     config.addinivalue_line("markers", "unit: mark test as a unit test")
     config.addinivalue_line("markers", "pyocd: mark test as a pyOCD-related test")
+
+    # Feed the --HIL port to the existing hardware fixtures via env vars.
+    port = config.getoption("--HIL")
+    if port:
+        os.environ["MPFLASH_HW_UF2_PORT"] = port
