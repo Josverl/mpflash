@@ -9,6 +9,3 @@ These modules are vendored from the following repositories:
 
 - https://github.com/click-contrib/click-aliases  (Public Domain)
   - click_aliases.py (Robbin Bonthond)
-
-- https://github.com/Gadgetoid/pico-universal-flash-nuke (BSD-3-Clause license)
-    - universal_flash_nuke.uf2

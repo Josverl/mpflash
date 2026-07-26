@@ -8,13 +8,10 @@ than importing from here directly.
 
 import shutil
 import sys
-import time
 from pathlib import Path
 from typing import Optional
 
-import tenacity
 from loguru import logger as log
-from tenacity import stop_after_attempt, wait_fixed
 
 from mpflash.common import PORT_FWTYPES
 from mpflash.mpremoteboard import MPRemoteBoard
@@ -48,12 +45,13 @@ def _is_volume_path(serialport: str) -> bool:
     return p.is_dir()
 
 
-def _resolve_uf2_destination(mcu: MPRemoteBoard) -> Optional[Path]:
+def _resolve_uf2_destination(mcu: MPRemoteBoard, s_max: int = 10) -> Optional[Path]:
     """Use explicit mount path when provided, otherwise auto-detect UF2 mount.
 
     If a volume path is given (e.g. D:\\ or /Volumes/RPI-RP2) and INFO_UF2.TXT
     is already present there, use it directly. Otherwise log a warning and fall
     back to auto-detection so the board is still found even if mounted elsewhere.
+    ``s_max`` bounds how long auto-detection waits for the volume to appear.
     """
     serialport = getattr(mcu, "serialport", "")
     mcu_path = getattr(mcu, "path", None)
@@ -71,10 +69,11 @@ def _resolve_uf2_destination(mcu: MPRemoteBoard) -> Optional[Path]:
             break  # fall through to auto-detect below
 
     # No explicit volume found (or not specified) — auto-detect by board_id
-    return waitfor_uf2(board_id=mcu.port.upper())
+    destination = waitfor_uf2(board_id=mcu.port.upper(), s_max=s_max)
+    return destination if isinstance(destination, Path) else None
 
 
-def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemoteBoard]:
+def flash_uf2(mcu: MPRemoteBoard, fw_file: Path) -> Optional[MPRemoteBoard]:
     """
     Flash .UF2 devices via bootloader and filecopy
     - mpremote bootloader
@@ -91,24 +90,6 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
         display_port = Path(mcu.serialport).as_posix() if Path(mcu.serialport).is_absolute() or Path(mcu.serialport).drive else mcu.serialport
         log.error(f"UF2 not supported on {mcu.board} on {display_port}")
         return None
-    
-    # For non-rp2 ports, remember if we need to erase filesystem after flashing
-    erase_filesystem_after_flash = erase and mcu.port != "rp2"
-    
-    if erase:
-        if mcu.port == "rp2":
-            rp2_erase =Path(__file__).parent.joinpath("../../vendor/pico-universal-flash-nuke/universal_flash_nuke.uf2").resolve()
-            log.info(f"Erasing {mcu.port} with {rp2_erase.name}")
-            # optimistic 
-            destination = _resolve_uf2_destination(mcu)
-            if not destination :
-                log.error("Board is not in bootloader mode")
-                return None
-            copy_firmware_to_uf2(rp2_erase, destination)
-            if sys.platform in ["linux"]:
-                dismount_uf2_linux()
-            # allow for MCU restart after erase
-            time.sleep(0.5)
 
     destination = _resolve_uf2_destination(mcu)
 
@@ -122,8 +103,8 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
     try:
         copy_firmware_to_uf2(fw_file, destination)
         log.success("Done copying, resetting the board.")
-    except tenacity.RetryError:
-        log.error("Failed to copy the firmware file to the board.")
+    except OSError as error:
+        log.error(f"Failed to copy the firmware file to the board: {error}")
         return None
 
     if sys.platform in ["linux"]:
@@ -138,43 +119,35 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path, erase: bool) -> Optional[MPRemo
         log.debug(f"Switching serialport from volume path {Path(display_path)} to 'auto' for reconnection")
         mcu.serialport = "auto"
 
-    mcu.wait_for_restart()
-    
-    # For non-rp2 UF2 ports (like SAMD), erase filesystem after flash and restart
-    if erase_filesystem_after_flash:
-        # allow for MCU restart after erase
-        time.sleep(0.5)        
-        log.info(f"Erasing {mcu.port} filesystem using mpremote rm -r :/")
-        try:
-            rc, result = mcu.run_command(["rm", "-r", ":/"], timeout=30, resume=True)
-        except Exception as e:
-            log.warning(f"Failed to erase filesystem on {mcu.port}: {e}")
+    if mcu.wait_for_restart() is False:
+        log.error(f"Board did not reconnect on {mcu.serialport} after flashing")
+        return None
+
     return mcu
 
 
-def waitfor_uf2(board_id: str):
+def waitfor_uf2(board_id: str, s_max: int = 10):
     """
-    Wait for the UF2 drive to mount
+    Wait up to ``s_max`` seconds for the UF2 drive to mount
     """
     if sys.platform == "linux":
-        return wait_for_UF2_linux(board_id=board_id)
+        return wait_for_UF2_linux(board_id=board_id, s_max=s_max)
     elif sys.platform == "win32":
-        return wait_for_UF2_windows(board_id=board_id)
+        return wait_for_UF2_windows(board_id=board_id, s_max=s_max)
     elif sys.platform == "darwin":
-        return wait_for_UF2_macos(board_id=board_id)
+        return wait_for_UF2_macos(board_id=board_id, s_max=s_max)
     else:
         log.warning(f"OS {sys.platform} not tested/supported")
         return None
 
 
-@tenacity.retry(stop=stop_after_attempt(3), wait=wait_fixed(1), reraise=False)
 def copy_firmware_to_uf2(fw_file: Path, destination: Path):
     """
     Copy firmware data to the destination without preserving metadata.
 
     UF2 volumes may disappear as soon as the data is consumed, so metadata
-    operations after the copy can report a false failure. Transient data-copy
-    failures are retried 3 times with a 1-second delay.
+    operations after the copy can report a false failure. A failed copy is not
+    retried against the same mount path because the board may have reset.
     """
     log.trace(f"Firmware: {fw_file}")
     log.info(f"Copying {fw_file.name} to {destination}.")
