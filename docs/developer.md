@@ -447,26 +447,47 @@ Use the configured tasks for development:
 
 ## Release Process
 
-### Version Management
-```bash
-# Update version in pyproject.toml using either
-uv version <new_version>  
-uv version --bump patch 
+Releases are automated through GitHub Actions. Pushing a `v*` tag triggers
+[`.github/workflows/release.yml`](../.github/workflows/release.yml), which:
 
-# Recommended: update the included boards & description information
+1. Builds the sdist and wheel with `uv build`
+2. Publishes them to PyPI using **trusted publishing** (OIDC, no token required)
+3. Creates a GitHub release with auto-generated notes
+
+### Cutting a release
+
+The `just release` recipe drives the whole local flow in the safe order - it runs
+the tests first, and only then bumps the version and pushes the tag:
+
+```bash
+# 1. (optional) refresh the bundled boards & descriptions before releasing
 uv run mpflash/db/gather_boards.py --mpy-path ../micropython
 
-# Build package
-uv build
-
-# Publish to PyPI
-# set token in environment variable
-
-```pwsh
-uv install keyring
-$env:UV_PUBLISH_TOKEN=(python -m keyring get pypi uv_publish
-del env:UV_PUBLISH_TOKEN
+# 2. run tests, bump the version, commit, tag and push (triggers the PyPI release)
+just release           # next patch version (default)
+just release dev       # next dev prerelease
+just release minor     # next minor version
 ```
+
+`just release` performs, in order:
+
+1. `uv run pytest` - abort the release if any test fails
+2. `uv version --bump <bump>` - update `pyproject.toml` and re-lock
+3. `git commit` the version change
+4. `git tag -a vX.Y.Z` and `git push --follow-tags`
+
+The accepted bump values are `major`, `minor`, `patch` (default), `stable`,
+`alpha`, `beta`, `rc`, `post` and `dev`.
+
+### Manual fallback
+
+Only if the GitHub Actions publish is unavailable:
+
+```bash
+just build     # or: uv build
+just publish   # or: uv publish   (requires PyPI credentials)
+```
+
 ### Documentation Updates
 - Update README.md with new features
 - Add changelog entries

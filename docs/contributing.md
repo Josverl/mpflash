@@ -527,17 +527,27 @@ To add support for a new hardware platform:
 
 ## Release Process
 
-### Version Bumping
+### Version Bumping & Tagging
 
-MPFlash uses semantic versioning:
+MPFlash uses semantic versioning and releases are automated via GitHub Actions.
+Pushing a `v*` tag triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml),
+which builds the sdist + wheel, publishes to PyPI (trusted publishing) and creates
+a GitHub release with generated notes.
+
+Use the `just release` recipe to cut a release. It runs in the safe order - tests
+first, then version bump and tag push:
 
 ```bash
-# Update version in pyproject.toml manually
-# Or use a tool like bump2version:
-# bump2version patch   # for bug fixes
-# bump2version minor   # for new features  
-# bump2version major   # for breaking changes
+just release           # next patch version (default)
+just release dev       # next dev prerelease
+just release minor     # next minor version
+just release major     # next major version
 ```
+
+This runs `uv run pytest`, then `uv version --bump <bump>`, commits the change,
+creates an annotated `vX.Y.Z` tag and pushes it with `git push --follow-tags`.
+Accepted bump values: `major`, `minor`, `patch`, `stable`, `alpha`, `beta`, `rc`,
+`post`, `dev`.
 
 ### Changelog
 
@@ -564,13 +574,14 @@ Update the changelog for releases:
 
 ### Pre-release Checklist
 
-Before releasing:
+Before running `just release`:
 
-- [ ] All tests passing
 - [ ] Documentation updated
-- [ ] Version bumped appropriately
 - [ ] Changelog updated
-- [ ] No breaking changes without major version bump
+- [ ] Correct bump chosen (no breaking changes without a major version bump)
+- [ ] On the branch you intend to release from
+
+`just release` then runs the tests, bumps the version and pushes the tag for you.
 
 ## Getting Help
 
