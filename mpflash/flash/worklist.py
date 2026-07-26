@@ -25,13 +25,15 @@ tasks = create_worklist("1.22.0", connected_comports=all_boards, include_ports=[
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional, cast
 
 from loguru import logger as log
-from serial.tools.list_ports_common import ListPortInfo
+
 from typing_extensions import TypeAlias
 
 from mpflash.common import filtered_portinfos
+from mpflash.config import config
 from mpflash.db.models import Firmware
 from mpflash.downloaded import find_downloaded_firmware
 from mpflash.errors import MPFlashError
@@ -62,7 +64,7 @@ class FlashTask:
     @property
     def firmware_version(self) -> str:
         """Get the firmware version for this task."""
-        return self.firmware.version if self.firmware else "unknown"
+        return str(self.firmware.version) if self.firmware else "unknown"
 
 
 @dataclass
@@ -110,6 +112,39 @@ def _create_flash_task(board: MPRemoteBoard, firmware: Optional[Firmware]) -> Fl
     return FlashTask(board=board, firmware=firmware)
 
 
+def _normalize_firmware_file(firmware_file: str) -> str:
+    """Normalize legacy path separators in firmware DB entries."""
+    normalized = (firmware_file or "").replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    return normalized
+
+
+def _firmware_path_exists(firmware_file: str) -> bool:
+    """Check whether a firmware file exists on disk."""
+    normalized = _normalize_firmware_file(firmware_file)
+    candidate = Path(normalized)
+    if not candidate.is_absolute():
+        candidate = config.firmware_folder / normalized
+    return candidate.exists()
+
+
+def _is_port_compatible_firmware(port: str, firmware_file: str) -> bool:
+    """Return True when firmware extension is compatible with the target port."""
+    ext = Path(_normalize_firmware_file(firmware_file)).suffix.lower()
+    preferred_ext = {
+        "esp32": {".bin"},
+        "esp8266": {".bin"},
+        "rp2": {".uf2"},
+        "samd": {".uf2"},
+        "nrf": {".uf2"},
+        "stm32": {".dfu", ".bin"},
+    }
+    if port not in preferred_ext:
+        return True
+    return ext in preferred_ext[port]
+
+
 def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = False) -> Optional[Firmware]:
     """Find appropriate firmware for a board."""
     board_id = f"{board.board}-{board.variant}" if board.variant else board.board
@@ -122,8 +157,24 @@ def _find_firmware_for_board(board: MPRemoteBoard, version: str, custom: bool = 
     if len(firmwares) > 1:
         log.warning(f"Multiple {version} firmwares found for {board.board} on {board.serialport}.")
 
-    # Use the most recent matching firmware
-    firmware = firmwares[-1]
+    ranked: list[tuple[tuple[int, int, int, int, int, int], Firmware]] = []
+    for idx, firmware in enumerate(firmwares):
+        firmware_file = _normalize_firmware_file(cast(str, firmware.firmware_file))
+        firmware_source = cast(str, firmware.source) or ""
+        firmware_custom = bool(cast(bool, firmware.custom))
+        firmware_build = int(cast(int, getattr(firmware, "build", 0)) or 0)
+        rank = (
+            int(_firmware_path_exists(firmware_file)),
+            int(_is_port_compatible_firmware(board.port, firmware_file)),
+            int(firmware_source.lower() == "mpbuild"),
+            int(firmware_custom),
+            firmware_build,
+            idx,
+        )
+        ranked.append((rank, firmware))
+
+    # Prefer existing files and freshly built mpbuild records.
+    firmware = max(ranked, key=lambda item: item[0])[1]
     log.info(f"Found {version} firmware {firmware.firmware_file} for {board.board} on {board.serialport}.")
     return firmware
 
@@ -139,6 +190,9 @@ def _create_manual_board(serial_port: str, board_id: str, version: str, custom: 
         info = find_known_board(board_id, port=port)
         board.port = info.port
         board.cpu = info.mcu  # Need CPU type for esptool
+        # Description carries the specific chip name (e.g. "PYBv1.1 with STM32F405RG"),
+        # which pyOCD target detection uses to pick the right CMSIS target.
+        board.description = info.description or board.description
     except (LookupError, MPFlashError) as e:
         log.error(f"Board {board_id} not found in board database")
         log.exception(e)
