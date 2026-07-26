@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List
 from unittest.mock import Mock
 
@@ -260,6 +261,157 @@ def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
 
     assert result.exit_code == 2
+
+
+def test_mpflash_flash_direct_file_infers_esp32_board_variant(mocker: MockerFixture, tmp_path):
+    """Flash directly from --file and infer esp32 board+variant from build path."""
+    fw_path = tmp_path / "micropython" / "ports" / "esp32" / "build-ESP32_GENERIC-SPIRAM" / "micropython.bin"
+    fw_path.parent.mkdir(parents=True, exist_ok=True)
+    fw_path.write_bytes(b"firmware")
+    args = ["flash", "--version", "1.27.0", "--serial", "COM8", "--file", str(fw_path)]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM8"])
+    board = MPRemoteBoard("COM8")
+    board.port = "esp32"
+    board.board_id = "ESP32_GENERIC-SPIRAM"
+    task = FlashTask(board=board, firmware=None)
+    m_create_worklist = mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+    m_ensure = mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    assert m_create_worklist.call_args.kwargs["board_id"] == "ESP32_GENERIC-SPIRAM"
+    assert m_create_worklist.call_args.kwargs["port"] == "esp32"
+    flashed_task = m_flash_tasks.call_args.args[0][0]
+    assert flashed_task.firmware.firmware_file == fw_path.as_posix()
+    m_ensure.assert_not_called()
+
+
+def test_mpflash_flash_direct_file_prompts_when_esp32_variant_unclear(mocker: MockerFixture, tmp_path):
+    """If esp32 variant cannot be inferred from file path, ask for board selection."""
+    fw_path = tmp_path / "micropython" / "ports" / "esp32" / "micropython.bin"
+    fw_path.parent.mkdir(parents=True, exist_ok=True)
+    fw_path.write_bytes(b"firmware")
+    args = ["flash", "--version", "1.27.0", "--serial", "COM8", "--file", str(fw_path)]
+
+    observed = {}
+
+    def _fake_ask(params):
+        observed["boards_before_prompt"] = list(params.boards)
+        params.boards = ["ESP32_GENERIC"]
+        params.variant = "SPIRAM"
+        params.ports = ["esp32"]
+        return params
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=_fake_ask),
+    )
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM8"])
+    board = MPRemoteBoard("COM8")
+    board.port = "esp32"
+    board.board_id = "ESP32_GENERIC-SPIRAM"
+    task = FlashTask(board=board, firmware=None)
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    assert observed["boards_before_prompt"] == ["?"]
+
+
+def test_mpflash_flash_direct_url_downloads_firmware(mocker: MockerFixture):
+    """Download firmware via --url and flash directly without DB download step."""
+    args = [
+        "flash",
+        "--version",
+        "1.27.0",
+        "--board",
+        "ESP32_GENERIC",
+        "--serial",
+        "COM8",
+        "--url",
+        "https://example.com/micropython.bin",
+    ]
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size=0):
+            yield b"1234"
+
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+    mocker.patch("requests.get", return_value=_Response())
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM8"])
+    board = MPRemoteBoard("COM8")
+    board.port = "esp32"
+    board.board_id = "ESP32_GENERIC"
+    task = FlashTask(board=board, firmware=None)
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+    m_ensure = mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    flashed_firmware_path = Path(m_flash_tasks.call_args.args[0][0].firmware.firmware_file)
+    assert flashed_firmware_path.name.startswith("mpflash-fw-")
+    assert not flashed_firmware_path.exists()
+    m_ensure.assert_not_called()
+
+
+def test_mpflash_flash_direct_url_cleans_temp_file_on_flash_error(mocker: MockerFixture):
+    """Cleanup temp URL firmware file even when flashing fails."""
+    args = [
+        "flash",
+        "--version",
+        "1.27.0",
+        "--board",
+        "ESP32_GENERIC",
+        "--serial",
+        "COM8",
+        "--url",
+        "https://example.com/micropython.bin",
+    ]
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def iter_content(self, chunk_size=0):
+            yield b"1234"
+
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+    mocker.patch("requests.get", return_value=_Response())
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM8"])
+    board = MPRemoteBoard("COM8")
+    board.port = "esp32"
+    board.board_id = "ESP32_GENERIC"
+    task = FlashTask(board=board, firmware=None)
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", side_effect=RuntimeError("boom"))
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 1
+    flashed_firmware_path = Path(m_flash_tasks.call_args.args[0][0].firmware.firmware_file)
+    assert not flashed_firmware_path.exists()
 
 @pytest.mark.skip("TODO: Test Broken")
 def test_flash_triggers_just_in_time_download(mocker: MockerFixture, session_fx):
