@@ -1,84 +1,70 @@
-"""Detect if a board is in bootloader mode"""
+"""Detect whether a board is in bootloader mode.
 
-import os
+This module is a thin compatibility wrapper around
+:meth:`FlashBackend.is_board_ready`. When the caller supplies the active
+backend, we use its readiness probe; otherwise we look one up by port from
+the flash registry. ESP ports have no separate bootloader state, so they
+always return True.
+"""
 
-from mpflash.common import PORT_FWTYPES
-from mpflash.flash.uf2 import waitfor_uf2
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
 from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
 
+if TYPE_CHECKING:
+    from mpflash.flash.base import FlashBackend
 
-def in_bootloader(mcu: MPRemoteBoard) -> bool:
-    """Check if the board is in bootloader mode"""
-    if ".uf2" in PORT_FWTYPES[mcu.port]:
-        return in_uf2_bootloader(mcu.port.upper())
-    elif mcu.port in ["stm32"]:
-        return in_stm32_bootloader()
-    elif mcu.port in ["esp32", "esp8266"]:
-        log.debug("esp32/esp8266 does not have a bootloader mode, Assume OK to flash")
+
+def in_bootloader(
+    mcu: MPRemoteBoard, *, backend: Optional["FlashBackend"] = None
+) -> bool:
+    """Return ``True`` when ``mcu`` is in a state the backend can flash.
+
+    If ``backend`` is omitted, the flash registry is consulted for a backend
+    matching ``mcu.port``. ESP ports never need a separate bootloader, so
+    they short-circuit to ``True``.
+    """
+    if mcu.port in {"esp32", "esp8266"}:
+        log.debug(
+            "esp32/esp8266 does not have a bootloader mode, Assume OK to flash"
+        )
         return True
 
-    log.error(f"Bootloader mode not supported on {mcu.board} on {mcu.serialport}")
-    return False
+    if backend is None:
+        backend = backend_for_port(mcu.port)
+
+    if backend is None:
+        log.error(
+            f"Bootloader mode not supported on {mcu.board} on {mcu.serialport}"
+        )
+        return False
+
+    return bool(backend.is_board_ready(mcu))
 
 
-def in_uf2_bootloader(board_id: str) -> bool:
+def backend_for_port(port: str) -> Optional["FlashBackend"]:
+    """Best-effort lookup of a flash backend that handles ``port``.
+
+    Used by callers that need a backend's bootloader preferences or
+    readiness probe but don't have one in hand. Returns ``None`` when no
+    registered backend matches.
     """
-    Check if the board is in UF2 bootloader mode.
+    if not port:
+        return None
+    # JIT import — the flash registry pulls in the built-in backends.
+    from mpflash.flash.registry import get_backends
 
-    :param board_id: The board ID to check for (SAMD or RP2)
-    """
-    return bool(waitfor_uf2(board_id=board_id))
-
-
-def in_stm32_bootloader() -> bool:
-    """Check if the board is in STM32 bootloader mode"""
-    if os.name == "nt":
-        driver_installed, status = check_for_stm32_bootloader_device()
-        if not driver_installed:
-            log.warning("STM32  BOOTLOADER device not found.")
-            return False
-        print()
-        if status != "OK":
-            log.warning(f"STM32 BOOTLOADER device found, Device status: {status}")
-            log.error("Please use Zadig to install a WinUSB (libusb)  driver.\nhttps://github.com/pbatard/libwdi/wiki/Zadig")
-            return False
-    return check_dfu_devices()
-
-
-def check_dfu_devices():
-    """Check if there are any DFU devices connected"""
-    # JIT import
-    from mpflash.flash.stm32_dfu import dfu_init
-    from mpflash.vendor.pydfu import get_dfu_devices
-
-    # need to init on windows to get the right usb backend
-    backend = dfu_init()
-    kwargs = {}
-    if backend is not None:
-        kwargs["backend"] = backend
-    devices = get_dfu_devices(**kwargs)
-    return len(devices) > 0
-
-
-def check_for_stm32_bootloader_device():
-    import win32com.client
-
-    # Windows only
-    # Create a WMI interface object
-    wmi = win32com.client.GetObject("winmgmts:")
-
-    # Query for USB devices
-    for usb_device in wmi.InstancesOf("Win32_PnPEntity"):
-        try:
-            # Check if device name or description contains "STM32 BOOTLOADER"
-            if str(usb_device.Name).strip() in {
-                "STM32  BOOTLOADER",
-                "STM BOOTLOADER",
-            }:
-                # Just the first match is enough
-                return True, usb_device.Status
-        except Exception:
-            pass
-    # If no matching device was found
-    return False, "Not found."
+    candidates = [
+        b for b in get_backends() if not b.supported_ports or port in b.supported_ports
+    ]
+    if not candidates:
+        return None
+    # Prefer bootloader-requiring backends with the highest priority — those
+    # are the ones that actually have a meaningful readiness probe.
+    candidates.sort(
+        key=lambda b: (b.requires_bootloader, b.priority), reverse=True
+    )
+    return candidates[0]
