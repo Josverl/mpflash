@@ -2,7 +2,7 @@ import pytest
 
 from mpflash.db.models import Board
 from mpflash.mpboard_id import find_known_board, known_ports, known_stored_boards
-from mpflash.mpboard_id.known import known_versions
+from mpflash.mpboard_id.known import best_matching_port, known_versions
 
 pytestmark = [pytest.mark.mpflash]
 
@@ -11,6 +11,21 @@ def test_get_known_ports(session_fx):
     ports = known_ports()
     assert isinstance(ports, list)
     assert all(isinstance(port, str) for port in ports)
+
+
+@pytest.mark.parametrize(
+    "reported_port, expected_port",
+    [
+        ("nrf", "nrf"),
+        ("nrf52", "nrf"),
+        ("nrfx52", "nrfx"),
+        ("unknown", None),
+    ],
+)
+def test_best_matching_port(reported_port, expected_port, mocker):
+    mocker.patch("mpflash.mpboard_id.known.known_ports", return_value=["nrf", "nrfx"])
+
+    assert best_matching_port(reported_port) == expected_port
 
 
 def test_known_versions(session_fx, mocker):

@@ -146,12 +146,35 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.version == "1.23.0-preview"
     assert mprb.build == "236"
     assert mprb.port == "esp32"
+    assert mprb.sys_platform == "esp32"
     assert mprb.cpu == "ESP32"
     assert mprb.arch == "xtensawin"
     assert mprb.mpy == "v6.2"
     assert mprb.description == "Generic ESP32 module with ESP32"
     assert mprb.board == "ESP32_GENERIC"
     assert mprb.variant == ""
+
+
+def test_mpremoteboard_info_resolves_reported_port(mocker: MockerFixture, session_fx):
+    output = [
+        "{'port': 'nrf52', 'sys_platform': 'nrf52', 'build': '', 'arch': "
+        "'armv7emsp', 'family': 'micropython', 'board': 'SEEED_XIAO_NRF52', "
+        "'board_id': 'SEEED_XIAO_NRF52', 'cpu': 'NRF52840', 'version': "
+        "'1.28.0', 'mpy': 'v6.3', 'description': 'XIAO nRF52840 Sense'}"
+    ]
+    mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml")
+    mocker.patch(
+        "mpflash.mpremoteboard.best_matching_port",
+        return_value="nrf",
+    )
+
+    mprb = MPRemoteBoard("COM8")
+    mprb.get_mcu_info()
+
+    assert mprb.port == "nrf"
+    assert mprb.sys_platform == "nrf52"
+    assert mprb.to_dict()["sys_platform"] == "nrf52"
 
 
 def test_mpremoteboard_info_with_warning_prefix(mocker: MockerFixture, session_fx):

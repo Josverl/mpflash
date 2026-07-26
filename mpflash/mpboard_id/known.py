@@ -23,6 +23,25 @@ def known_ports(version: str = "") -> list[str]:
     return [row[0] for row in rows]
 
 
+def best_matching_port(
+    port: str,
+    family: str = "micropython",
+) -> Optional[str]:
+    """Resolve a reported platform name to a known MicroPython port.
+
+    Firmware can report a more specific platform name than the corresponding
+    folder in ``micropython/ports``. Exact matches are preferred; otherwise,
+    the longest known port prefix is returned.
+    """
+    if family != "micropython":
+        return None
+    ports = known_ports()
+    if port in ports:
+        return port
+    prefixes = [known_port for known_port in ports if port.startswith(known_port)]
+    return max(prefixes, key=len) if prefixes else None
+
+
 def known_versions(port: str = "") -> list[str]:
     """Return a list of known versions for a given port."""
     port = port.strip() if port else "%%"

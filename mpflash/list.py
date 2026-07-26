@@ -9,6 +9,7 @@ from mpflash.versions import clean_version
 
 from .logger import console
 
+COL_HIGHLIGHT = "[italic bright_cyan]"
 
 def show_mcus(
     conn_mcus: List[MPRemoteBoard],
@@ -94,7 +95,7 @@ def mcu_table(
         table.add_column("Location", overflow="fold", max_width=60)
     # fill the table with the data
     for mcu in conn_mcus:
-        description = f"[italic bright_cyan]{mcu.description}" if mcu.description else ""
+        description = f"{COL_HIGHLIGHT}{mcu.description}" if mcu.description else ""
         if "description" in mcu.toml:
             description += f"\n[italic bright_green]{mcu.toml['description']}"
         row = [
@@ -102,7 +103,8 @@ def mcu_table(
             abbrv_family(mcu.family, is_wide),
         ]
         if is_wide:
-            row.append(mcu.port)
+            reported_port = f"\n{COL_HIGHLIGHT}{mcu.sys_platform}" if mcu.sys_platform and mcu.sys_platform != mcu.port else ""
+            row.append(f"{mcu.port}{reported_port}")
         row.append(f"{mcu.board}\n{description}".strip())
         if needs_variant:
             row.append(mcu.variant)

@@ -13,6 +13,7 @@ import serial.tools.list_ports
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpboard_id.board_id import find_board_id_by_description
+from mpflash.mpboard_id.known import best_matching_port
 from mpflash.mpremoteboard.runner import run
 from rich.progress import track
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -61,6 +62,7 @@ class MPRemoteBoard:
         self.description = ""
         self.version = ""
         self.port = ""
+        self.sys_platform = ""
         self.cpu = ""
         self.arch = ""
         self.mpy = ""
@@ -220,7 +222,10 @@ class MPRemoteBoard:
             self.family = info["family"]
             self.version = info["version"]
             self.build = info["build"]
-            self.port = info["port"]
+            self.sys_platform = info.get("sys_platform", info["port"])
+            self.port = (
+                best_matching_port(info["port"], self.family) or info["port"]
+            )
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]

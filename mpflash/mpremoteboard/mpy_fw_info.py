@@ -82,6 +82,7 @@ def _get_base_system_info() -> dict[str, str]:
             "build": "",
             "ver": "",
             "port": sys.platform,  # port: esp32 / win32 / linux / stm32
+            "sys_platform": sys.platform,
             "board": "UNKNOWN",
             "board_id": "",
             "variant": "",

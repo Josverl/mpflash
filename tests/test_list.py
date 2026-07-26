@@ -53,6 +53,19 @@ def test_mcu_table_width(term_width: int, mcus, has_build: bool):
     assert has_build == (table.columns[-1].header in ("Build", "Bld"))
 
 
+def test_mcu_table_shows_reported_port_on_second_line():
+    mcu = MPRemoteBoard("COM8")
+    mcu.family = "micropython"
+    mcu.port = "nrf"
+    mcu.sys_platform = "nrf52"
+    mcu.board_id = "SEEED_XIAO_NRF52"
+    mpflash.list.console = rich.console.Console(file=sys.stdout, width=110)
+
+    table = mcu_table([mcu], refresh=False)
+
+    assert table.columns[2]._cells == ["nrf\n[italic bright_cyan]nrf52"]
+
+
 # def mock_get_mcu_info(self: MPRemoteBoard):
 #     self.connected = True
 #     self.family = "micropython"
