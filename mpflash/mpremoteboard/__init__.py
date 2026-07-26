@@ -402,13 +402,15 @@ class MPRemoteBoard:
         self.connected = True
         return result
 
-    def wait_for_restart(self, timeout: int = 10):
-        """wait for the board to restart"""
+    def wait_for_restart(self, timeout: int = 10) -> bool:
+        """Wait for the board to restart, using one probe per second."""
+        probe = type(self).get_mcu_info.__wrapped__
         for _ in range(timeout):
             time.sleep(1)
             with contextlib.suppress(ConnectionError, MPFlashError):
-                self.get_mcu_info(log_errors=False)
-                break
+                probe(self, log_errors=False)
+                return True
+        return False
 
     def to_dict(self) -> dict:
         """
