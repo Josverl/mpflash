@@ -10,6 +10,9 @@ help:
 sync: 
   uv sync --extra dev,test,pyocd
 
+init:
+  @just sync
+
 # run full pytest suite
 test: 
   uv run pytest -v
