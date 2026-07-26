@@ -47,7 +47,7 @@ release bump="patch":
   git add pyproject.toml uv.lock
   git commit -m "Release v$(uv version --short)"
   git tag -a "v$(uv version --short)" -m "Release v$(uv version --short)"
-  git push --follow-tags
+  git push --follow-tags --force
 
 # manual fallback: publish to PyPI directly (normally handled by GitHub Actions on tag push)
 [confirm("Are you sure you want to publish to PyPI directly? This is normally handled by GitHub Actions on tag push. Continue?")]
