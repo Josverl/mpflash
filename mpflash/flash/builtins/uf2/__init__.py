@@ -16,7 +16,7 @@ from loguru import logger as log
 from mpflash.common import PORT_FWTYPES
 from mpflash.mpremoteboard import MPRemoteBoard
 
-from .boardid import get_board_id
+from .boardid import get_board_id, get_softdevice
 from .linux import dismount_uf2_linux, wait_for_UF2_linux
 from .macos import wait_for_UF2_macos
 from .windows import wait_for_UF2_windows
@@ -100,6 +100,8 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path) -> Optional[MPRemoteBoard]:
     log.info("Board is in bootloader mode")
     board_id = get_board_id(destination)  # type: ignore
     log.info(f"Board ID: {board_id}")
+    if softdevice := get_softdevice(destination):  # type: ignore
+        log.info(f"SoftDevice: {softdevice}")
     try:
         copy_firmware_to_uf2(fw_file, destination)
         log.success("Done copying, resetting the board.")
