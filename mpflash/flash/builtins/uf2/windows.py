@@ -18,16 +18,23 @@ def wait_for_UF2_windows(board_id: str, s_max: int = 10) -> Optional[Path]:
 
     if s_max < 1:
         s_max = 10
+    # Poll twice per second so a short mount window is not missed.
+    steps = s_max * 2
     destination = None
     for _ in track(
-        range(s_max),
+        range(steps),
         description=f"Waiting for mcu to mount as a drive ({s_max}s)",
         transient=True,
         show_speed=False,
-        refresh_per_second=1,
-        total=s_max,
+        refresh_per_second=2,
+        total=steps,
     ):
-        drives = [drive.device for drive in psutil.disk_partitions()]
+        # all=True includes removable volumes that Windows is still enumerating;
+        # the default (all=False) can filter out a freshly-mounted UF2 drive.
+        try:
+            drives = [drive.device for drive in psutil.disk_partitions(all=True)]
+        except OSError:
+            drives = []
         for drive in drives:
             try:
                 if Path(drive, "INFO_UF2.TXT").exists():
@@ -41,5 +48,5 @@ def wait_for_UF2_windows(board_id: str, s_max: int = 10) -> Optional[Path]:
                 pass
         if destination:
             break
-        time.sleep(1)
+        time.sleep(0.5)
     return destination

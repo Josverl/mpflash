@@ -301,17 +301,37 @@ def test_mpremoteboard_info_requires_payload(mocker: MockerFixture):
 def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
     mprb = MPRemoteBoard("COM15")
     m_get = mocker.patch.object(
-        mprb,
-        "get_mcu_info",
+        MPRemoteBoard.get_mcu_info,
+        "__wrapped__",
+        autospec=True,
         side_effect=[ConnectionError("not ready"), None],
     )
     mocker.patch("mpflash.mpremoteboard.time.sleep")
 
-    mprb.wait_for_restart(timeout=3)
+    restarted = mprb.wait_for_restart(timeout=3)
 
     assert m_get.call_count == 2
     assert m_get.call_args_list[0].kwargs.get("log_errors") is False
     assert m_get.call_args_list[1].kwargs.get("log_errors") is False
+    assert restarted is True
+
+
+def test_wait_for_restart_does_not_multiply_get_info_retries(
+    mocker: MockerFixture,
+):
+    mprb = MPRemoteBoard("COM15")
+    get_mcu_info = mocker.patch.object(
+        MPRemoteBoard.get_mcu_info,
+        "__wrapped__",
+        autospec=True,
+        side_effect=ConnectionError("not ready"),
+    )
+    mocker.patch("mpflash.mpremoteboard.time.sleep")
+
+    restarted = mprb.wait_for_restart(timeout=3)
+
+    assert get_mcu_info.call_count == 3
+    assert restarted is False
 
 
 def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixture):
