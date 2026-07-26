@@ -14,6 +14,7 @@ from mpflash.errors import MPFlashError
 from mpflash.flash.base import FlashBackend
 from mpflash.flash.context import FlashContext, FlashResult, Platform
 from mpflash.flash.registry import register
+from mpflash.logger import log
 
 if TYPE_CHECKING:
     from mpflash.mpremoteboard import MPRemoteBoard
@@ -53,12 +54,22 @@ class UF2Backend(FlashBackend):
     def flash(self, ctx: FlashContext) -> FlashResult:
         # Lazy import — keeps tenacity / psutil / blkinfo out of the startup path.
         from mpflash.flash.builtins.uf2 import flash_uf2
+        from mpflash.flash.builtins.uf2.erase import erase_filesystem
 
         services = ctx.services
         if services is None:
             raise MPFlashError("UF2 backend requires FlashContext.services")
 
         bootloader = ctx.bootloader or BootloaderMethod.AUTO
+
+        # Erase path: wipe the filesystem over serial and reset. This leaves the
+        # board running MicroPython with a fresh filesystem and unifies erase
+        # across rp2/samd/nrf. Bootloader entry stays a separate, proven step
+        # below. The erase needs the board reachable over serial; if it cannot be
+        # driven, warn and continue with a plain flash.
+        if ctx.erase and not erase_filesystem(ctx.mcu):
+            log.warning(f"Could not erase the filesystem on {ctx.mcu.serialport} over serial; continuing without erase")
+
         if not services.enter_bootloader(ctx.mcu, bootloader, backend=self):
             return FlashResult(
                 success=False,
@@ -69,7 +80,7 @@ class UF2Backend(FlashBackend):
                 ),
             )
 
-        updated = flash_uf2(ctx.mcu, fw_file=ctx.fw_file, erase=ctx.erase)
+        updated = flash_uf2(ctx.mcu, fw_file=ctx.fw_file)
         return FlashResult(
             success=updated is not None,
             mcu=updated,
