@@ -127,6 +127,7 @@ class MockMCU:
         self.family = "micropython"
         self.build = ""
         self.arch = ""
+        self.sys_platform = port
         self.connected = True
         self.toml = {}
 
