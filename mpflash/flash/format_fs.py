@@ -15,7 +15,7 @@ from mpflash.mpremoteboard import HERE, MPRemoteBoard
 FORMAT_SCRIPT = HERE / "format_bdev.py"
 
 # Ports for which the internal-flash block device is known.
-SUPPORTED_FORMAT_PORTS = frozenset({"rp2", "esp32", "esp8266", "samd", "stm32", "nrf"})
+SUPPORTED_FORMAT_PORTS = frozenset({"rp2", "esp32", "esp8266", "samd", "stm32", "nrf", "mimxrt"})
 
 _OK_MARKER = "FORMAT: done"
 

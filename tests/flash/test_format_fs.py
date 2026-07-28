@@ -71,6 +71,68 @@ def test_detect_fs_falls_back_to_fat_when_present():
     assert detect(_VfsBoth(), object()) is _FakeFat
 
 
+def test_fs_class_prefers_mounted_fs_type():
+    """The mounted filesystem's own type wins over probing the block device."""
+
+    class _VfsBoth:
+        VfsLfs2 = _FakeLfs2  # would succeed if probed
+        VfsFat = _FakeFat
+
+    class _MountedFat:
+        def __repr__(self):
+            return "<VfsFat>"
+
+    fs_class = _load_format_bdev_namespace()["_fs_class"]
+    assert fs_class(_VfsBoth(), _MountedFat(), object()) is _FakeFat
+
+
+def test_target_mount_skips_rom_and_sd():
+    """_target_mount returns the writable internal fs, skipping ROM and SD."""
+
+    class _Fs:
+        def __init__(self, name):
+            self._name = name
+
+        def __repr__(self):
+            return self._name
+
+    rom, sd, flash = _Fs("<VfsRom>"), _Fs("<VfsFat>"), _Fs("<VfsLfs2>")
+
+    class _Vfs:
+        @staticmethod
+        def mount():
+            return [(rom, "/rom"), (sd, "/sd"), (flash, "/flash")]
+
+    fs, point = _load_format_bdev_namespace()["_target_mount"](_Vfs())
+    assert (fs, point) == (flash, "/flash")
+
+
+def test_get_bdev_polls_port_factory(monkeypatch):
+    """_get_bdev instantiates the first available port block-device factory."""
+    import sys
+    import types
+
+    sentinel = object()
+    fake = types.ModuleType("mimxrt")
+    fake.Flash = lambda: sentinel
+    monkeypatch.setitem(sys.modules, "mimxrt", fake)
+
+    assert _load_format_bdev_namespace()["_get_bdev"]() is sentinel
+
+
+def test_get_bdev_falls_back_to_flashbdev(monkeypatch):
+    """esp32 / esp8266 expose a ready-made bdev via flashbdev."""
+    import sys
+    import types
+
+    sentinel = object()
+    fake = types.ModuleType("flashbdev")
+    fake.bdev = sentinel
+    monkeypatch.setitem(sys.modules, "flashbdev", fake)
+
+    assert _load_format_bdev_namespace()["_get_bdev"]() is sentinel
+
+
 def _fakeboard(port="rp2", serialport="COM42"):
     board = MPRemoteBoard(serialport)
     board.connected = True
