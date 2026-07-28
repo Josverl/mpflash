@@ -223,7 +223,11 @@ def test_mpflash_flash_erase_and_format_are_mutually_exclusive(mocker: MockerFix
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
 
     assert result.exit_code == 2
-    assert "--erase and --format cannot be used together" in result.output
+    # rich-click may wrap the error message across panel lines, so assert on
+    # individual tokens rather than the full contiguous phrase.
+    assert "--erase" in result.output
+    assert "--format" in result.output
+    assert "together" in result.output
 
 
 def test_mpflash_flash_format_option_passed_to_flash_tasks(mocker: MockerFixture):
