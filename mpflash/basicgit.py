@@ -99,6 +99,11 @@ def get_local_tag(repo: Optional[Union[str, Path]] = None, abbreviate: bool = Tr
     tag = tag.replace("\r", "").replace("\n", "")
     if not abbreviate or "-" not in tag:
         return tag
+    # A dirty working tree (e.g. modified git submodules) is a working-tree state
+    # marker added by `git describe --dirty`, not part of the version. Drop it so a
+    # checkout that is exactly on a tag is not misread as a dev/preview build.
+    if tag.endswith("-dirty"):
+        tag = tag[: -len("-dirty")]
     if "-preview" in tag:
         tag = tag.split("-preview")[0] + "-preview"
     return tag

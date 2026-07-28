@@ -46,6 +46,18 @@ def test_get_local_tag(mock_subprocess_run):
     assert get_local_tag(Path("/tmp/repo")) == "v1.2.3"
 
 
+def test_get_local_tag_dirty(mock_subprocess_run):
+    # a dirty working tree (e.g. modified submodules) is not part of the version
+    mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stdout="v1.2.3-dirty\n", stderr="")
+    assert get_local_tag(Path("/tmp/repo")) == "v1.2.3"
+
+
+def test_get_local_tag_commits_dirty(mock_subprocess_run):
+    # commits after a tag are kept (a dev build); only the dirty marker is dropped
+    mock_subprocess_run.return_value = CompletedProcess(args=[], returncode=0, stdout="v1.2.3-4-gabcdef-dirty\n", stderr="")
+    assert get_local_tag(Path("/tmp/repo")) == "v1.2.3-4-gabcdef"
+
+
 # TODO: FIX TEST
 # def test_get_local_tag_none(mock_subprocess_run):
 #     mock_subprocess_run.return_value = None
