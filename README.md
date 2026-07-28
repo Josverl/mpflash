@@ -49,6 +49,8 @@ You can use mpflash to perform various operations on your MicroPython boards. He
 | `mpflash list` | List the connected board(s) including their firmware details |
 | `mpflash flash` | Flash the latest stable firmware to the connected board(s), downloading the firmware if needed |
 | `mpflash download` | Download the MicroPython firmware(s) for the connected board(s) |
+| `mpflash format` | Reformat the filesystem of the connected board(s) without flashing new firmware |
+| `mpflash erase` | Erase the filesystem of the connected board(s) and reboot, without flashing new firmware |
 
 **Listing connected boards:**  
 `mpflash list` will list all connected boards in a table , including their serial port, family, board name, CPU, version and build number.

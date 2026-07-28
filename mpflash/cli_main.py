@@ -21,7 +21,9 @@ from mpflash.errors import MPFlashError
 
 from .cli_add import cli_add_custom
 from .cli_download import cli_download
+from .cli_erase import cli_erase_board
 from .cli_flash import cli_flash_board
+from .cli_format import cli_format_board
 from .cli_group import cli
 from .cli_list import cli_list_mcus
 from . import cli_pyocd  # noqa: F401 - registers pyOCD subcommands via @cli.command
@@ -37,6 +39,8 @@ def mpflash():
     cli.add_command(cli_download)
     cli.add_command(cli_flash_board)
     cli.add_command(cli_add_custom)
+    cli.add_command(cli_format_board)
+    cli.add_command(cli_erase_board)
 
     # cli(auto_envvar_prefix="MPFLASH")
     if False and os.environ.get("COMPUTERNAME").upper().startswith("JOSVERL"):
