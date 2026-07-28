@@ -88,6 +88,48 @@ def test_flash_tasks_success(mock_config, mock_flash_mcu):
     mock_flash_mcu.assert_called_once()
 
 
+@patch("mpflash.flash.format_fs.format_filesystem")
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
+def test_flash_tasks_format_fs_calls_format(mock_config, mock_flash_mcu, mock_format):
+    """When format_fs is True, the filesystem is reformatted after a successful flash."""
+    mock_config.firmware_folder = Path("/test/firmware")
+    updated = MagicMock()
+    mock_flash_mcu.return_value = updated
+
+    board = MPRemoteBoard("COM1")
+    board.board_id = "RPI_PICO"
+    board.serialport = "COM1"
+    fw = Firmware(board_id="RPI_PICO", version="1.23.0", port="rp2", firmware_file="test.uf2")
+    task = FlashTask(board=board, firmware=fw)
+
+    with patch("pathlib.Path.exists", return_value=True):
+        result = flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO, format_fs=True)
+
+    assert len(result) == 1
+    mock_format.assert_called_once_with(updated)
+
+
+@patch("mpflash.flash.format_fs.format_filesystem")
+@patch("mpflash.flash.flash_mcu")
+@patch("mpflash.flash.config")
+def test_flash_tasks_no_format_by_default(mock_config, mock_flash_mcu, mock_format):
+    """Without format_fs the filesystem is not reformatted."""
+    mock_config.firmware_folder = Path("/test/firmware")
+    mock_flash_mcu.return_value = MagicMock()
+
+    board = MPRemoteBoard("COM1")
+    board.board_id = "RPI_PICO"
+    board.serialport = "COM1"
+    fw = Firmware(board_id="RPI_PICO", version="1.23.0", port="rp2", firmware_file="test.uf2")
+    task = FlashTask(board=board, firmware=fw)
+
+    with patch("pathlib.Path.exists", return_value=True):
+        flash_tasks([task], erase=False, bootloader=BootloaderMethod.AUTO)
+
+    mock_format.assert_not_called()
+
+
 @patch("mpflash.flash.flash_mcu")
 @patch("mpflash.flash.config")
 def test_flash_tasks_no_firmware(mock_config, mock_flash_mcu):

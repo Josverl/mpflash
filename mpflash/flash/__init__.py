@@ -62,6 +62,7 @@ def flash_tasks(
     erase: bool,
     bootloader: BootloaderMethod,
     method: FlashMethod = FlashMethod.AUTO,
+    format_fs: bool = False,
     **kwargs,
 ):
     """Flash every entry in ``tasks`` and return the updated boards."""
@@ -236,6 +237,13 @@ def flash_tasks(
                 else:
                     mcu.toml["mpflash"].pop("custom_id", None)
                 mcu.set_board_info_toml()
+            if format_fs:
+                from mpflash.flash.format_fs import format_filesystem
+
+                try:
+                    format_filesystem(updated)
+                except MPFlashError as e:
+                    log.error(f"Failed to format filesystem on {mcu.serialport}: {e}")
             flashed.append(updated)
         else:
             log.error(f"Failed to flash {mcu.board} on {mcu.serialport}")

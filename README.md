@@ -32,6 +32,7 @@ Not planned: `cc3200`, `pic16bit`
  - **Build firmware locally (mpbuild)** — use `mpflash flash --build` to compile MicroPython with [mpbuild](https://pypi.org/project/mpbuild/) (requires Docker) right before flashing.
  - **Pluggable flash & bootloader backends** — flashing and bootloader activation are selectable, port-agnostic plugins, and third-party backends can register their own. List them with `mpflash plugins`.
  - **Filesystem erase over serial** — `--erase` wipes the MicroPython filesystem via its block device.
+ - **Filesystem format over serial** — `--format` recreates an empty MicroPython filesystem after flashing, keeping the same filesystem type (`VfsLfs2` or `VfsFat`).
  - **Probe & target info** — inspect probes and supported targets with `mpflash list-probes`, `mpflash pyocd-info` and `mpflash pyocd-targets`.
 
 ## Installation

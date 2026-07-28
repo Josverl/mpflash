@@ -72,6 +72,7 @@ class FlashParams(Params):
     """Parameters for flashing a board"""
 
     erase: bool = True
+    format_fs: bool = False
     bootloader: BootloaderMethod = BootloaderMethod.NONE
     cpu: str = ""
     flash_mode: str = "keep"  # keep, qio, qout, dio, dout
