@@ -210,6 +210,22 @@ def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: Mock
     assert "No serial ports matched" in result.output
 
 
+def test_mpflash_flash_erase_and_format_are_mutually_exclusive(mocker: MockerFixture):
+    """Reject using --erase and --format together with a user-friendly error."""
+    args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--erase", "--format"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 2
+    assert "--erase and --format cannot be used together" in result.output
+
+
 def test_mpflash_flash_format_option_passed_to_flash_tasks(mocker: MockerFixture):
     """The --format flag is forwarded to flash_tasks as format_fs=True."""
     args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--volume", "D:\\", "--format"]

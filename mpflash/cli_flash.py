@@ -270,6 +270,10 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     params.bootloader = BootloaderMethod(params.bootloader)
     reflash_commands: List[str] = []
 
+    # --erase and --format are mutually exclusive; only one makes sense at a time.
+    if params.erase and params.format_fs:
+        raise click.UsageError("--erase and --format cannot be used together; specify only one.")
+
     # make it simple for the user to flash one board by asking for the serial port if not specified
     if params.boards == ["?"] or params.serial == "?":  #  or params.variant == "?":
         params.serial = ["?"]
