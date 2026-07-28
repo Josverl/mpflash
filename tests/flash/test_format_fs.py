@@ -22,6 +22,55 @@ def test_format_bdev_device_script_is_valid_python():
     assert "mkfs" in source
 
 
+def _load_format_bdev_namespace():
+    """Exec the on-device format script without running its trailing main()."""
+    source = FORMAT_SCRIPT.read_text(encoding="utf-8")
+    idx = source.rfind("\nmain()")
+    if idx != -1:
+        source = source[:idx]
+    namespace: dict = {}
+    exec(compile(source, str(FORMAT_SCRIPT), "exec"), namespace)
+    return namespace
+
+
+class _FakeLfs2:
+    """Stand-in VfsLfs2 whose constructor succeeds (fs already littlefs2)."""
+
+    def __init__(self, bdev, **kwargs):
+        pass
+
+
+class _FailingLfs2:
+    def __init__(self, bdev, **kwargs):
+        raise OSError("not littlefs")
+
+
+class _FakeFat:
+    def __init__(self, bdev, **kwargs):
+        pass
+
+
+def test_detect_fs_without_vfsfat_does_not_crash():
+    """_detect_fs must not raise AttributeError when VfsFat is missing (nrf)."""
+
+    class _VfsNoFat:  # a vfs module lacking VfsFat, as on some nrf builds
+        VfsLfs2 = _FakeLfs2
+
+    detect = _load_format_bdev_namespace()["_detect_fs"]
+    assert detect(_VfsNoFat(), object()) is _FakeLfs2
+
+
+def test_detect_fs_falls_back_to_fat_when_present():
+    """When the device holds a FAT filesystem, VfsFat is detected."""
+
+    class _VfsBoth:
+        VfsLfs2 = _FailingLfs2
+        VfsFat = _FakeFat
+
+    detect = _load_format_bdev_namespace()["_detect_fs"]
+    assert detect(_VfsBoth(), object()) is _FakeFat
+
+
 def _fakeboard(port="rp2", serialport="COM42"):
     board = MPRemoteBoard(serialport)
     board.connected = True

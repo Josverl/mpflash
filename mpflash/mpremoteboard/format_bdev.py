@@ -59,14 +59,24 @@ def _get_bdev():
 
 
 def _detect_fs(vfs, bdev):
-    """Detect the current filesystem class, defaulting to VfsLfs2."""
-    for cls in (vfs.VfsLfs2, vfs.VfsFat):
+    """Detect the current filesystem class, defaulting to the first available.
+
+    Only Vfs* classes present in this firmware build are considered; some ports
+    (for example nrf) are built without ``VfsFat``, so look them up defensively
+    to avoid an ``AttributeError``.
+    """
+    candidates = []
+    for name in ("VfsLfs2", "VfsFat"):
+        cls = getattr(vfs, name, None)
+        if cls is not None:
+            candidates.append(cls)
+    for cls in candidates:
         try:
             cls(bdev)
             return cls
         except Exception:
             pass
-    return vfs.VfsLfs2
+    return candidates[0] if candidates else None
 
 
 def main():
@@ -76,13 +86,16 @@ def main():
         print("FORMAT: no filesystem block device found")
         return
     fs_cls = _detect_fs(vfs, bdev)
+    if fs_cls is None:
+        print("FORMAT: no supported filesystem type available")
+        return
     for point in (mount_point, "/", "/flash"):
         try:
             vfs.umount(point)
         except Exception:
             pass
     try:
-        if fs_cls is vfs.VfsLfs2:
+        if fs_cls is getattr(vfs, "VfsLfs2", None):
             fs_cls.mkfs(bdev, progsize=256)
             fs = fs_cls(bdev, progsize=256)
         else:
