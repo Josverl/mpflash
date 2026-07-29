@@ -90,8 +90,9 @@ jobs:
 
             - name: Upload test results to Codecov
               if: ${{ !cancelled() }}
-              uses: codecov/test-results-action@v1.2.1
+              uses: codecov/codecov-action@v7
               with:
+                report_type: test_results
                 token: ${{ secrets.CODECOV_TOKEN }}
                 files: results/junit.xml
                 fail_ci_if_error: false
