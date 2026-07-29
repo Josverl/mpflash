@@ -44,7 +44,7 @@ def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int = 60) -> bool:
         log.debug(f"{mcu.serialport} is not a live serial port; cannot erase over serial")
         return False
 
-    log.info(f"Erasing filesystem on {mcu.serialport} via block device.")
+    log.info(f"Erasing filesystem on {mcu.board} on {mcu.serialport} via block device.")
     try:
         # machine.reset() reboots the board, so the serial connection drops
         # mid-command; a non-zero rc or error here is expected, not a failure.
@@ -59,7 +59,7 @@ def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int = 60) -> bool:
 
     # The board reboots into MicroPython with a fresh filesystem; wait for it.
     if mcu.wait_for_restart():
-        log.success("Filesystem erased; board reconnected")
+        log.success(f"Erased filesystem on {mcu.board} on {mcu.serialport}; board reconnected")
         return True
-    log.warning("Board did not reconnect after filesystem erase")
+    log.warning(f"Board {mcu.board} on {mcu.serialport} did not reconnect after filesystem erase")
     return False

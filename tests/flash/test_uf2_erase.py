@@ -1,5 +1,7 @@
+import ast
+
 from mpflash.common import BootloaderMethod
-from mpflash.flash.builtins.uf2.erase import erase_filesystem
+from mpflash.flash.builtins.uf2.erase import ERASE_SCRIPT, erase_filesystem
 from mpflash.flash.builtins.uf2_backend import UF2Backend
 from mpflash.flash.context import FlashContext
 from mpflash.mpremoteboard import MPRemoteBoard
@@ -11,6 +13,13 @@ def _mcu(port="rp2", serialport="COM7"):
     mcu.board = "RPI_PICO"
     mcu.serialport = serialport
     return mcu
+
+
+def test_erase_bdev_device_script_is_valid_python():
+    """The on-device erase script must be valid Python."""
+    source = ERASE_SCRIPT.read_text(encoding="utf-8")
+    ast.parse(source)
+    assert "machine.reset" in source
 
 
 def test_erase_skips_unsupported_port(mocker):

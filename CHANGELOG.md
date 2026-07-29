@@ -2,6 +2,23 @@
 
 All notable changes to mpflash are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`--format` option for `mpflash flash`** — reformats the board's filesystem after
+  flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
+  the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,
+  `nrf` and `mimxrt`. The mount point and filesystem type are detected at runtime using
+  the same `vfs.mount()` enumeration as `mpremote df`.
+- **`mpflash format` command** — reformats the filesystem of connected boards without
+  flashing new firmware. Asks for confirmation before erasing (skip with `--yes`) and
+  supports the same ports as `flash --format`.
+- **`mpflash erase` command** — erases the filesystem of connected boards via the
+  MicroPython block device and reboots them, without flashing new firmware. Reuses the
+  `flash --erase` implementation. Asks for confirmation before erasing (skip with
+  `--yes`). Supported on `rp2`, `samd` and `nrf`.
+
 ## [1.28.3] - 2026-07-26
 
 This release is a major internal refactor of how mpflash flashes boards and enters

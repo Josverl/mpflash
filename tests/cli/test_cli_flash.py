@@ -210,6 +210,54 @@ def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: Mock
     assert "No serial ports matched" in result.output
 
 
+def test_mpflash_flash_erase_and_format_are_mutually_exclusive(mocker: MockerFixture):
+    """Reject using --erase and --format together with a user-friendly error."""
+    args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--erase", "--format"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 2
+    # rich-click may wrap the error message across panel lines, so assert on
+    # individual tokens rather than the full contiguous phrase.
+    assert "--erase" in result.output
+    assert "--format" in result.output
+    assert "together" in result.output
+
+
+def test_mpflash_flash_format_option_passed_to_flash_tasks(mocker: MockerFixture):
+    """The --format flag is forwarded to flash_tasks as format_fs=True."""
+    args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--volume", "D:\\", "--format"]
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        Mock(side_effect=fake_ask_missing_params),
+    )
+
+    board = MPRemoteBoard("COM99")
+    board.port = "rp2"
+    board.board_id = "RPI_PICO2"
+    fw = Firmware(board_id="RPI_PICO2", version="1.27.0", port="rp2", firmware_file="fw.uf2")
+    task = FlashTask(board=board, firmware=fw)
+
+    mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[task])
+    m_flash_tasks = mocker.patch("mpflash.flash.flash_tasks", return_value=[board])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.list.show_mcus")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 0
+    m_flash_tasks.assert_called_once()
+    assert m_flash_tasks.call_args.kwargs["format_fs"] is True
+
+
 def test_mpflash_flash_with_explicit_uf2_volume(mocker: MockerFixture):
     """Use --volume path for UF2 board already in boot mode."""
     from pathlib import Path

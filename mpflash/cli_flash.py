@@ -106,6 +106,13 @@ from mpflash.versions import clean_version
     help="""Erase flash before writing new firmware.""",
 )
 @click.option(
+    "--format/--no-format",
+    "format_fs",
+    default=False,
+    show_default=True,
+    help="""Reformat the board's filesystem after flashing (erases all files).""",
+)
+@click.option(
     "--bootloader",
     "--bl",
     "bootloader",
@@ -262,6 +269,10 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     params.volumes = list(params.volumes)
     params.bootloader = BootloaderMethod(params.bootloader)
     reflash_commands: List[str] = []
+
+    # --erase and --format are mutually exclusive; only one makes sense at a time.
+    if params.erase and params.format_fs:
+        raise click.UsageError("--erase and --format cannot be used together; specify only one.")
 
     # make it simple for the user to flash one board by asking for the serial port if not specified
     if params.boards == ["?"] or params.serial == "?":  #  or params.variant == "?":
@@ -474,6 +485,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         params.erase,
         params.bootloader,
         method=flash_method,
+        format_fs=params.format_fs,
         probe_id=probe_id,
         auto_install_packs=auto_install_packs,
         target_override=pyocd_target,

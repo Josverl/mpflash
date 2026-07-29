@@ -24,7 +24,7 @@ class TestMpflash:
         mpflash()
 
         mock_migrate.assert_called_once_with(boards=True, firmwares=True)
-        assert mock_cli.add_command.call_count == 4  # Four commands added
+        assert mock_cli.add_command.call_count == 6  # Six commands added
         mock_cli.assert_called_once_with(standalone_mode=True)
 
     def test_mpflash_migrate_database_called(self, mocker):
@@ -49,8 +49,8 @@ class TestMpflash:
 
         mpflash()
 
-        # Check that add_command was called 4 times (for 4 commands)
-        assert mock_cli.add_command.call_count == 4
+        # Check that add_command was called 6 times (for 6 commands)
+        assert mock_cli.add_command.call_count == 6
 
         # Check that the right commands were added
         added_commands = [call[0][0] for call in mock_cli.add_command.call_args_list]
