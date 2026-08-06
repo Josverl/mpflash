@@ -82,7 +82,7 @@ test = [
 pyocd = [
     "pyocd>=0.44.1",
     # TODO: remove the libusb-package pin when 3.14 wheels are available for libusb
-    "libusb-package==1.0.26.1; python_version >= '3.14'",
+    "libusb-package==1.0.30.0; python_version >= '3.14'",
 ]
 build = [
     "mpbuild>=1.0.0; python_version >= '3.12'",
