@@ -1009,7 +1009,7 @@ wheels = [
 
 [[package]]
 name = "mpflash"
-version = "1.28.3"
+version = "1.28.5"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
