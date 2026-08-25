@@ -30,11 +30,10 @@ def known_ports(version: str = "") -> list[str]:
     """Return a list of known ports for a given version."""
     _ensure_database()
     version = clean_version(version) if version else "%%"
-    rows = database.execute_sql(
-        "SELECT DISTINCT port FROM boards WHERE version LIKE ? ORDER BY port;",
-        (version,),
-    ).fetchall()
-    return [row[0] for row in rows]
+    # ORM query (respects the currently bound database) rather than raw SQL on the
+    # module-level connection, so it stays consistent with the other query helpers.
+    qry = Board.select(Board.port).distinct().where(Board.version**version).order_by(Board.port)
+    return [row.port for row in qry]
 
 
 def best_matching_port(
@@ -60,11 +59,8 @@ def known_versions(port: str = "") -> list[str]:
     """Return a list of known versions for a given port."""
     _ensure_database()
     port = port.strip() if port else "%%"
-    rows = database.execute_sql(
-        "SELECT DISTINCT version FROM boards WHERE port LIKE ? ORDER BY version;",
-        (port,),
-    ).fetchall()
-    return [row[0] for row in rows]
+    qry = Board.select(Board.version).distinct().where(Board.port**port).order_by(Board.version)
+    return [row.version for row in qry]
 
 
 def get_known_boards_for_port(port: str = "", versions: List[str] = []):
