@@ -4,7 +4,6 @@ Version handling for mpflash and micropython-stubber
 
 from pathlib import Path
 
-from cache_to_disk import NoCacheCondition, cache_to_disk
 from loguru import logger as log
 
 from mpflash.config import config
@@ -82,34 +81,57 @@ def is_version(version: str):
     return Version._regex.search(version) is not None
 
 
-@cache_to_disk(n_days_to_cache=1)
-def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=True):
-    """Get the list of micropython versions from github tags"""
+VERSION_CACHE_TTL_HOURS = 4
+"How long the list of MicroPython versions read from GitHub is considered fresh"
+
+
+def _version_cache():
+    """Persistent cache shared across mpflash invocations."""
+    import platformdirs
+    from diskcache import Cache
+
+    return Cache(str(Path(platformdirs.user_cache_dir("mpflash")) / "versions"))
+
+
+def _fetch_micropython_versions(minver: str, reverse: bool):
+    """Read the micropython version tags from GitHub."""
     # Just in time import
     from packaging.version import parse
 
-    try:
-        gh_client = config.gh_client
-        repo = gh_client.get_repo("micropython/micropython")
-        tags = [tag.name for tag in repo.get_tags() if parse(tag.name) >= parse(minver)]
-        versions = [v for v in tags if not v.endswith(V_PREVIEW)]
-        # Only keep the last preview
-        preview = sorted([v for v in tags if v.endswith(V_PREVIEW)], reverse=True)[0]
-        versions.append(preview)
-    except Exception as e:
-        try:
-            log.error(e)
-        except TypeError:
-            log.error(f"Failed to fetch MicroPython versions: {type(e).__name__}")
-        versions = []
-        # returns - but does not cache
-        raise NoCacheCondition(function_value=versions) from e
+    gh_client = config.gh_client
+    repo = gh_client.get_repo("micropython/micropython")
+    tags = [tag.name for tag in repo.get_tags() if parse(tag.name) >= parse(minver)]
+    versions = [v for v in tags if not v.endswith(V_PREVIEW)]
+    # Only keep the last preview
+    preview = sorted([v for v in tags if v.endswith(V_PREVIEW)], reverse=True)[0]
+    versions.append(preview)
     # remove any duplicates and sort
-    versions = sorted(list(set(versions)), reverse=reverse, key=lambda s: (not is_version(s), s))
-    if cache_it:
+    return sorted(set(versions), reverse=reverse, key=lambda s: (not is_version(s), s))
+
+
+def micropython_versions(minver: str = "v1.20", reverse: bool = False, cache_it=True):
+    """Get the list of micropython versions from github tags"""
+    key = f"micropython_versions|{minver}|{reverse}"
+    with _version_cache() as cache:
+        if cache_it and (cached := cache.get(key)) is not None:
+            return cached
+        try:
+            versions = _fetch_micropython_versions(minver, reverse)
+        except Exception as e:
+            try:
+                log.error(e)
+            except TypeError:
+                log.error(f"Failed to fetch MicroPython versions: {type(e).__name__}")
+            # Fall back to the last known list rather than nothing (offline / rate-limited)
+            stale = cache.get(f"{key}|last")
+            if stale is not None:
+                log.warning("Using cached MicroPython versions (could not reach GitHub)")
+                return stale
+            return []
+        if cache_it:
+            cache.set(key, versions, expire=VERSION_CACHE_TTL_HOURS * 3600)
+            cache.set(f"{key}|last", versions)
         return versions
-    # returns - but does not cache
-    raise NoCacheCondition(function_value=versions)
 
 
 def get_stable_mp_version(cache_it=True) -> str:

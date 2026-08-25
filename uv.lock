@@ -185,15 +185,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/51/04/92c0f6d2cae019384f01db784014408c98c01a9520a757cd1fd382ab95c4/blkinfo-0.2.0.tar.gz", hash = "sha256:322a906595f78832d6725ac74a0b9fd2794df3388584d9f05c1a2f8e19324851", size = 7945, upload-time = "2021-10-06T12:21:32.044Z" }
 
 [[package]]
-name = "cache-to-disk"
-version = "2.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/22/df/9712d98cadf4dfab259b09ea2972f5585f4a6909d19fe60be2b7adb8823d/cache_to_disk-2.0.0.tar.gz", hash = "sha256:79e19ea9b72eedc5cec83bb8aa55374afc671493e7d13d541f3b63eb3a13fb32", size = 6362, upload-time = "2021-12-07T00:10:08.389Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/4f/bd5da67f8f509c8e34cab16f6cc88a843d9b15b3631381a09d98f4f1d70f/cache_to_disk-2.0.0-py3-none-any.whl", hash = "sha256:ea5afe13d4284cb4a06169b0807fbc60547cbe19c54563bf90e1d44f24029481", size = 8718, upload-time = "2021-12-07T00:10:05.899Z" },
-]
-
-[[package]]
 name = "cachetools"
 version = "7.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -619,6 +610,15 @@ wheels = [
 ]
 
 [[package]]
+name = "diskcache"
+version = "5.6.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/21/1c1ffc1a039ddcc459db43cc108658f32c57d271d7289a2794e401d0fdb6/diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc", size = 67916, upload-time = "2023-08-31T06:12:00.316Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3f/27/4570e78fc0bf5ea0ca45eb1de3818a23787af9b390c0b0a0033a1b8236f9/diskcache-5.6.3-py3-none-any.whl", hash = "sha256:5e31b2d5fbad117cc363ebaf6b689474db18a1f6438bc82358b024abd4c2ca19", size = 45550, upload-time = "2023-08-31T06:11:58.822Z" },
+]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1015,8 +1015,8 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "bincopy" },
     { name = "blkinfo" },
-    { name = "cache-to-disk" },
     { name = "cachetools" },
+    { name = "diskcache" },
     { name = "esptool" },
     { name = "jsonlines" },
     { name = "jsons" },
@@ -1079,9 +1079,9 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
     { name = "bincopy", specifier = ">=20.0.0" },
     { name = "blkinfo", specifier = ">=0.2.0" },
-    { name = "cache-to-disk", specifier = ">=2.0.0" },
     { name = "cachetools", specifier = ">=5.3.0" },
     { name = "coverage", marker = "extra == 'test'", specifier = ">=6.4.3,<8.0.0" },
+    { name = "diskcache", specifier = ">=5.6.0" },
     { name = "distro", marker = "extra == 'test'", specifier = ">=1.8.0" },
     { name = "esptool", specifier = ">=5.0.0" },
     { name = "fasteners", marker = "extra == 'test'", specifier = ">=0.19" },
