@@ -66,7 +66,13 @@ def test_get_boards(mocker: MockerFixture, port, board_id):
     [
         "v1.25.0",
         # "stable", # v1.26.0 just released - downloads not yet available
-        "preview",
+        pytest.param(
+            "preview",
+            marks=pytest.mark.xfail(
+                reason="Preview firmware availability is transient upstream",
+                strict=False,
+            ),
+        ),
     ],
 )
 def test_download_firmwares(

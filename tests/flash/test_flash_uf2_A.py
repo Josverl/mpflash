@@ -84,6 +84,7 @@ def test_flash_uf2_fails_when_board_does_not_restart(mocker, mock_mcu, mock_fw_f
     )
     mocker.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2")
     mocker.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="RP2350")
+    mocker.patch("mpflash.flash.builtins.uf2.get_softdevice", return_value=None)
     mock_mcu.wait_for_restart.return_value = False
 
     result = flash_uf2(mock_mcu, mock_fw_file)
@@ -147,6 +148,7 @@ def test_flash_uf2_explicit_volume_not_found_falls_back_to_autodetect(tmp_path, 
         mock.patch("mpflash.flash.builtins.uf2.waitfor_uf2", return_value=mock_destination) as m_waitfor,
         mock.patch("mpflash.flash.builtins.uf2.copy_firmware_to_uf2"),
         mock.patch("mpflash.flash.builtins.uf2.get_board_id", return_value="RPI-RP2"),
+        mock.patch("mpflash.flash.builtins.uf2.get_softdevice", return_value=None),
     ):
         result = flash_uf2(mock_mcu, mock_fw_file)
 
