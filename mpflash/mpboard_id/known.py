@@ -13,8 +13,22 @@ from mpflash.versions import clean_version
 from mpflash.db.models import Board, database
 
 
+def _ensure_database() -> None:
+    """Initialise the shared board database on first use.
+
+    Library consumers (e.g. ``get_mcu_info`` via ``best_matching_port``) can reach the
+    board database without importing ``mpflash.db.core``, which is what normally
+    initialises the deferred ``SqliteDatabase``.
+    """
+    if database.database is None:
+        from mpflash.db.core import _init_database
+
+        _init_database()
+
+
 def known_ports(version: str = "") -> list[str]:
     """Return a list of known ports for a given version."""
+    _ensure_database()
     version = clean_version(version) if version else "%%"
     rows = database.execute_sql(
         "SELECT DISTINCT port FROM boards WHERE version LIKE ? ORDER BY port;",
@@ -44,6 +58,7 @@ def best_matching_port(
 
 def known_versions(port: str = "") -> list[str]:
     """Return a list of known versions for a given port."""
+    _ensure_database()
     port = port.strip() if port else "%%"
     rows = database.execute_sql(
         "SELECT DISTINCT version FROM boards WHERE port LIKE ? ORDER BY version;",
@@ -59,6 +74,7 @@ def get_known_boards_for_port(port: str = "", versions: List[str] = []):
     port: The Micropython port to filter for
     versions:  Optional, The Micropython versions to filter for (actual versions required)
     """
+    _ensure_database()
     versions = [clean_version(v) for v in versions] if versions else []
     qry = Board.select().where(Board.port**port)  # ** is LIKE in Peewee
     if versions:
@@ -114,6 +130,7 @@ def find_known_board(board_id: str, version="", port="") -> Board:
     """
     from mpflash.mpboard_id.alternate import alternate_board_names
 
+    _ensure_database()
     lookup_id = board_id.split("@")[0]
 
     qry = Board.select().where(Board.board_id == lookup_id)
