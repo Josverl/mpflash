@@ -79,11 +79,32 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     # if port specified should start with connectbut not otherwise
     assert ("connect" in m_run.mock_calls[0].args[0]) == (port != "")
     assert (port in m_run.mock_calls[0].args[0]) == (port != "")
-    assert "resume" not in m_run.mock_calls[0].args[0]
+    # resume is on by default to avoid an unnecessary soft-reset of the board
+    assert "resume" in m_run.mock_calls[0].args[0]
 
     # run another command, and check for resume
     result = mprb.run_command(command)  # type: ignore
     assert "resume" in m_run.mock_calls[1].args[0]
+
+
+@pytest.mark.parametrize("resume", [None, True])
+def test_mpremoteboard_run_resume_default(resume, mocker: MockerFixture):
+    """A fresh (unconnected) board should use `resume` by default to avoid a soft-reset."""
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    mprb = MPRemoteBoard("COM20")
+    assert not mprb.connected
+    mprb.run_command(["exec", "import createstubs_db"], resume=resume)
+    assert "resume" in m_run.mock_calls[0].args[0]
+
+
+def test_mpremoteboard_run_resume_false(mocker: MockerFixture):
+    """An explicit resume=False must suppress `resume` so the board is soft-reset."""
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    mprb = MPRemoteBoard("COM20")
+    mprb.run_command(["run", "mpy_fw_info.py"], resume=False)
+    assert "resume" not in m_run.mock_calls[0].args[0]
 
 
 @pytest.mark.parametrize(
@@ -313,6 +334,8 @@ def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
     assert m_get.call_count == 2
     assert m_get.call_args_list[0].kwargs.get("log_errors") is False
     assert m_get.call_args_list[1].kwargs.get("log_errors") is False
+    # polling must not reset the board on every probe
+    assert m_get.call_args_list[0].kwargs.get("resume") is True
     assert restarted is True
 
 

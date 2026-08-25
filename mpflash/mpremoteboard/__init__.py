@@ -178,13 +178,15 @@ class MPRemoteBoard:
         return sorted(output)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT, *, log_errors: bool = True):
+    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT, *, log_errors: bool = True, resume: Optional[bool] = False):
         """
         Get MCU information from the connected board.
 
         Parameters:
         - timeout (int): The timeout value in seconds. Default is 2.
         - log_errors (bool): Whether to log command stderr/error output.
+        - resume (Optional[bool]): Pass through to run_command. Default False resets the
+          board for a clean probe; use True when polling so the board is not reset each time.
 
         Raises:
         - ConnectionError: If failed to get mcu_info for the serial port.
@@ -194,7 +196,7 @@ class MPRemoteBoard:
             ["run", str(HERE / "mpy_fw_info.py")],
             no_info=True,
             timeout=timeout,
-            resume=False,  # Avoid restarts
+            resume=resume,
             log_errors=log_errors,
         )
         if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
@@ -376,8 +378,13 @@ class MPRemoteBoard:
         prefix = [sys.executable, "-m", "mpremote"]
         if self.serialport:
             prefix += ["connect", self.serialport]
-        # if connected add resume to keep state between commands
-        if (resume != False) and self.connected or resume:
+        # Add `resume` to avoid mpremote's implicit soft-reset of the board:
+        # explicit resume=True/False always wins; otherwise default to resuming so the
+        # board keeps its state and is not reset between commands. A reset forces a slow
+        # USB re-attach on WSL2 and is disruptive (but harmless to skip) on other platforms.
+        if resume is None:
+            resume = True
+        if resume:
             prefix += ["resume"]
         cmd = prefix + cmd
         log.trace(" ".join(cmd))
@@ -408,7 +415,8 @@ class MPRemoteBoard:
         for _ in range(timeout):
             time.sleep(1)
             with contextlib.suppress(ConnectionError, MPFlashError):
-                probe(self, log_errors=False)
+                # resume=True so polling does not reset the board on every probe
+                probe(self, log_errors=False, resume=True)
                 return True
         return False
 
