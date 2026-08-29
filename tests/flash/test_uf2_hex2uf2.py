@@ -83,6 +83,8 @@ def test_hex_to_uf2_merges_segments_in_one_page(tmp_path: Path):
     payload = data[32 : 32 + 256]
     assert payload[0:2] == b"\x01\x02"
     assert payload[0x80:0x82] == b"\x03\x04"
+    # bytes that are not in the hex file are zero filled
+    assert payload[2:0x80] == b"\x00" * 0x7E
 
 
 def test_hex_to_uf2_errors(tmp_path: Path):

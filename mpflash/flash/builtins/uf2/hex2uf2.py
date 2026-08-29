@@ -9,11 +9,15 @@ handles the files.
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from typing import Optional, Union
 
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
+
+# uf2conv stores the family id in a module global, guard it for concurrent flashing
+_conv_lock = threading.Lock()
 
 # Default UF2 family (short name from uf2families.json) per port.
 # The nRF5x MCUs with a UF2 bootloader are all nRF52840 based,
@@ -90,11 +94,16 @@ def hex_to_uf2(
     if not uf2conv.is_hex(hex_data):
         raise MPFlashError(f"Not a valid Intel HEX file: {hex_file}")
 
-    uf2conv.familyid = familyid
-    try:
-        uf2_data = uf2conv.convert_from_hex_to_uf2(hex_data.decode("utf-8"))
-    except (ValueError, IndexError) as e:
-        raise MPFlashError(f"Could not convert {hex_file} to UF2: {e}") from e
+    # uf2conv keeps the family id in a module global; serialize access to it
+    with _conv_lock:
+        previous_familyid = uf2conv.familyid
+        uf2conv.familyid = familyid
+        try:
+            uf2_data = uf2conv.convert_from_hex_to_uf2(hex_data.decode("utf-8"))
+        except (ValueError, IndexError) as e:
+            raise MPFlashError(f"Could not convert {hex_file} to UF2: {e}") from e
+        finally:
+            uf2conv.familyid = previous_familyid
     if not uf2_data:
         raise MPFlashError(f"No firmware data found in {hex_file}")
 
