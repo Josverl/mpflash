@@ -38,15 +38,15 @@ class UF2Backend(FlashBackend):
     preferred_bootloaders: Tuple[str, ...] = ("mpy", "touch1200", "manual")
 
     def supports(self, mcu: "MPRemoteBoard", fw_file: Path, platform: Platform) -> Optional[Reason]:
-        # .hex firmware is converted to .uf2, but only for ports with a known UF2 family id
-        from mpflash.flash.builtins.uf2.hex2uf2 import PORT_FAMILY_IDS
+        # .hex firmware is converted to .uf2, but only for ports with a known UF2 family
+        from mpflash.flash.builtins.uf2.hex2uf2 import PORT_FAMILIES
 
         reason = super().supports(mcu, fw_file, platform)
-        if reason is None and fw_file.suffix.lower() == ".hex" and mcu.port not in PORT_FAMILY_IDS:
+        if reason is None and fw_file.suffix.lower() == ".hex" and mcu.port not in PORT_FAMILIES:
             return Reason(
                 "format",
                 f"{self.name} cannot convert .hex files for port {mcu.port!r} "
-                f"(supports: {sorted(PORT_FAMILY_IDS)})",
+                f"(supports: {sorted(PORT_FAMILIES)})",
             )
         return reason
 
