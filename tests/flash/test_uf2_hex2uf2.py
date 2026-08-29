@@ -66,6 +66,26 @@ def test_hex_to_uf2_output_and_family(hex_file: Path, tmp_path: Path):
     assert unpack_block(uf2_file.read_bytes(), 0)[7] == UF2_FAMILY_IDS["NRF52833"]
 
 
+def test_hex_to_uf2_merges_segments_in_one_page(tmp_path: Path):
+    """Segments that share a 256 byte page are merged into a single block."""
+    import bincopy
+
+    binfile = bincopy.BinFile()
+    binfile.add_binary(b"\x01\x02", address=HEX_ADDRESS)
+    binfile.add_binary(b"\x03\x04", address=HEX_ADDRESS + 0x80)
+    file = tmp_path / "sparse.hex"
+    file.write_text(binfile.as_ihex())
+
+    data = hex_to_uf2(file).read_bytes()
+
+    assert len(data) == 512
+    assert unpack_block(data, 0)[3] == HEX_ADDRESS
+    payload = data[32 : 32 + 256]
+    assert payload[0:2] == b"\x01\x02"
+    assert payload[0x80:0x82] == b"\x03\x04"
+    assert payload[2:0x80] == b"\xff" * 0x7E
+
+
 def test_hex_to_uf2_errors(tmp_path: Path):
     """Invalid input raises an MPFlashError."""
     with pytest.raises(MPFlashError):
