@@ -18,7 +18,7 @@ The interactive prompts use [**rich-inquirer**](https://pypi.org/project/rich-in
     - `esp32`, using `.bin`, using esptool,
     - `esp8266`, using `.bin`, using esptool
     - `stm32`, using ` .dfu`, using pydfu (also in Windows) 
-    - `nrf`, using `.uf2`, using filecopy
+    - `nrf`, using `.uf2`, using filecopy (boards that only publish a `.hex` firmware are converted to `.uf2`)
     - `psoc-edge`, using `.zip` release package, using Infineon OpenOCD (see below)
 
 Not yet implemented: `alif`, `mimxrt`, `renesas-ra`, `zephyr`
