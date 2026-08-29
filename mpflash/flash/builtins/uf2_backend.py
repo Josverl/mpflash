@@ -25,7 +25,7 @@ class UF2Backend(FlashBackend):
 
     name = "uf2"
     supported_ports = frozenset({"rp2", "samd", "nrf"})
-    supported_formats = (".uf2",)
+    supported_formats = (".uf2", ".hex")
     supported_platforms = frozenset(
         {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
     )

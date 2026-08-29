@@ -224,3 +224,36 @@ def test_fetch_firmware_files_stores_posix_path(tmp_path):
     # Path must use forward slashes (POSIX), never backslashes
     assert "\\" not in result_path, f"firmware_file should use POSIX separators, got: {result_path}"
     assert result_path == "esp32/ESP32_GENERIC-v1.28.0.bin"
+
+
+def test_fetch_firmware_files_converts_hex_to_uf2(tmp_path):
+    """A downloaded nrf .hex firmware is converted to .uf2."""
+    import bincopy
+
+    from mpflash.download.from_web import fetch_firmware_files
+
+    binfile = bincopy.BinFile()
+    binfile.add_binary(bytes(range(256)), address=0x26000)
+
+    fw = Firmware(
+        board_id="FEATHER52",
+        version="v1.28.0",
+        firmware_file="FEATHER52-v1.28.0.hex",
+        port="nrf",
+        source="https://example.com/FEATHER52-v1.28.0.hex",
+    )
+
+    class FakeResponse:
+        content = binfile.as_ihex().encode()
+
+    import requests as real_requests
+
+    with patch.dict("sys.modules", {"requests": real_requests}):
+        with patch("requests.get", return_value=FakeResponse()):
+            results = list(fetch_firmware_files([fw], tmp_path, force=True))
+
+    assert len(results) == 1
+    assert results[0].firmware_file == "nrf/FEATHER52-v1.28.0.uf2"
+    assert (tmp_path / "nrf" / "FEATHER52-v1.28.0.uf2").exists()
+    # the .hex file is removed after conversion
+    assert not (tmp_path / "nrf" / "FEATHER52-v1.28.0.hex").exists()

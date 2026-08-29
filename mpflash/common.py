@@ -24,6 +24,13 @@ PORT_FWTYPES = {
     "renesas-ra": [".hex"],
 }
 
+PORT_FW_FALLBACK_TYPES = {
+    # nrf boards without a published .uf2 (FEATHER52, NRF52840_MDK_USB_DONGLE, ...)
+    # can be flashed using a .hex firmware that is converted to .uf2
+    "nrf": [".hex"],
+}
+"""Firmware types that are downloaded and converted when no preferred firmware type is published."""
+
 UF2_PORTS = [port for port, exts in PORT_FWTYPES.items() if ".uf2" in exts]
 SA_PORTS = {"windows", "unix", "webassembly"}
 """Stand alone ports that  have no boards, just variants"""

@@ -8,7 +8,7 @@ from urllib.parse import urljoin
 from loguru import logger as log
 from rich.progress import track
 
-from mpflash.common import PORT_FWTYPES
+from mpflash.common import PORT_FW_FALLBACK_TYPES, PORT_FWTYPES
 from mpflash.db.models import Firmware
 from mpflash.downloaded import clean_downloaded_firmwares
 from mpflash.errors import MPFlashError
@@ -142,6 +142,10 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmwar
             firmware_urls: List[str] = []
             for ext in PORT_FWTYPES[port]:
                 firmware_urls += board_firmware_urls(board["url"], MICROPYTHON_ORG_URL, ext)
+            if not firmware_urls:
+                # no firmware of the preferred type(s), try the convertible types
+                for ext in PORT_FW_FALLBACK_TYPES.get(port, []):
+                    firmware_urls += board_firmware_urls(board["url"], MICROPYTHON_ORG_URL, ext)
             for _url in firmware_urls:
                 board["firmware"] = _url
                 fname = Path(board["firmware"]).name
@@ -171,6 +175,22 @@ def get_boards(ports: List[str], boards: List[str], clean: bool) -> List[Firmwar
     return board_urls
 
 
+def needs_conversion(port: str, filename: Path) -> bool:
+    """Check if the downloaded firmware needs to be converted to a supported type."""
+    return filename.suffix.lower() in PORT_FW_FALLBACK_TYPES.get(port, [])
+
+
+def convert_firmware(port: str, filename: Path) -> Path:
+    """Convert a downloaded .hex firmware to .uf2 and remove the .hex file."""
+    # Just in time import
+    from mpflash.flash.builtins.uf2.hex2uf2 import hex_to_uf2
+
+    uf2_file = hex_to_uf2(filename, port=port)
+    log.info(f"Converted {filename.name} to {uf2_file.name}")
+    filename.unlink(missing_ok=True)
+    return uf2_file
+
+
 def fetch_firmware_files(available_firmwares: List[Firmware], firmware_folder: Path, force: bool):
     # Just in time import
     import requests
@@ -178,7 +198,8 @@ def fetch_firmware_files(available_firmwares: List[Firmware], firmware_folder: P
     for board in available_firmwares:
         filename = firmware_folder / board.port / board.firmware_file
         filename.parent.mkdir(exist_ok=True)
-        if filename.exists() and not force:
+        convert = needs_conversion(board.port, filename)
+        if (filename.with_suffix(".uf2") if convert else filename).exists() and not force:
             log.debug(f" {filename} already exists, skip download")
             continue
         log.info(f"Downloading {board.source}")
@@ -187,8 +208,14 @@ def fetch_firmware_files(available_firmwares: List[Firmware], firmware_folder: P
             r = requests.get(board.source, allow_redirects=True)
             with open(filename, "wb") as fw:
                 fw.write(r.content)
-            board.firmware_file = filename.relative_to(firmware_folder).as_posix()
         except requests.RequestException as e:
             log.exception(e)
             continue
+        if convert:
+            try:
+                filename = convert_firmware(board.port, filename)
+            except MPFlashError as e:
+                log.error(f"Could not convert {filename.name} to .uf2: {e}")
+                continue
+        board.firmware_file = filename.relative_to(firmware_folder).as_posix()
         yield board
