@@ -23,6 +23,10 @@ coverage:
   coverage html
   start coverage/index.html
 
+# Build a new board databases update from the specified MicroPython repository
+gather-boards mpy="../micropython-stubs/repos/micropython": 
+  uv run python mpflash\db\gather_boards.py --mpy-path {{mpy}}
+
 # bump mpflash's version [major, minor, patch, stable, alpha, beta, rc, post, dev]
 bump bump="patch":
   uv version --bump {{bump}}

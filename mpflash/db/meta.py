@@ -64,3 +64,8 @@ def set_metadata_value(name: str, value: str):
         conflict_target=[Metadata.name],
         update={Metadata.value: value},
     ).execute()
+
+
+def delete_metadata_value(name: str) -> None:
+    """Delete a metadata value if it exists."""
+    Metadata.delete().where(Metadata.name == name).execute()

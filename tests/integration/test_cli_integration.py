@@ -103,7 +103,8 @@ class TestCLIFlashCommandPyOCD:
 
     @patch("mpflash.flash.flash_tasks")
     @patch("mpflash.connected.connected_ports_boards_variants")
-    def test_flash_with_auto_method_excludes_pyocd(self, mock_connected, mock_flash_list):
+    @patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    def test_flash_with_auto_method_excludes_pyocd(self, mock_download, mock_connected, mock_flash_list):
         """Test that auto method selection excludes pyOCD by default."""
         mock_board = MOCK_MCUS["stm32wb55"]
         mock_connected.return_value = (["COM1"], ["NUCLEO_WB55"], [""], [mock_board])
@@ -123,6 +124,7 @@ class TestCLIFlashCommandPyOCD:
 
         call_args = mock_flash_list.call_args
         assert call_args[1]["method"] == FlashMethod.AUTO
+        mock_download.assert_called_once()
 
     @patch("mpflash.flash.flash_tasks")
     @patch("mpflash.connected.connected_ports_boards_variants")

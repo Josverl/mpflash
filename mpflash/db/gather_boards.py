@@ -1,4 +1,4 @@
-from os import path
+import hashlib
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -7,7 +7,6 @@ from typing_extensions import TypeAlias
 
 import mpflash.basicgit as git
 from mpflash.logger import log
-from mpflash.mpremoteboard import HERE
 from mpflash.vendor.board_database import Database
 from mpflash.versions import micropython_versions
 
@@ -83,11 +82,12 @@ def boardlist_from_repo(
     return longlist
 
 
-def create_zip_file(longlist: BoardList, zip_file: Path):
+def create_zip_file(longlist: BoardList, zip_file: Path) -> str:
     """Create a ZIP file containing the CSV data without external deps.
 
     Uses the standard library csv module to minimize dependencies while
     preserving identical column ordering to the prior pandas implementation.
+    Returns the SHA-256 hash of the uncompressed CSV content.
     """
     import csv
     import io
@@ -112,17 +112,18 @@ def create_zip_file(longlist: BoardList, zip_file: Path):
     # rows already in correct order matching columns
     for row in longlist:
         writer.writerow(row)
-    csv_data = buf.getvalue()
+    csv_data = buf.getvalue().encode("utf-8")
 
     with zipfile.ZipFile(zip_file, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.writestr(csv_filename, csv_data)
+    return hashlib.sha256(csv_data).hexdigest()
 
 
-def write_version_file(version: str, output_path: Path):
-    version_file = output_path / "boards_version.txt"
-    with version_file.open("w", encoding="utf-8") as vf:
-        vf.write(version + "\n")
-    log.info(f"Wrote version file {version_file}")
+def write_hash_file(boards_hash: str, output_path: Path) -> None:
+    """Write the board CSV content hash used for database updates."""
+    hash_file = output_path / "boards_hash.txt"
+    hash_file.write_text(boards_hash + "\n", encoding="utf-8")
+    log.info(f"Wrote boards hash file {hash_file}")
 
 
 def package_repo(mpy_path: Path):
@@ -139,10 +140,9 @@ def package_repo(mpy_path: Path):
     )
     log.info(f"Total boards-variants: {len(longlist)}")
     zip_file = HERE / "micropython_boards.zip"
-    create_zip_file(longlist, zip_file=zip_file)
+    boards_hash = create_zip_file(longlist, zip_file=zip_file)
     log.info(f"Created {zip_file} with {len(longlist)} entries")
-    boards_version = mp_versions[-1]
-    write_version_file(boards_version, HERE)
+    write_hash_file(boards_hash, HERE)
 
     assert zip_file.is_file(), f"Failed to create {zip_file}"
 

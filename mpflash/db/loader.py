@@ -8,7 +8,7 @@ from loguru import logger as log
 
 from mpflash.errors import MPFlashError
 
-from .meta import get_metadata, set_metadata_value
+from .meta import delete_metadata_value, get_metadata, set_metadata_value
 from .models import Board, Firmware, database
 
 HERE = Path(__file__).parent.resolve()
@@ -103,28 +103,27 @@ def load_jsonl_to_db(jsonl_path: Path) -> int:
     return num_records
 
 
-def get_boards_version() -> str:
-    """Return the boards version string from the bundled version file."""
-    version_file = HERE / "boards_version.txt"
-    if version_file.is_file():
-        with version_file.open("r", encoding="utf-8") as vf:
-            version = vf.read().strip()
-            log.debug(f"Boards version from file: {version}")
-            return version
-    log.warning(f"Boards version file not found: {version_file}")
+def get_boards_hash() -> str:
+    """Return the board CSV content hash from the bundled hash file."""
+    hash_file = HERE / "boards_hash.txt"
+    if hash_file.is_file():
+        boards_hash = hash_file.read_text(encoding="utf-8").strip()
+        log.debug(f"Boards hash from file: {boards_hash}")
+        return boards_hash
+    log.warning(f"Boards hash file not found: {hash_file}")
     return "unknown"
 
 
 def update_boards():
-    """Update the boards table from the bundled ZIP file if the version has changed."""
-    boards_version = get_boards_version()
+    """Update the boards table when the bundled CSV content hash has changed."""
+    boards_hash = get_boards_hash()
     try:
         meta = get_metadata()
         log.debug(f"Metadata: {meta}")
-        if meta.get("boards_version", "") < boards_version:
+        if meta.get("boards_hash") != boards_hash:
             log.info("Update boards from CSV to SQLite database.")
             load_data_from_zip(HERE / "micropython_boards.zip")
-            set_metadata_value("boards_version", boards_version)
-            meta = get_metadata()
+            set_metadata_value("boards_hash", boards_hash)
+        delete_metadata_value("boards_version")
     except Exception as e:
         raise MPFlashError(f"Error updating boards table: {e}") from e

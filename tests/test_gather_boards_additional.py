@@ -5,50 +5,45 @@ These tests focus on edge cases and functionality that may not be fully covered
 by the existing tests.
 """
 
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mpflash.db.gather_boards import boardlist_from_repo, package_repo, write_version_file
+from mpflash.db.gather_boards import boardlist_from_repo, package_repo, write_hash_file
 
 
-class TestWriteVersionFile:
-    """Test cases for write_version_file function."""
+class TestWriteHashFile:
+    """Test cases for write_hash_file function."""
 
-    def test_write_version_file_creates_correct_content(self, tmp_path):
-        """Test that write_version_file creates the correct file content."""
-        version = "v1.26.0"
+    def test_write_hash_file_creates_correct_content(self, tmp_path):
+        """Test that write_hash_file creates the correct file content."""
+        boards_hash = "abc123"
 
-        write_version_file(version, tmp_path)
+        write_hash_file(boards_hash, tmp_path)
 
-        version_file = tmp_path / "boards_version.txt"
-        assert version_file.exists(), "Version file should be created"
+        hash_file = tmp_path / "boards_hash.txt"
+        assert hash_file.exists(), "Hash file should be created"
 
-        content = version_file.read_text(encoding="utf-8")
-        assert content == "v1.26.0\n", "File should contain version with newline"
+        content = hash_file.read_text(encoding="utf-8")
+        assert content == "abc123\n", "File should contain hash with newline"
 
-    def test_write_version_file_overwrites_existing(self, tmp_path):
-        """Test that write_version_file overwrites existing version file."""
-        version_file = tmp_path / "boards_version.txt"
-        version_file.write_text("old_version\n")
+    def test_write_hash_file_overwrites_existing(self, tmp_path):
+        """Test that write_hash_file overwrites existing hash file."""
+        hash_file = tmp_path / "boards_hash.txt"
+        hash_file.write_text("old-hash\n")
 
-        new_version = "v1.27.0"
-        write_version_file(new_version, tmp_path)
+        write_hash_file("new-hash", tmp_path)
 
-        content = version_file.read_text(encoding="utf-8")
-        assert content == "v1.27.0\n", "File should be overwritten with new version"
+        assert hash_file.read_text(encoding="utf-8") == "new-hash\n"
 
-    def test_write_version_file_handles_special_characters(self, tmp_path):
-        """Test that write_version_file handles versions with special characters."""
-        version = "v1.26.0-preview.123"
+    def test_write_hash_file_handles_long_hash(self, tmp_path):
+        """Test that write_hash_file preserves a full SHA-256 digest."""
+        boards_hash = "a" * 64
 
-        write_version_file(version, tmp_path)
+        write_hash_file(boards_hash, tmp_path)
 
-        version_file = tmp_path / "boards_version.txt"
-        content = version_file.read_text(encoding="utf-8")
-        assert content == "v1.26.0-preview.123\n"
+        hash_file = tmp_path / "boards_hash.txt"
+        assert hash_file.read_text(encoding="utf-8") == boards_hash + "\n"
 
 
 class TestPackageRepoErrorHandling:
@@ -68,19 +63,16 @@ class TestPackageRepoErrorHandling:
     @patch("mpflash.db.gather_boards.micropython_versions")
     @patch("mpflash.db.gather_boards.boardlist_from_repo")
     @patch("mpflash.db.gather_boards.create_zip_file")
-    @patch("mpflash.db.gather_boards.write_version_file")
+    @patch("mpflash.db.gather_boards.write_hash_file")
     @patch("mpflash.db.gather_boards.HERE")
     @patch("mpflash.db.gather_boards.log")
     def test_package_repo_zip_file_creation_assertion(
-        self, mock_log, mock_here, mock_write_version, mock_create_zip, mock_boardlist, mock_versions, tmp_path
+        self, mock_log, mock_here, mock_write_hash, mock_create_zip, mock_boardlist, mock_versions, tmp_path
     ):
         """Test that package_repo assertion works when zip file creation fails."""
         mock_here.__truediv__ = lambda self, other: tmp_path / other
         mock_versions.return_value = ["v1.26.0"]
         mock_boardlist.return_value = [("v1.26", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython")]
-
-        # Don't actually create the zip file, so the assertion should fail
-        zip_file_path = tmp_path / "micropython_boards.zip"
 
         with pytest.raises(AssertionError, match="Failed to create"):
             package_repo(tmp_path)
@@ -88,14 +80,15 @@ class TestPackageRepoErrorHandling:
     @patch("mpflash.db.gather_boards.micropython_versions")
     @patch("mpflash.db.gather_boards.boardlist_from_repo")
     @patch("mpflash.db.gather_boards.create_zip_file")
-    @patch("mpflash.db.gather_boards.write_version_file")
+    @patch("mpflash.db.gather_boards.write_hash_file")
     @patch("mpflash.db.gather_boards.HERE")
     def test_package_repo_success_with_mocked_components(
-        self, mock_here, mock_write_version, mock_create_zip, mock_boardlist, mock_versions, tmp_path
+        self, mock_here, mock_write_hash, mock_create_zip, mock_boardlist, mock_versions, tmp_path
     ):
         """Test successful package_repo execution with all components mocked."""
         mock_here.__truediv__ = lambda self, other: tmp_path / other
         mock_versions.return_value = ["v1.25.0", "v1.26.0"]
+        mock_create_zip.return_value = "generated-hash"
         mock_boardlist.return_value = [
             ("v1.25", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython"),
             ("v1.26", "board2", "board2", "rp2", "", "rp2", "path2", "desc2", "micropython"),
@@ -111,7 +104,7 @@ class TestPackageRepoErrorHandling:
         mock_versions.assert_called_once_with(minver="1.18")
         mock_boardlist.assert_called_once_with(versions=["v1.25.0", "v1.26.0"], mpy_dir=tmp_path / "test_repo")
         mock_create_zip.assert_called_once()
-        mock_write_version.assert_called_once_with("v1.26.0", mock_here)
+        mock_write_hash.assert_called_once_with("generated-hash", mock_here)
 
 
 class TestBoardlistFromRepoEdgeCases:

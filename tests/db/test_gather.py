@@ -1,5 +1,4 @@
 import zipfile
-from pathlib import Path
 
 import pytest
 
@@ -162,7 +161,7 @@ class TestBoardlistFromRepo:
         mock_iter_boards = mocker.patch("mpflash.db.gather_boards.iter_boards")
         mock_iter_boards.return_value = [("v1.20", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython")]
 
-        mock_log = mocker.patch("mpflash.db.gather_boards.log")
+        mocker.patch("mpflash.db.gather_boards.log")
 
         result = boardlist_from_repo(["v1.20"], tmp_path)
 
@@ -198,9 +197,10 @@ class TestCreateZipFile:
         zip_file = tmp_path / "test.zip"
         longlist = [("v1.20", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython")]
 
-        create_zip_file(longlist, zip_file)
+        boards_hash = create_zip_file(longlist, zip_file)
 
         assert zip_file.exists()
+        assert len(boards_hash) == 64
 
         # Verify ZIP contents
         with zipfile.ZipFile(zip_file, "r") as zf:
@@ -259,8 +259,9 @@ class TestPackageRepo:
         mock_boardlist.return_value = [("v1.20", "board1", "board1", "esp32", "", "esp32", "path1", "desc1", "micropython")]
 
         mock_create_zip = mocker.patch("mpflash.db.gather_boards.create_zip_file")
+        mock_create_zip.return_value = "generated-hash"
 
-        mock_log = mocker.patch("mpflash.db.gather_boards.log")
+        mocker.patch("mpflash.db.gather_boards.log")
 
         # Create the expected zip file for the assertion
         zip_file = tmp_path / "micropython_boards.zip"
@@ -283,6 +284,7 @@ class TestPackageRepo:
         mock_boardlist.return_value = [tuple("v1.26 board1 board1 esp32  esp32 path1 desc1 micropython".split())]
 
         mock_create_zip = mocker.patch("mpflash.db.gather_boards.create_zip_file")
+        mock_create_zip.return_value = "generated-hash"
 
         # Create the expected zip file for the assertion
         zip_file = tmp_path / "micropython_boards.zip"
@@ -307,6 +309,7 @@ class TestPackageRepo:
         mock_boardlist.return_value = []
 
         mock_create_zip = mocker.patch("mpflash.db.gather_boards.create_zip_file")
+        mock_create_zip.return_value = "generated-hash"
         # Don't create the file to simulate failure
 
         with pytest.raises(AssertionError, match="Failed to create"):

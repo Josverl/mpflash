@@ -1,8 +1,4 @@
-from pathlib import Path
-
-import pytest
-
-from mpflash.db.meta import get_metadata, get_metadata_value, set_metadata, set_metadata_value
+from mpflash.db.meta import delete_metadata_value, get_metadata, get_metadata_value, set_metadata, set_metadata_value
 
 
 def test_get_metadata(session_fx):
@@ -40,3 +36,12 @@ def test_get_metadata_value(session_fx):
     for key, value in test_data.items():
         # Check if the key exists in the database
         assert get_metadata_value(key) == value
+
+
+def test_delete_metadata_value(session_fx):
+    """Delete an existing metadata entry."""
+    set_metadata_value("obsolete_key", "obsolete_value")
+
+    delete_metadata_value("obsolete_key")
+
+    assert get_metadata_value("obsolete_key") is None
