@@ -288,6 +288,36 @@ def filter_matching_boards(answers: dict) -> Sequence[Tuple[str, str]]:
     return some_boards
 
 
+def _board_availability_notice(
+    board_id: str,
+    port: str,
+    requested_versions: List[str],
+) -> str:
+    """Return a notice when a board is unavailable for selected releases."""
+    if not requested_versions:
+        return ""
+
+    available_versions = {
+        board.version
+        for board in get_known_boards_for_port(port)
+        if board.board_id == board_id
+    }
+    matching_versions = [
+        version for version in requested_versions if version in available_versions
+    ]
+    if len(matching_versions) == len(requested_versions):
+        return ""
+    if matching_versions:
+        return (
+            f"{board_id} is only available for "
+            f"{', '.join(matching_versions)} among the selected releases."
+        )
+    return (
+        f"{board_id} is not available for the selected release(s): "
+        f"{', '.join(requested_versions)}."
+    )
+
+
 def ask_port_board_variant(
     *,
     multi_select: bool,
@@ -370,6 +400,13 @@ def ask_port_board_variant(
             if selected is None:
                 return port, None, None
             if selected:
+                for board_id in selected:
+                    if notice := _board_availability_notice(
+                        board_id,
+                        port,
+                        resolved_versions,
+                    ):
+                        _console.print(f"[yellow]{notice}[/yellow]")
                 return port, list(selected), ""
             _console.print("[red]Please select at least one board.[/red]")
     else:
@@ -399,6 +436,12 @@ def ask_port_board_variant(
                     break
                 _console.print(f"[red]Unknown variant {full_id!r}.[/red]")
 
+        if notice := _board_availability_notice(
+            full_id,
+            port,
+            resolved_versions,
+        ):
+            _console.print(f"[yellow]{notice}[/yellow]")
         base_board, variant = _split_board_variant(full_id)
         return port, [base_board], variant
 
