@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import struct
 from pathlib import Path
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
@@ -77,7 +77,11 @@ def _uf2_block(address: int, data: bytes, block_no: int, num_blocks: int, family
 
 
 def _hex_chunks(hex_file: Path) -> List[Tuple[int, bytes]]:
-    """Read an Intel HEX file and return (address, data) chunks of 256 bytes."""
+    """Read an Intel HEX file and return (address, data) pages of 256 bytes.
+
+    Data from all segments is merged into 256-byte aligned pages, so that
+    segments that share a page do not overwrite each other.
+    """
     # Just in time import
     import bincopy
 
@@ -86,13 +90,20 @@ def _hex_chunks(hex_file: Path) -> List[Tuple[int, bytes]]:
         binfile.add_ihex_file(str(hex_file))
     except Exception as e:
         raise MPFlashError(f"Could not read Intel HEX file {hex_file}: {e}") from e
-    return [
-        (chunk.address, bytes(chunk.data))
-        for segment in binfile.segments
-        for chunk in segment.chunks(
-            size=UF2_PAYLOAD_SIZE, alignment=UF2_PAYLOAD_SIZE, padding=b"\xff"
-        )
-    ]
+
+    pages: Dict[int, bytearray] = {}
+    for segment in binfile.segments:
+        data = bytes(segment.data)
+        pos = 0
+        while pos < len(data):
+            address = segment.address + pos
+            page = address & ~(UF2_PAYLOAD_SIZE - 1)
+            offset = address - page
+            size = min(UF2_PAYLOAD_SIZE - offset, len(data) - pos)
+            buffer = pages.setdefault(page, bytearray(b"\xff" * UF2_PAYLOAD_SIZE))
+            buffer[offset : offset + size] = data[pos : pos + size]
+            pos += size
+    return [(page, bytes(pages[page])) for page in sorted(pages)]
 
 
 def hex_to_uf2(
