@@ -267,8 +267,28 @@ def test_split_board_variant(board_id: str, expected_board: str, expected_varian
     assert variant == expected_variant
 
 
-def test_board_availability_notice_for_newer_variant(mocker: MockerFixture):
-    """Notify when a selected variant is only in the preview metadata."""
+@pytest.mark.parametrize(
+    "requested_versions, expected",
+    [
+        (
+            ["v2.0.0-preview", "v1.9.0"],
+            "NEW_BOARD-PREVIEW_VARIANT is only available for "
+            "v2.0.0-preview among the selected releases.",
+        ),
+        (["v2.0.0-preview"], ""),
+        (
+            ["v1.9.0"],
+            "NEW_BOARD-PREVIEW_VARIANT is not available for the selected "
+            "release(s): v1.9.0.",
+        ),
+    ],
+)
+def test_board_availability_notice(
+    requested_versions: list[str],
+    expected: str,
+    mocker: MockerFixture,
+):
+    """Report availability across selected stable and preview releases."""
     mocker.patch(
         "mpflash.ask_input.get_known_boards_for_port",
         return_value=[
@@ -282,13 +302,10 @@ def test_board_availability_notice_for_newer_variant(mocker: MockerFixture):
     notice = _board_availability_notice(
         "NEW_BOARD-PREVIEW_VARIANT",
         "test",
-        ["v2.0.0-preview", "v1.9.0"],
+        requested_versions,
     )
 
-    assert notice == (
-        "NEW_BOARD-PREVIEW_VARIANT is only available for "
-        "v2.0.0-preview among the selected releases."
-    )
+    assert notice == expected
 
 
 @pytest.mark.parametrize(
