@@ -1,8 +1,14 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import mpflash.ask_input
 import pytest
-from mpflash.ask_input import _split_board_variant, ask_missing_params, filter_matching_boards
+from mpflash.ask_input import (
+    _board_availability_notice,
+    _split_board_variant,
+    ask_missing_params,
+    filter_matching_boards,
+)
 from mpflash.common import DownloadParams, FlashParams
 from pytest_mock import MockerFixture
 
@@ -259,6 +265,30 @@ def test_split_board_variant(board_id: str, expected_board: str, expected_varian
     board, variant = _split_board_variant(board_id)
     assert board == expected_board
     assert variant == expected_variant
+
+
+def test_board_availability_notice_for_newer_variant(mocker: MockerFixture):
+    """Notify when a selected variant is only in the preview metadata."""
+    mocker.patch(
+        "mpflash.ask_input.get_known_boards_for_port",
+        return_value=[
+            SimpleNamespace(
+                board_id="NEW_BOARD-PREVIEW_VARIANT",
+                version="v2.0.0-preview",
+            )
+        ],
+    )
+
+    notice = _board_availability_notice(
+        "NEW_BOARD-PREVIEW_VARIANT",
+        "test",
+        ["v2.0.0-preview", "v1.9.0"],
+    )
+
+    assert notice == (
+        "NEW_BOARD-PREVIEW_VARIANT is only available for "
+        "v2.0.0-preview among the selected releases."
+    )
 
 
 @pytest.mark.parametrize(
