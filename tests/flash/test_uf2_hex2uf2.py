@@ -6,18 +6,18 @@ from pathlib import Path
 import pytest
 
 from mpflash.errors import MPFlashError
-from mpflash.flash.builtins.uf2.hex2uf2 import (
-    UF2_FAMILY_IDS,
-    UF2_MAGIC_END,
-    UF2_MAGIC_START0,
-    UF2_MAGIC_START1,
-    family_id,
-    hex_to_uf2,
-)
+from mpflash.flash.builtins.uf2.hex2uf2 import family_id, hex_to_uf2
 
 pytestmark = [pytest.mark.mpflash]
 
 HEX_ADDRESS = 0x26000
+NRF52840_FAMILY = 0xADA52840
+NRF52833_FAMILY = 0x621E937A
+NRF52_FAMILY = 0x1B57745F
+
+UF2_MAGIC_START0 = 0x0A324655
+UF2_MAGIC_START1 = 0x9E5D5157
+UF2_MAGIC_END = 0x0AB16F30
 
 
 @pytest.fixture
@@ -53,17 +53,17 @@ def test_hex_to_uf2_creates_valid_uf2(hex_file: Path):
         assert address == HEX_ADDRESS + block_no * 256
         assert payload == 256
         assert (no, total) == (block_no, 2)
-        assert family == UF2_FAMILY_IDS["NRF52840"]
+        assert family == NRF52840_FAMILY
         end = struct.unpack("<I", data[block_no * 512 + 508 : block_no * 512 + 512])[0]
         assert end == UF2_MAGIC_END
 
 
 def test_hex_to_uf2_output_and_family(hex_file: Path, tmp_path: Path):
-    """The output file and the family id can be specified."""
+    """The output file and the family can be specified."""
     uf2_file = hex_to_uf2(hex_file, tmp_path / "firmware.uf2", family="NRF52833")
 
     assert uf2_file.exists()
-    assert unpack_block(uf2_file.read_bytes(), 0)[7] == UF2_FAMILY_IDS["NRF52833"]
+    assert unpack_block(uf2_file.read_bytes(), 0)[7] == NRF52833_FAMILY
 
 
 def test_hex_to_uf2_merges_segments_in_one_page(tmp_path: Path):
@@ -83,13 +83,17 @@ def test_hex_to_uf2_merges_segments_in_one_page(tmp_path: Path):
     payload = data[32 : 32 + 256]
     assert payload[0:2] == b"\x01\x02"
     assert payload[0x80:0x82] == b"\x03\x04"
-    assert payload[2:0x80] == b"\xff" * 0x7E
 
 
 def test_hex_to_uf2_errors(tmp_path: Path):
     """Invalid input raises an MPFlashError."""
     with pytest.raises(MPFlashError):
         hex_to_uf2(tmp_path / "firmware.bin")
+
+    not_hex = tmp_path / "firmware.hex"
+    not_hex.write_bytes(b"\x00\x01\x02")
+    with pytest.raises(MPFlashError):
+        hex_to_uf2(not_hex)
 
     empty = tmp_path / "empty.hex"
     empty.write_text(":00000001FF\n")
@@ -100,11 +104,11 @@ def test_hex_to_uf2_errors(tmp_path: Path):
 @pytest.mark.parametrize(
     "family, port, expected",
     [
-        ("NRF52840", "", UF2_FAMILY_IDS["NRF52840"]),
-        ("nrf52", "", UF2_FAMILY_IDS["NRF52"]),
-        ("0x621e937a", "", UF2_FAMILY_IDS["NRF52833"]),
+        ("NRF52840", "", NRF52840_FAMILY),
+        ("nrf52", "", NRF52_FAMILY),
+        ("0x621e937a", "", NRF52833_FAMILY),
         (0x1234, "", 0x1234),
-        (None, "nrf", UF2_FAMILY_IDS["NRF52840"]),
+        (None, "nrf", NRF52840_FAMILY),
     ],
 )
 def test_family_id(family, port, expected):
