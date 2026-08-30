@@ -57,6 +57,7 @@ def test_ask_port_board_variant_defaults_to_first_variant(
         "mpflash.ask_input.known_board_variants_dict",
         return_value={variant: "" for variant in variants},
     )
+    mocker.patch("mpflash.ask_input._board_availability_notice", return_value="")
     ask_with_completion = mocker.patch(
         "mpflash.ask_input._ask_with_completion",
         side_effect=["esp32", "ESP32_GENERIC", variants[0]],
