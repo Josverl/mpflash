@@ -441,7 +441,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
             include_ports=params.serial,
             ignore_ports=params.ignore,
         )
-    elif params.versions[0] and params.serial and not board_specified:
+    elif params.versions[0] and params.serial and not board_specified and all_boards:
         # Serial port(s) were explicitly provided, but board_id was not.
         # Build tasks from per-port auto-detection to avoid cross-device board/variant mixing.
         # IMPORTANT: honor explicit serial targets exactly. Do not broaden with

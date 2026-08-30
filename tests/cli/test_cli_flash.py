@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 from click.testing import CliRunner
@@ -191,6 +191,53 @@ def test_mpflash_no_detected_boards(
         ## if no boards are responding , but there are serial port , then set serial --> ? and board to ? if not set
         assert m_ask_missing_params.call_args.args[0].serial == ["?"]
         assert m_ask_missing_params.call_args.args[0].boards == ["?"]
+
+
+def test_mpflash_uses_interactive_board_for_unresponsive_serial_port(
+    mocker: MockerFixture,
+):
+    """Flash a new board without probing it for MicroPython metadata again."""
+    mocker.patch(
+        "mpflash.connected.connected_ports_boards_variants",
+        return_value=([], [], [], []),
+        autospec=True,
+    )
+
+    def select_new_board(params: DownloadParams) -> DownloadParams:
+        params.serial = ["COM40"]
+        params.ports = ["esp32"]
+        params.boards = ["ESP32_GENERIC_C2"]
+        params.variant = ""
+        return params
+
+    mocker.patch(
+        "mpflash.ask_input.ask_missing_params",
+        side_effect=select_new_board,
+        autospec=True,
+    )
+    mocker.patch("mpflash.common.filtered_comports", return_value=["COM40"])
+    create_worklist = mocker.patch(
+        "mpflash.flash.worklist.create_worklist",
+        return_value=[],
+        autospec=True,
+    )
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks", autospec=True)
+    mocker.patch(
+        "mpflash.flash.flash_tasks",
+        return_value=[fakeboard("COM40")],
+        autospec=True,
+    )
+    mocker.patch("mpflash.list.show_mcus", autospec=True)
+
+    result = CliRunner().invoke(cli_main.cli, ["flash"], standalone_mode=True)
+
+    assert result.exit_code == 0, result.output
+    create_worklist.assert_called_once_with(
+        ANY,
+        serial_ports=["COM40"],
+        board_id="ESP32_GENERIC_C2",
+        port="esp32",
+    )
 
 
 def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: MockerFixture):
