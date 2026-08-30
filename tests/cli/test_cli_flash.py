@@ -210,6 +210,38 @@ def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: Mock
     assert "No serial ports matched" in result.output
 
 
+def test_interactively_selected_board_uses_manual_worklist(mocker: MockerFixture):
+    """Trust a board selected after auto-detection failed instead of probing it again."""
+    args = ["flash", "--variant", "?"]
+
+    mocker.patch(
+        "mpflash.connected.connected_ports_boards_variants",
+        return_value=([], [], [], []),
+    )
+
+    def select_board(params):
+        params.ports = ["nrf"]
+        params.boards = ["SEEED_XIAO_NRF52"]
+        params.variant = ""
+        params.serial = ["COM63"]
+        return params
+
+    mocker.patch("mpflash.ask_input.ask_missing_params", side_effect=select_board)
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM63"])
+    m_remote_board = mocker.patch("mpflash.mpremoteboard.MPRemoteBoard")
+    m_create_worklist = mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.flash.flash_tasks", return_value=[])
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.cli, args, standalone_mode=True)
+
+    assert result.exit_code == 1, result.output
+    m_remote_board.assert_not_called()
+    assert m_create_worklist.call_args.kwargs["serial_ports"] == ["COM63"]
+    assert m_create_worklist.call_args.kwargs["board_id"] == "SEEED_XIAO_NRF52"
+
+
 def test_mpflash_flash_erase_and_format_are_mutually_exclusive(mocker: MockerFixture):
     """Reject using --erase and --format together with a user-friendly error."""
     args = ["flash", "--board", "RPI_PICO2", "--serial", "COM8", "--erase", "--format"]

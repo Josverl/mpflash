@@ -307,11 +307,17 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     else:
         mpboard_id.resolve_board_ids(params)
 
+    # If detection failed and the board is selected interactively, treat that
+    # selection as an explicit manual target. Do not probe the same device
+    # again after the user supplied its board and port.
+    board_selected_interactively = params.boards == ["?"]
+
     # Ask for missing input if needed
     params = ask_missing_params(params)
     if not params:  # Cancelled by user
         ctx.exit(2)
     assert isinstance(params, FlashParams)
+    board_specified = board_specified or board_selected_interactively
 
     if len(params.versions) > 1:
         log.error(f"Only one version can be flashed at a time, not {params.versions}")

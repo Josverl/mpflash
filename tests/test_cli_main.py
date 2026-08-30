@@ -115,6 +115,20 @@ class TestMpflash:
         mock_log.error.assert_called_once_with("MPFlashError: Test MPFlash error")
         mock_exit.assert_called_once_with(-4)
 
+    def test_mpflash_connection_error(self, mocker):
+        """Report board connection failures without an unhandled traceback."""
+        mocker.patch("mpflash.cli_main.migrate_database")
+        mock_cli = mocker.patch("mpflash.cli_main.cli")
+        mock_cli.add_command = Mock()
+        mock_cli.side_effect = ConnectionError("Failed to parse mcu_info for COM63")
+        mock_log = mocker.patch("mpflash.cli_main.log")
+        mock_exit = mocker.patch("builtins.exit")
+
+        mpflash()
+
+        mock_log.error.assert_called_once_with("Error: Failed to parse mcu_info for COM63")
+        mock_exit.assert_called_once_with(-5)
+
     def test_mpflash_successful_exit(self, mocker):
         """Test successful execution with exit code."""
         mocker.patch("mpflash.cli_main.migrate_database")

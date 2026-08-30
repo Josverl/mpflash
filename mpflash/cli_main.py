@@ -62,6 +62,9 @@ def mpflash():
         except MPFlashError as e:
             log.error(f"MPFlashError: {e}")
             exit(-4)
+        except ConnectionError as e:
+            log.error(f"Error: {e}")
+            exit(-5)
 
 
 if __name__ == "__main__":
