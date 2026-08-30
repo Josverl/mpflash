@@ -215,7 +215,7 @@ def test_mpflash_uses_interactive_board_for_unresponsive_serial_port(
         side_effect=select_new_board,
         autospec=True,
     )
-    mocker.patch("mpflash.common.filtered_comports", return_value=["COM40"])
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM40"])
     create_worklist = mocker.patch(
         "mpflash.flash.worklist.create_worklist",
         return_value=[],
@@ -248,7 +248,7 @@ def test_mpflash_flash_no_matching_serial_ports_returns_usage_error(mocker: Mock
         "mpflash.ask_input.ask_missing_params",
         Mock(side_effect=fake_ask_missing_params),
     )
-    mocker.patch("mpflash.common.filtered_comports", return_value=[])
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=[])
 
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)

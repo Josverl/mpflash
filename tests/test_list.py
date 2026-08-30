@@ -7,7 +7,7 @@ import rich
 import rich.measure
 
 import mpflash.list
-from mpflash.list import mcu_table
+from mpflash.list import mcu_table, usb_device_description
 from mpflash.mpremoteboard import MPRemoteBoard
 
 pytestmark = [pytest.mark.mpflash]
@@ -64,6 +64,19 @@ def test_mcu_table_shows_reported_port_on_second_line():
     table = mcu_table([mcu], refresh=False)
 
     assert table.columns[2]._cells == ["nrf\n[italic bright_cyan]nrf52"]
+
+
+def test_usb_device_description_includes_available_pyserial_details():
+    mcu = MPRemoteBoard("COM41")
+    mcu.vid = 0x1D50
+    mcu.pid = 0x6196
+    mcu.usb_manufacturer = "Microsoft"
+    mcu.usb_product = ""
+    mcu.usb_description = "USB Serial Device (COM41)"
+
+    assert usb_device_description(mcu) == (
+        "1d50:6196\nMicrosoft USB Serial Device"
+    )
 
 
 # def mock_get_mcu_info(self: MPRemoteBoard):

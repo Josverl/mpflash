@@ -23,6 +23,28 @@ def test_mpremoteboard_new():
     assert mprb.family == "unknown"
 
 
+def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
+    port = MagicMock(
+        vid=0x1D50,
+        pid=0x6196,
+        manufacturer="Black Magic Debug",
+        product="Black Magic Probe",
+        description="Black Magic Probe GDB Server (COM40)",
+    )
+    mocker.patch(
+        "mpflash.mpremoteboard.serial.tools.list_ports.grep",
+        return_value=[port],
+    )
+
+    mprb = MPRemoteBoard("COM40")
+
+    assert mprb.vid == 0x1D50
+    assert mprb.pid == 0x6196
+    assert mprb.usb_manufacturer == "Black Magic Debug"
+    assert mprb.usb_product == "Black Magic Probe"
+    assert mprb.usb_description == "Black Magic Probe GDB Server (COM40)"
+
+
 @pytest.mark.parametrize(
     "comports, expected",
     [

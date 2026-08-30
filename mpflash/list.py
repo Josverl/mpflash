@@ -11,6 +11,25 @@ from .logger import console
 
 COL_HIGHLIGHT = "[italic bright_cyan]"
 
+
+def usb_device_description(mcu: MPRemoteBoard) -> str:
+    """Format the VID:PID and available USB descriptors without duplicates."""
+    descriptors = []
+    for value in (
+        mcu.usb_manufacturer,
+        mcu.usb_product,
+        mcu.usb_description,
+    ):
+        serial_suffix = f" ({mcu.serialport})"
+        if value.casefold().endswith(serial_suffix.casefold()):
+            value = value[: -len(serial_suffix)].rstrip()
+        if value and value.casefold() not in {item.casefold() for item in descriptors}:
+            descriptors.append(value)
+    details = " ".join(descriptors)
+    vid_pid = f"{mcu.vid:04x}:{mcu.pid:04x}"
+    return f"{vid_pid}\n{details}" if details else vid_pid
+
+
 def show_mcus(
     conn_mcus: List[MPRemoteBoard],
     title: str = "Connected boards",
@@ -91,7 +110,7 @@ def mcu_table(
     if needs_build:
         table.add_column("Build" if is_wide else "Bld", justify="right")
     if config.usb:
-        table.add_column("vid:pid", overflow="fold", max_width=14)
+        table.add_column("USB device", overflow="fold", max_width=40)
         table.add_column("Location", overflow="fold", max_width=60)
     # fill the table with the data
     for mcu in conn_mcus:
@@ -114,7 +133,7 @@ def mcu_table(
         if needs_build:
             row.append(mcu.build)
         if config.usb:
-            row.append(f"{mcu.vid:04x}:{mcu.pid:04x}")
+            row.append(usb_device_description(mcu))
             row.append(mcu.location)
 
         table.add_row(*row)

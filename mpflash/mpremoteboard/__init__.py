@@ -65,6 +65,9 @@ class MPRemoteBoard:
         self.mpy = ""
         self.build = ""
         self.location = location  # USB location
+        self.usb_manufacturer = ""
+        self.usb_product = ""
+        self.usb_description = ""
         self.toml = {}
 
         # For filesystem paths (UF2 volume paths), skip serial port lookup.
@@ -84,8 +87,12 @@ class MPRemoteBoard:
                 self.pid = 0x00
             else:
                 try:
-                    self.vid = portinfo[0].vid  # type: ignore
-                    self.pid = portinfo[0].pid  # type: ignore
+                    port = portinfo[0]
+                    self.vid = port.vid or 0x00
+                    self.pid = port.pid or 0x00
+                    self.usb_manufacturer = port.manufacturer or ""
+                    self.usb_product = port.product or ""
+                    self.usb_description = port.description or ""
                 except Exception:
                     self.vid = 0x00
                     self.pid = 0x00
