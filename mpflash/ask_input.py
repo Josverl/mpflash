@@ -66,6 +66,7 @@ def _ask_with_completion(
     prompt: str,
     completion,
     meta: Optional[Dict[str, str]] = None,
+    default: str = "",
 ) -> Optional[str]:
     """Ask for input with tab-completion using questionary."""
     import questionary
@@ -78,6 +79,7 @@ def _ask_with_completion(
         match_middle=True,
         complete_while_typing=True,
         meta_information=meta,
+        default=default,
         validate=lambda val: bool(val) or "Please select an option (Ctrl-C to abort).",
         style=_mpflash_style(),
     )
@@ -429,6 +431,7 @@ def ask_port_board_variant(
                 full_id = _ask_with_completion(
                     f"Variant to {action}?",
                     variants,
+                    default=variants[0],
                 )
                 if not full_id:
                     return port, None, None
@@ -541,11 +544,16 @@ def ask_serialport(
     from rich.tree import Tree
 
     _console = Console()
-    comports = MPRemoteBoard.connected_comports(bluetooth=bluetooth, description=True) + ["auto"]
+    detected_comports = MPRemoteBoard.connected_comports(
+        bluetooth=bluetooth,
+        description=True,
+    )
+    comports = detected_comports + ["auto"]
 
     result = _ask_with_completion(
         "Serial port to use?",
         comports,
+        default=detected_comports[0] if len(detected_comports) == 1 else "",
     )
     return result if result else None
 

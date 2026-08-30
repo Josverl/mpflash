@@ -7,12 +7,73 @@ from mpflash.ask_input import (
     _board_availability_notice,
     _split_board_variant,
     ask_missing_params,
+    ask_port_board_variant,
+    ask_serialport,
     filter_matching_boards,
 )
 from mpflash.common import DownloadParams, FlashParams
 from pytest_mock import MockerFixture
 
 pytestmark = [pytest.mark.mpflash]
+
+
+@pytest.mark.parametrize(
+    "detected_comports, expected_default",
+    [
+        (["COM40 wch.cn USB-SERIAL CH340 (COM40)"], "COM40 wch.cn USB-SERIAL CH340 (COM40)"),
+        (["COM40 USB Serial", "COM41 USB Serial"], ""),
+        ([], ""),
+    ],
+)
+def test_ask_serialport_defaults_only_detected_port(
+    detected_comports: list[str],
+    expected_default: str,
+    mocker: MockerFixture,
+):
+    mocker.patch.object(
+        mpflash.ask_input.MPRemoteBoard,
+        "connected_comports",
+        return_value=detected_comports,
+    )
+    ask_with_completion = mocker.patch(
+        "mpflash.ask_input._ask_with_completion",
+        return_value=expected_default or "auto",
+    )
+
+    assert ask_serialport() == (expected_default or "auto")
+    ask_with_completion.assert_called_once_with(
+        "Serial port to use?",
+        detected_comports + ["auto"],
+        default=expected_default,
+    )
+
+
+def test_ask_port_board_variant_defaults_to_first_variant(
+    mocker: MockerFixture,
+):
+    variants = ["ESP32_GENERIC", "ESP32_GENERIC-SPIRAM"]
+    mocker.patch("mpflash.ask_input.known_ports", return_value=["esp32"])
+    mocker.patch(
+        "mpflash.ask_input.known_board_variants_dict",
+        return_value={variant: "" for variant in variants},
+    )
+    ask_with_completion = mocker.patch(
+        "mpflash.ask_input._ask_with_completion",
+        side_effect=["esp32", "ESP32_GENERIC", variants[0]],
+    )
+
+    result = ask_port_board_variant(
+        multi_select=False,
+        action="flash",
+        answers={"versions": ["stable"]},
+    )
+
+    assert result == ("esp32", ["ESP32_GENERIC"], "")
+    assert ask_with_completion.call_args_list[-1] == mocker.call(
+        "Variant to flash?",
+        variants,
+        default=variants[0],
+    )
 
 
 def test_ask_missing_params_no_interactivity(mocker: MockerFixture):
@@ -272,14 +333,12 @@ def test_split_board_variant(board_id: str, expected_board: str, expected_varian
     [
         (
             ["v2.0.0-preview", "v1.9.0"],
-            "NEW_BOARD-PREVIEW_VARIANT is only available for "
-            "v2.0.0-preview among the selected releases.",
+            "NEW_BOARD-PREVIEW_VARIANT is only available for v2.0.0-preview among the selected releases.",
         ),
         (["v2.0.0-preview"], ""),
         (
             ["v1.9.0"],
-            "NEW_BOARD-PREVIEW_VARIANT is not available for the selected "
-            "release(s): v1.9.0.",
+            "NEW_BOARD-PREVIEW_VARIANT is not available for the selected release(s): v1.9.0.",
         ),
     ],
 )
