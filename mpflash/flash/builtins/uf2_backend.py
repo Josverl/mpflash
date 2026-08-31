@@ -7,12 +7,13 @@ short-circuit it in tests.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from mpflash.common import BootloaderMethod
 from mpflash.errors import MPFlashError
 from mpflash.flash.base import FlashBackend
-from mpflash.flash.context import FlashContext, FlashResult, Platform
+from mpflash.flash.context import FlashContext, FlashResult, Platform, Reason
 from mpflash.flash.registry import register
 from mpflash.logger import log
 
@@ -25,7 +26,7 @@ class UF2Backend(FlashBackend):
 
     name = "uf2"
     supported_ports = frozenset({"rp2", "samd", "nrf"})
-    supported_formats = (".uf2",)
+    supported_formats = (".uf2", ".hex")
     supported_platforms = frozenset(
         {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
     )
@@ -35,6 +36,19 @@ class UF2Backend(FlashBackend):
     # Per-port preferences are returned by ``get_preferred_bootloaders``;
     # this default covers anything not listed there.
     preferred_bootloaders: Tuple[str, ...] = ("mpy", "touch1200", "manual")
+
+    def supports(self, mcu: "MPRemoteBoard", fw_file: Path, platform: Platform) -> Optional[Reason]:
+        # .hex firmware is converted to .uf2, but only for ports with a known UF2 family
+        from mpflash.flash.builtins.uf2.hex2uf2 import PORT_FAMILIES
+
+        reason = super().supports(mcu, fw_file, platform)
+        if reason is None and fw_file.suffix.lower() == ".hex" and mcu.port not in PORT_FAMILIES:
+            return Reason(
+                "format",
+                f"{self.name} cannot convert .hex files for port {mcu.port!r} "
+                f"(supports: {sorted(PORT_FAMILIES)})",
+            )
+        return reason
 
     def get_preferred_bootloaders(self, mcu: "MPRemoteBoard") -> Tuple[str, ...]:
         # rp2 boards work best with machine.bootloader(); samd/nrf prefer 1200-baud touch.

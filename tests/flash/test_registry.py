@@ -332,3 +332,24 @@ def test_flash_mcu_wraps_select_and_backend_errors(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(flash_mod, "select_backend", lambda *a, **k: _BackendResult())
     with pytest.raises(MPFlashError, match="bad"):
         flash_mcu(mcu, fw_file=fw)
+
+
+def test_uf2_backend_supports_hex_for_nrf(tmp_path: Path):
+    """A .hex firmware for nrf is converted to .uf2 by the uf2 backend."""
+    mcu = _fake_mcu(port="nrf", board_id="FEATHER52")
+    fw = tmp_path / "FEATHER52-v1.26.0.hex"
+    fw.write_text(":00000001FF\n")
+    backend = get_backend("uf2")
+    assert backend is not None
+    assert backend.supports(mcu, fw, Platform.LINUX) is None
+
+
+def test_uf2_backend_rejects_hex_for_rp2(tmp_path: Path):
+    """.hex firmware is rejected for ports without a known UF2 family id."""
+    mcu = _fake_mcu(port="rp2")
+    fw = tmp_path / "RPI_PICO-v1.26.0.hex"
+    fw.write_text(":00000001FF\n")
+    backend = get_backend("uf2")
+    assert backend is not None
+    reason = backend.supports(mcu, fw, Platform.LINUX)
+    assert reason is not None and reason.kind == "format"
