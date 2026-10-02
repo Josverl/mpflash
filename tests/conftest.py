@@ -49,8 +49,8 @@ def pytest_addoption(parser):
         metavar="PORT",
         help=(
             "Run only hardware-in-the-loop (hardware-marked) tests against the "
-            "given serial port, e.g. --HIL COM31. Sets MPFLASH_HW_UF2_PORT so "
-            "the hw_uf2 fixtures resolve to that board."
+            "given serial port, e.g. --HIL COM31. Sets MPFLASH_HW_MPREMOTE_PORT "
+            "and MPFLASH_HW_UF2_PORT so the serial and UF2 fixtures resolve."
         ),
     )
 
@@ -265,4 +265,5 @@ def pytest_configure(config):
     # Feed the --HIL port to the existing hardware fixtures via env vars.
     port = config.getoption("--HIL")
     if port:
+        os.environ["MPFLASH_HW_MPREMOTE_PORT"] = port
         os.environ["MPFLASH_HW_UF2_PORT"] = port
