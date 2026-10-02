@@ -181,7 +181,7 @@ use the standalone `mpremoteboard` package from the workspace:
 from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard("/dev/ttyACM0")
-board.get_mcu_info(resume=True)
+board.get_mcu_info(soft_reset=False)
 ```
 
 This package reports raw board metadata and preserves interpreter state by

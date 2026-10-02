@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dependencies = [
-    "mpremote>=1.22.0",
+    "mpremote>=1.30.0rc0.post101,<1.31",
     "pyserial>=3.5",
     "tomli>=2.2.1; python_version < '3.11'",
     "tomli-w>=1.2.0",

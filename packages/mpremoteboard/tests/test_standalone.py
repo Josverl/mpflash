@@ -37,7 +37,7 @@ def test_package_metadata_has_only_core_dependencies():
     assert "mpflash" not in dependency_names
 
 
-def test_raw_probe_preserves_state_with_resume(monkeypatch: pytest.MonkeyPatch):
+def test_raw_probe_keeps_reset_opt_in(monkeypatch: pytest.MonkeyPatch):
     board = mpremoteboard.MPRemoteBoard("COM42")
     commands: list[list[str]] = []
     raw_info = (
@@ -62,11 +62,11 @@ def test_raw_probe_preserves_state_with_resume(monkeypatch: pytest.MonkeyPatch):
     assert board.board_id == "RPI_PICO"
     assert board.port == "rp2"
     assert len(commands) == 2
-    assert all("resume" in command for command in commands)
+    assert all("soft-reset" not in command and "resume" not in command for command in commands)
 
 
-@pytest.mark.parametrize("resume", [None, True, False])
-def test_raw_command_uses_legacy_resume(resume: bool | None, monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize("soft_reset", [False, True])
+def test_raw_command_resets_only_when_requested(soft_reset: bool, monkeypatch: pytest.MonkeyPatch):
     board = mpremoteboard.MPRemoteBoard("COM42")
     commands: list[list[str]] = []
 
@@ -75,7 +75,7 @@ def test_raw_command_uses_legacy_resume(resume: bool | None, monkeypatch: pytest
         return 0, []
 
     monkeypatch.setattr(board, "_run", fake_run)
-    board.run_command(["exec", "pass"], resume=resume)
+    board.run_command(["exec", "pass"], soft_reset=soft_reset)
 
-    assert ("resume" in commands[0]) is (resume is not False)
-    assert "soft-reset" not in commands[0]
+    assert ("soft-reset" in commands[0]) is soft_reset
+    assert "resume" not in commands[0]

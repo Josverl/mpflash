@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import inspect
 import sys
+import warnings
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -30,6 +32,37 @@ ON_WSL2 = bool(sys.platform == "linux" and Path("/proc/version").exists() and "m
 # Keep these module attributes available to existing callers and monkeypatches.
 serial = _core.serial
 time = _core.time
+
+
+class _UnsetType:
+    pass
+
+
+_UNSET = _UnsetType()
+
+
+def _resolve_soft_reset(
+    *,
+    soft_reset: Union[bool, _UnsetType],
+    resume: Union[bool, None, _UnsetType],
+    default: bool,
+) -> bool:
+    if not isinstance(resume, _UnsetType):
+        if not isinstance(soft_reset, _UnsetType):
+            raise TypeError("soft_reset and deprecated resume cannot be used together")
+        frame = inspect.currentframe()
+        stacklevel = 1
+        while frame is not None:
+            frame = frame.f_back
+            stacklevel += 1
+            if frame is None:
+                break
+            module_name = frame.f_globals.get("__name__", "")
+            if module_name != __name__ and not module_name.startswith("tenacity"):
+                break
+        warnings.warn("resume is deprecated; use soft_reset instead", DeprecationWarning, stacklevel=stacklevel)
+        return False if resume is None else not resume
+    return default if isinstance(soft_reset, _UnsetType) else soft_reset
 
 
 class MPRemoteBoard(_CoreMPRemoteBoard):
@@ -67,25 +100,31 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
         timeout: int = DEFAULT_TIMEOUT,
         *,
         log_errors: bool = True,
-        resume: Optional[bool] = False,
+        soft_reset: Union[bool, _UnsetType] = _UNSET,
+        resume: Union[bool, None, _UnsetType] = _UNSET,
     ) -> None:
         """Read firmware metadata, retaining MPFlash's legacy reset default."""
-        super().get_mcu_info(timeout, log_errors=log_errors, resume=resume)
+        resolved_soft_reset = _resolve_soft_reset(
+            soft_reset=soft_reset,
+            resume=resume,
+            default=True,
+        )
+        super().get_mcu_info(timeout, log_errors=log_errors, soft_reset=resolved_soft_reset)
 
     def get_mcu_info_once(
         self,
         timeout: int = DEFAULT_TIMEOUT,
         *,
         log_errors: bool = True,
-        resume: Optional[bool] = True,
+        soft_reset: bool = False,
     ) -> None:
         """Probe firmware metadata exactly once without facade retries."""
-        _CoreMPRemoteBoard.get_mcu_info(self, timeout, log_errors=log_errors, resume=resume)
+        _CoreMPRemoteBoard.get_mcu_info(self, timeout, log_errors=log_errors, soft_reset=soft_reset)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(0.2), reraise=True)
     def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Read optional board metadata using the legacy reset behavior."""
-        _CoreMPRemoteBoard.get_board_info_toml(self, timeout, resume=False)
+        _CoreMPRemoteBoard.get_board_info_toml(self, timeout, soft_reset=True)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(2), reraise=True)
     def run_command(
@@ -95,16 +134,22 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
         log_errors: bool = True,
         no_info: bool = False,
         timeout: int = 60,
-        resume: Optional[bool] = None,
+        soft_reset: Union[bool, _UnsetType] = _UNSET,
+        resume: Union[bool, None, _UnsetType] = _UNSET,
         **kwargs,
     ) -> tuple[int, list[str]]:
         """Run a command with the historical retry and reset behavior."""
+        resolved_soft_reset = _resolve_soft_reset(
+            soft_reset=soft_reset,
+            resume=resume,
+            default=False,
+        )
         return super().run_command(
             cmd,
             log_errors=log_errors,
             no_info=no_info,
             timeout=timeout,
-            resume=resume,
+            soft_reset=resolved_soft_reset,
             **kwargs,
         )
 
@@ -146,7 +191,7 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
                     executable=usbipd_executable,
                 )
             with contextlib.suppress(ConnectionError, MPFlashError):
-                self.get_mcu_info_once(log_errors=False, resume=True)
+                self.get_mcu_info_once(log_errors=False, soft_reset=False)
                 return True
         if usbipd_executable and not self._refresh_serialport():
             identity = f"{self.vid:04x}:{self.pid:04x}"

@@ -1187,7 +1187,7 @@ requires-dist = [
     { name = "mock", marker = "extra == 'test'", specifier = ">=4.0.3,<6.0.0" },
     { name = "mpbuild", marker = "python_full_version >= '3.12' and extra == 'build'", specifier = ">=1.0.0" },
     { name = "mpbuild", marker = "python_full_version < '3.12' and extra == 'build'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "mpremote", specifier = ">=1.22.0" },
+    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
     { name = "mpremoteboard", editable = "packages/mpremoteboard" },
     { name = "packaging", specifier = ">=24.2" },
     { name = "peewee", specifier = ">=4.0.3" },
@@ -1226,15 +1226,15 @@ dev = [
 
 [[package]]
 name = "mpremote"
-version = "1.28.0"
+version = "1.30.0rc0.post101"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
     { name = "pyserial" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/20/1b/d008342d1b018fb60e1196bf72a164ea71a567f924db11934f0e3a0a10bc/mpremote-1.28.0.tar.gz", hash = "sha256:fdb5626be83dff4e53c0184f8950814cb519b524dba7f1f8b1668aa477257a31", size = 31412, upload-time = "2026-04-06T13:21:14.976Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/91/1495ced5e9509af405a13a8368dc95646d8f72dcba6093565d815b99cc77/mpremote-1.30.0rc0.post101.tar.gz", hash = "sha256:4e048bb58a01724bdc9ad777129dd027442b6e1978f9113f46c70cf9de11eafb", size = 34180, upload-time = "2026-10-01T02:40:35.269Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/d7/634a63290002a9df2708e05983fc769447d64f074ac2e8d8990316c70fd0/mpremote-1.28.0-py3-none-any.whl", hash = "sha256:2df2a50f3c8098cae8c732dbf2541e7e58185e7896513b45d05196901e049334", size = 36098, upload-time = "2026-04-06T13:21:13.368Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/f1/3b39c53d65e42f10b3da9ce9adc89b47f220123c1400f56161c36ce689ae/mpremote-1.30.0rc0.post101-py3-none-any.whl", hash = "sha256:1e3dd137d020c3f64a21b12aa53f0091ba4bb09f23e536315551f6a3fa21f5c1", size = 39175, upload-time = "2026-10-01T02:40:33.632Z" },
 ]
 
 [[package]]
@@ -1250,7 +1250,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mpremote", specifier = ">=1.22.0" },
+    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.2.1" },
     { name = "tomli-w", specifier = ">=1.2.0" },
