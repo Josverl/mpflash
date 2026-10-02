@@ -1,217 +1,85 @@
 # GitHub Copilot Instructions for MPFlash
 
-This document provides guidance for GitHub Copilot to maintain consistency with MPFlash's architecture and coding standards.
+MPFlash is a Python 3.10+ command-line tool and library for downloading,
+identifying, and flashing MicroPython firmware across multiple hardware
+platforms.
 
-## Project Overview
+## Working Agreement
 
-MPFlash is a command-line tool and Python library for managing MicroPython firmware across multiple hardware platforms. The project follows a layered architecture with clear separation of concerns.
+- Read the relevant implementation, tests, and configuration before editing.
+- Make focused changes and preserve existing CLI and library behavior unless the
+  request explicitly changes it.
+- Prefer existing abstractions and patterns over new dependencies or parallel
+  implementations.
+- Keep startup time low. Avoid expensive module-level imports and eagerly
+  loading optional flash backends.
+- Surface failures explicitly using the existing exception and logging patterns.
+- Do not modify vendored code under `mpflash/vendor/` unless specifically asked.
+- Use `uv` for dependency management and command execution. Add dependencies only
+  to the appropriate `pyproject.toml` dependency group.
 
-## AI Assistant rukes 
- - When running in shell , always make sure the activate the virtual environment after starting the shell 
- - when possible use MCP servers 
+## Beads Issue Tracking
 
-## Code Style and Standards
+This repository uses Beads (`bd`) as the durable source of truth for tasks,
+blockers, dependencies, and project memory.
 
-### Python Conventions
-- Use Python type annotations throughout the code
-- Follow snake_case for functions and variables
-- Follow CamelCase for class names
-- Use 4 spaces for indentation
-- Use double quotes for strings
-- Prefer f-strings for string formatting
-- Maximum line length: 88 characters (Black formatter standard)
-- Add comments, but not too much
-- Add docstrings to modules and methods (5-9 lines maximum)
-- Use double quotes for strings
+1. Run `bd prime` when starting work or when Beads context is missing.
+2. Check `bd ready`, inspect the selected issue with `bd show <id>`, and claim it
+   atomically with `bd update <id> --claim`.
+3. Create a Beads issue for newly discovered follow-up work. Do not create
+   markdown TODO or memory files.
+4. Close an issue only after its requested outcome has been implemented and
+   verified.
 
-# Speed and performance
+Useful commands:
 
-- this is a CLI tool and loading speed is important
-- Use lazy loading for modules and packages where possible
-- Use generators for large data sets
-
-# dependencies
-
-- Use uv for package management
-- The project uses PEP standard pyproject.toml format and all dependencies should be added to the dependencies or optional-dependencies sections
-- Minimize the number of dependencies
-
-# Writing tests
-- when asked to create an MVP - keep the number of tests to a minimum
-- Use pytest for testing
-- Use pytest fixtures for setup and teardown
-- Use assert statements for testing
-- all tests shouod be located in or under the `tests` directory
-- Use descriptive names for test functions
-- Use pytest.mark.parametrize for parameterized tests
-- Use pytest.raises for testing exceptions
-- for database related tests testsL
-    - make use of the test database int tests/data
-    - add fixtures for database setup and teardown
-### Documentation
-- Do not include type hints in docstrings
-- Keep comments minimal but descriptive
-
-### Example Function Style
-```python
-def flash_firmware(
-    port: str,
-    firmware_path: Path,
-    timeout: float = 30.0
-) -> bool:
-    """Flash MicroPython firmware to a connected board.
-
-    Args:
-        port: Serial port identifier (e.g., 'COM3' or '/dev/ttyUSB0')
-        firmware_path: Path to the firmware file
-        timeout: Maximum time to wait for flashing (seconds)
-
-    Returns:
-        True if flashing succeeded, False otherwise
-
-    Raises:
-        FlashError: If flashing operation fails
-    """
-    # Implementation
+```text
+bd prime
+bd ready
+bd show <id>
+bd create --title="..." --description="..." --type=task --priority=2
+bd update <id> --claim
+bd close <id> --reason="Completed"
 ```
 
-## Project Structure Patterns
+Run `bd prime` for the complete and current workflow; it is the source of truth
+for operational Beads commands.
 
-### CLI Commands
-- Place in `mpflash/cli_*.py`
-- Use Click decorators
-- Include help text and type annotations
-- Handle errors gracefully
+### Git and Sync Authority
 
-### Core Components
-- Follow interface-based design
-- Use abstract base classes for common patterns
-- Implement strategy pattern for varying behaviors
+Use the conservative profile by default:
 
-### Database Operations
-- Use SQLAlchemy ORM
-- Follow repository pattern
-- Include proper error handling
-- Use migrations for schema changes
+- Do not commit, push, pull/rebase, or run `bd dolt push/pull` unless the user or
+  active repository policy explicitly authorizes it.
+- At handoff, report changed files, validation performed, Beads issue status, and
+  any recommended next commands.
+- User and repository instructions take precedence over generated Beads
+  guidance.
 
-## Common Patterns
+## Project Layout
 
-### Hardware Abstraction
-```python
-class FlashBase(ABC):
-    """Base class for flash implementations."""
-    
-    @abstractmethod
-    def flash_firmware(self) -> bool:
-        """Flash firmware to device."""
-        pass
-```
+- `mpflash/cli_*.py`: Click command implementations.
+- `mpflash/flash/`: flash services, worklists, backend registry, and built-in
+  ESP, UF2, DFU, and pyOCD backends.
+- `mpflash/bootloader/`: bootloader detection, activation, and registry.
+- `mpflash/db/`: Peewee models and SQLite board/firmware database operations.
+- `mpflash/download/`: firmware discovery and download support.
+- `tests/`: unit, integration, CLI, platform, and hardware-in-the-loop tests.
 
-### Error Handling
-```python
-class MPFlashError(Exception):
-    """Base exception for MPFlash operations."""
-    pass
+## Validation
 
-def safe_operation(func: Callable) -> Callable:
-    """Decorator for safe operations with proper error handling."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except MPFlashError as e:
-            log.error(f"Operation failed: {e}")
-            return None
-    return wrapper
-```
+- Run the smallest relevant test selection first:
+  `uv run pytest tests/path/test_file.py`.
+- The configured default test run excludes tests marked `slow`.
+- Hardware tests require physical devices and must not be treated as ordinary
+  unit tests.
+- For broad changes, run `uv run pytest`.
+- Respect the Ruff and Pyright settings in `pyproject.toml`; do not substitute
+  different style or type-checking defaults.
 
-### Configuration Management
-```python
-@dataclass
-class Config:
-    """Configuration dataclass with type hints."""
-    firmware_dir: Path
-    log_level: str = "INFO"
-    timeout: float = 30.0
-```
+## Instruction Scope
 
-## Testing Conventions
+Additional path-specific guidance lives in `.github/instructions/`:
 
-### Test Structure
-- Place tests in `tests/` directory
-- Match test file names with implementation files
-- Use pytest fixtures for setup
-- Include unit, integration, and end-to-end tests
-
-### Example Test Pattern
-```python
-def test_flash_firmware(mock_board, temp_firmware):
-    """Test firmware flashing with mocked board."""
-    result = flash_firmware(
-        port=mock_board.port,
-        firmware_path=temp_firmware
-    )
-    assert result is True
-```
-
-## Performance Considerations
-
-### Lazy Loading
-```python
-class LazyLoader:
-    """Lazy loading pattern for expensive imports."""
-    def __init__(self):
-        self._module = None
-
-    @property
-    def module(self):
-        if self._module is None:
-            import expensive_module
-            self._module = expensive_module
-        return self._module
-```
-
-### Caching
-```python
-@lru_cache(maxsize=100)
-def get_board_info(board_id: str) -> dict:
-    """Cached board information retrieval."""
-    # Implementation
-```
-
-## Security Patterns
-
-### Input Validation
-```python
-def validate_input(value: str, pattern: str) -> bool:
-    """Validate input against security pattern."""
-    import re
-    return bool(re.match(pattern, value))
-```
-
-### Safe File Operations
-```python
-def safe_file_operation(path: Path) -> None:
-    """Safe file operation pattern."""
-    if not path.suffix in {'.bin', '.uf2', '.hex'}:
-        raise SecurityError("Invalid file type")
-    # Implementation
-```
-
-## Database Update Process
-
-When working with the board database:
-- Use `gather_boards.py` for updating board definitions
-- Package updates in `micropython_boards.zip`
-- Follow the repository pattern for database operations
-- Maintain proper versioning and migrations
-
-## Bootloader Operations
-
-When implementing bootloader-related code:
-- Use the BootloaderManager class
-- Implement proper error handling
-- Follow the strategy pattern for different bootloader types
-- Include timeout mechanisms
-
-Remember to maintain consistency with these patterns when suggesting code completions and implementations.
+- Python implementation guidance applies to `mpflash/**/*.py`.
+- Test guidance applies to `tests/**/*.py`.
