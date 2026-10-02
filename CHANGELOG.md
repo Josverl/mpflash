@@ -4,6 +4,13 @@ All notable changes to mpflash are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Require the mpremote v1.30 preview and use its state-preserving default.
+  `MPRemoteBoard.run_command` now accepts `soft_reset=True` when a clean
+  interpreter is required. The old `resume=` keyword remains temporarily
+  supported with a `DeprecationWarning`.
+
 ### Added
 
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
@@ -176,4 +183,3 @@ breaking changes. Legacy worklist functions were **removed**.
 
 - Restructured `mpboard_id` to use a SQLite database to identify more boards and variants.
 - Vendored and adapted `board_database.py` from mpflash — kudos @mattytrentini.
-

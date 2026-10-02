@@ -63,7 +63,10 @@ def test_mpflash_list_reset_family_specific_commands(mocker: MockerFixture):
     result = runner.invoke(cli_main.cli, ["list", "--no-progress", "--reset"], standalone_mode=True)
 
     assert result.exit_code == 0
-    cp.run_command.assert_called_once()
+    cp.run_command.assert_called_once_with(
+        ["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"],
+        soft_reset=True,
+    )
     unknown.run_command.assert_not_called()
     mpy.run_command.assert_called_once_with("reset")
 

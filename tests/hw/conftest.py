@@ -1,8 +1,10 @@
 """Shared fixtures and markers for hardware-in-the-loop flash backend tests.
 
-Each marker (``hw_uf2``, ``hw_dfu``, ``hw_esptool``, ``hw_pyocd``) skips
+Each marker (``hw_mpremote``, ``hw_uf2``, ``hw_dfu``, ``hw_esptool``,
+``hw_pyocd``) skips
 unless its corresponding environment variable points at the connected board:
 
+* ``MPFLASH_HW_MPREMOTE_PORT`` — serial port of any supported board.
 * ``MPFLASH_HW_UF2_PORT`` — serial port / volume of an RP2 or SAMD board.
 * ``MPFLASH_HW_DFU_PORT`` — serial port of an STM32 board in DFU mode.
 * ``MPFLASH_HW_ESP_PORT`` — serial port of an ESP32 / ESP8266 board.
@@ -44,6 +46,14 @@ def _env_fw(name: str) -> Optional[Path]:
 
 
 @pytest.fixture
+def hw_mpremote_port() -> str:
+    port = _env_port("MPFLASH_HW_MPREMOTE_PORT")
+    if not port:
+        pytest.skip("Set MPFLASH_HW_MPREMOTE_PORT to run mpremote hardware tests")
+    return port
+
+
+@pytest.fixture
 def hw_uf2_port() -> str:
     port = _env_port("MPFLASH_HW_UF2_PORT")
     if not port:
@@ -56,7 +66,7 @@ def hw_uf2_firmware() -> Path:
     fw = _env_fw("MPFLASH_HW_UF2_FW")
     if fw is None:
         pytest.skip("Set MPFLASH_HW_UF2_FW to a .uf2 firmware file")
-    
+
     return fw
 
 
@@ -121,9 +131,7 @@ def hw_pyocd_probe() -> Optional[str]:
 def hw_pyocd_port() -> str:
     port = _env_port("MPFLASH_HW_PYOCD_PORT")
     if not port:
-        pytest.skip(
-            "Set MPFLASH_HW_PYOCD_PORT to run pyOCD hardware tests"
-        )
+        pytest.skip("Set MPFLASH_HW_PYOCD_PORT to run pyOCD hardware tests")
     return port
 
 
@@ -145,6 +153,7 @@ def hw_board(request):
     from mpflash.mpremoteboard import MPRemoteBoard
 
     marker_to_fixture = {
+        "hw_mpremote": "hw_mpremote_port",
         "hw_uf2": "hw_uf2_port",
         "hw_dfu": "hw_dfu_port",
         "hw_esptool": "hw_esp_port",

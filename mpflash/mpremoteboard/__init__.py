@@ -4,9 +4,11 @@ Module to run mpremote commands, and retry on failure or timeout
 
 import ast
 import contextlib
+import inspect
 import re
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -35,6 +37,43 @@ ON_WSL2 = bool(sys.platform == "linux" and Path("/proc/version").exists() and "m
 
 DEFAULT_TIMEOUT = 4 if ON_WSL2 else 2
 ###############################################################################################
+
+
+class _UnsetType:
+    pass
+
+
+_UNSET = _UnsetType()
+
+
+def _resolve_soft_reset(
+    *,
+    soft_reset: Union[bool, _UnsetType],
+    resume: Union[bool, None, _UnsetType],
+    default: bool,
+) -> bool:
+    if not isinstance(resume, _UnsetType):
+        if not isinstance(soft_reset, _UnsetType):
+            raise TypeError("soft_reset and deprecated resume cannot be used together")
+        frame = inspect.currentframe()
+        stacklevel = 1
+        while frame is not None:
+            frame = frame.f_back
+            stacklevel += 1
+            if frame is None:
+                break
+            module_name = frame.f_globals.get("__name__", "")
+            if module_name != __name__ and not module_name.startswith("tenacity"):
+                break
+        warnings.warn(
+            "resume is deprecated; use soft_reset instead",
+            DeprecationWarning,
+            stacklevel=stacklevel,
+        )
+        return False if resume is None else not resume
+    if isinstance(soft_reset, _UnsetType):
+        return default
+    return soft_reset
 
 
 class MPRemoteBoard:
@@ -185,25 +224,33 @@ class MPRemoteBoard:
         return sorted(output)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT, *, log_errors: bool = True, resume: Optional[bool] = False):
+    def get_mcu_info(
+        self,
+        timeout: int = DEFAULT_TIMEOUT,
+        *,
+        log_errors: bool = True,
+        soft_reset: Union[bool, _UnsetType] = _UNSET,
+        resume: Union[bool, None, _UnsetType] = _UNSET,
+    ):
         """
         Get MCU information from the connected board.
 
         Parameters:
         - timeout (int): The timeout value in seconds. Default is 2.
         - log_errors (bool): Whether to log command stderr/error output.
-        - resume (Optional[bool]): Pass through to run_command. Default False resets the
-          board for a clean probe; use True when polling so the board is not reset each time.
+        - soft_reset (bool): Reset the interpreter before probing. Default True.
+        - resume (Optional[bool]): Deprecated compatibility option. Use soft_reset instead.
 
         Raises:
         - ConnectionError: If failed to get mcu_info for the serial port.
         """
 
+        resolved_soft_reset = _resolve_soft_reset(soft_reset=soft_reset, resume=resume, default=True)
         rc, result = self.run_command(
             ["run", str(HERE / "mpy_fw_info.py")],
             no_info=True,
             timeout=timeout,
-            resume=resume,
+            soft_reset=resolved_soft_reset,
             log_errors=log_errors,
         )
         if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
@@ -232,9 +279,7 @@ class MPRemoteBoard:
             self.version = info["version"]
             self.build = info["build"]
             self.sys_platform = info.get("sys_platform", info["port"])
-            self.port = (
-                best_matching_port(info["port"], self.family) or info["port"]
-            )
+            self.port = best_matching_port(info["port"], self.family) or info["port"]
             self.cpu = info["cpu"]
             self.arch = info["arch"]
             self.mpy = info["mpy"]
@@ -284,7 +329,7 @@ class MPRemoteBoard:
                 no_info=True,
                 timeout=timeout,
                 log_errors=False,
-                resume=False,
+                soft_reset=True,
             )
         except Exception as e:
             raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
@@ -365,7 +410,8 @@ class MPRemoteBoard:
         log_errors: bool = True,
         no_info: bool = False,
         timeout: int = 60,
-        resume: Optional[bool] = None,
+        soft_reset: Union[bool, _UnsetType] = _UNSET,
+        resume: Union[bool, None, _UnsetType] = _UNSET,
         **kwargs,
     ):
         """
@@ -376,6 +422,8 @@ class MPRemoteBoard:
         - log_errors (bool): Whether to log errors. Default is True.
         - no_info (bool): Whether to skip printing info. Default is False.
         - timeout (int): The timeout value in seconds. Default is 60.
+        - soft_reset (bool): Reset the interpreter before running the command. Default False.
+        - resume (Optional[bool]): Deprecated compatibility option. Use soft_reset instead.
 
         Returns:
         - bool: True if the command succeeded, False otherwise.
@@ -385,14 +433,8 @@ class MPRemoteBoard:
         prefix = [sys.executable, "-m", "mpremote"]
         if self.serialport:
             prefix += ["connect", self.serialport]
-        # Add `resume` to avoid mpremote's implicit soft-reset of the board:
-        # explicit resume=True/False always wins; otherwise default to resuming so the
-        # board keeps its state and is not reset between commands. A reset forces a slow
-        # USB re-attach on WSL2 and is disruptive (but harmless to skip) on other platforms.
-        if resume is None:
-            resume = True
-        if resume:
-            prefix += ["resume"]
+        if _resolve_soft_reset(soft_reset=soft_reset, resume=resume, default=False):
+            prefix += ["soft-reset"]
         cmd = prefix + cmd
         log.trace(" ".join(cmd))
         result = run(cmd, timeout, log_errors, no_info, **kwargs)
@@ -422,8 +464,7 @@ class MPRemoteBoard:
         for _ in range(timeout):
             time.sleep(1)
             with contextlib.suppress(ConnectionError, MPFlashError):
-                # resume=True so polling does not reset the board on every probe
-                probe(self, log_errors=False, resume=True)
+                probe(self, log_errors=False, soft_reset=False)
                 return True
         return False
 

@@ -101,32 +101,58 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     # if port specified should start with connectbut not otherwise
     assert ("connect" in m_run.mock_calls[0].args[0]) == (port != "")
     assert (port in m_run.mock_calls[0].args[0]) == (port != "")
-    # resume is on by default to avoid an unnecessary soft-reset of the board
-    assert "resume" in m_run.mock_calls[0].args[0]
-
-    # run another command, and check for resume
-    result = mprb.run_command(command)  # type: ignore
-    assert "resume" in m_run.mock_calls[1].args[0]
-
-
-@pytest.mark.parametrize("resume", [None, True])
-def test_mpremoteboard_run_resume_default(resume, mocker: MockerFixture):
-    """A fresh (unconnected) board should use `resume` by default to avoid a soft-reset."""
-    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
-
-    mprb = MPRemoteBoard("COM20")
-    assert not mprb.connected
-    mprb.run_command(["exec", "import createstubs_db"], resume=resume)
-    assert "resume" in m_run.mock_calls[0].args[0]
-
-
-def test_mpremoteboard_run_resume_false(mocker: MockerFixture):
-    """An explicit resume=False must suppress `resume` so the board is soft-reset."""
-    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
-
-    mprb = MPRemoteBoard("COM20")
-    mprb.run_command(["run", "mpy_fw_info.py"], resume=False)
     assert "resume" not in m_run.mock_calls[0].args[0]
+    assert "soft-reset" not in m_run.mock_calls[0].args[0]
+
+    # Subsequent commands also preserve interpreter state by default.
+    result = mprb.run_command(command)  # type: ignore
+    assert "resume" not in m_run.mock_calls[1].args[0]
+    assert "soft-reset" not in m_run.mock_calls[1].args[0]
+
+
+def test_mpremoteboard_run_soft_reset(mocker: MockerFixture):
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    mprb = MPRemoteBoard("COM20")
+    mprb.run_command(["exec", "import createstubs_db"], soft_reset=True)
+
+    assert m_run.call_args.args[0] == [
+        sys.executable,
+        "-m",
+        "mpremote",
+        "connect",
+        "COM20",
+        "soft-reset",
+        "exec",
+        "import createstubs_db",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("resume", "expects_soft_reset"),
+    [(None, False), (True, False), (False, True)],
+)
+def test_mpremoteboard_run_deprecated_resume(resume, expects_soft_reset, mocker: MockerFixture):
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    mprb = MPRemoteBoard("COM20")
+    with pytest.warns(DeprecationWarning, match="resume is deprecated") as warning:
+        mprb.run_command(["run", "mpy_fw_info.py"], resume=resume)
+
+    command = m_run.call_args.args[0]
+    assert ("soft-reset" in command) is expects_soft_reset
+    assert "resume" not in command
+    assert warning[0].filename == __file__
+
+
+@pytest.mark.parametrize("soft_reset", [False, True])
+def test_mpremoteboard_run_rejects_both_reset_interfaces(soft_reset, mocker: MockerFixture):
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    with pytest.raises(TypeError, match="cannot be used together"):
+        MPRemoteBoard("COM20").run_command(["exec", "pass"], soft_reset=soft_reset, resume=True)
+
+    m_run.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -184,6 +210,7 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     result = mprb.get_mcu_info()  # type: ignore
 
     assert m_run.called
+    assert "soft-reset" in m_run.call_args_list[0].args[0]
 
     assert mprb.family == "micropython"
     assert mprb.version == "1.23.0-preview"
@@ -196,6 +223,35 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.description == "Generic ESP32 module with ESP32"
     assert mprb.board == "ESP32_GENERIC"
     assert mprb.variant == ""
+
+
+@pytest.mark.parametrize(
+    ("resume", "expected_soft_reset"),
+    [(None, False), (True, False), (False, True)],
+)
+def test_get_mcu_info_deprecated_resume(resume, expected_soft_reset, mocker: MockerFixture):
+    output = [
+        "{'port': 'esp32', 'build': '', 'arch': 'xtensa', 'family': 'micropython', "
+        "'board': 'ESP32_GENERIC', 'cpu': 'ESP32', 'version': '1.30.0-preview', "
+        "'mpy': 'v6.3', 'description': 'Generic ESP32'}"
+    ]
+    run_command = mocker.patch.object(MPRemoteBoard, "run_command", return_value=(OK, output))
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml")
+
+    with pytest.warns(DeprecationWarning, match="resume is deprecated"):
+        MPRemoteBoard("COM20").get_mcu_info(resume=resume)
+
+    assert run_command.call_args.kwargs["soft_reset"] is expected_soft_reset
+    assert "resume" not in run_command.call_args.kwargs
+
+
+def test_get_mcu_info_rejects_both_reset_interfaces(mocker: MockerFixture):
+    run_command = mocker.patch.object(MPRemoteBoard, "run_command")
+
+    with pytest.raises(TypeError, match="cannot be used together"):
+        MPRemoteBoard("COM20").get_mcu_info(soft_reset=False, resume=True)
+
+    run_command.assert_not_called()
 
 
 def test_mpremoteboard_info_resolves_reported_port(mocker: MockerFixture, session_fx):
@@ -357,7 +413,7 @@ def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
     assert m_get.call_args_list[0].kwargs.get("log_errors") is False
     assert m_get.call_args_list[1].kwargs.get("log_errors") is False
     # polling must not reset the board on every probe
-    assert m_get.call_args_list[0].kwargs.get("resume") is True
+    assert m_get.call_args_list[0].kwargs.get("soft_reset") is False
     assert restarted is True
 
 
@@ -389,7 +445,7 @@ def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixt
 
     assert mprb.connected is True
     assert mprb.toml == {}
-    assert m_run.call_args.kwargs.get("resume") is False
+    assert m_run.call_args.kwargs.get("soft_reset") is True
 
 
 def test_mpy_fw_info_keeps_description(monkeypatch):

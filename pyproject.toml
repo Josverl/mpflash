@@ -39,7 +39,7 @@ dependencies = [
     "jsons>=1.6.3",
     "pywin32>=310; sys_platform == 'win32'",
     "loguru>=0.7.2",
-    "mpremote>=1.22.0",
+    "mpremote>=1.30.0rc0.post101,<1.31",
     "packaging>=24.2",
     "platformdirs>=4.2.0",
     "psutil>=7.0.0,<8.0.0",
@@ -160,6 +160,7 @@ markers = [
     "darwin: run test only on Mac",
     # Hardware-in-the-loop markers — see tests/hw/conftest.py.
     "hardware: hardware-in-the-loop tests (require physical board)",
+    "hw_mpremote: requires a serial MicroPython or CircuitPython board attached",
     "hw_uf2: requires a UF2-capable board attached",
     "hw_dfu: requires an STM32 board in DFU mode attached",
     "hw_esptool: requires an ESP32/ESP8266 board attached",
@@ -294,6 +295,9 @@ line-ending = "auto"
 [tool.ruff.lint]
 exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
 ignore = ["F821"]
+
+[tool.uv]
+prerelease = "allow"
 
 [dependency-groups]
 dev = [

@@ -21,7 +21,7 @@ pytestmark = pytest.mark.hardware
 
 def _listdir(mcu: MPRemoteBoard) -> str:
     """Return the current working directory listing reported by the board."""
-    rc, out = mcu.run_command(["exec", "import os; print(os.listdir())"], resume=False)
+    rc, out = mcu.run_command(["exec", "import os; print(os.listdir())"], soft_reset=True)
     for line in out:
         stripped = line.strip()
         if stripped.startswith("[") and stripped.endswith("]"):
@@ -39,7 +39,7 @@ def test_erase_filesystem_wipes_and_reconnects(hw_uf2_port, mpflash_db):
     # Seed a marker file on the board filesystem (in the current directory).
     mcu.run_command(
         ["exec", "f=open('hil_marker.txt','w'); f.write('erase me'); f.close()"],
-        resume=False,
+        soft_reset=True,
     )
     before = _listdir(mcu)
     assert "hil_marker.txt" in before, f"seed file missing before erase: {before}"
