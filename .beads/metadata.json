@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "mpflash",
+  "project_id": "4974c36b-a783-42b7-aa69-3919dddb7d71"
+}
