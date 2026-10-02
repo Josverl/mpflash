@@ -18,6 +18,13 @@ All notable changes to mpflash are documented in this file.
   activation and USB identity-change wait that could block ESP32-C5
   flashing before esptool ran, even with `--bootloader none`.
 
+### Changed
+
+- Require the mpremote v1.30 preview and use its state-preserving default.
+  `MPRemoteBoard.run_command` now accepts `soft_reset=True` when a clean
+  interpreter is required. The old `resume=` keyword remains temporarily
+  supported with a `DeprecationWarning`.
+
 ### Added
 
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can

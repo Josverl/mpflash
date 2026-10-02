@@ -204,6 +204,7 @@ def test_format_filesystem_success(mocker):
     cmd = m_run.call_args.args[0]
     assert cmd[0] == "run"
     assert cmd[1].endswith("format_bdev.py")
+    assert m_run.call_args.kwargs["soft_reset"] is True
 
 
 def test_format_filesystem_device_error_raises(mocker):

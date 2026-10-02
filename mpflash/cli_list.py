@@ -114,7 +114,10 @@ def cli_list_mcus(
             # reset the board so it can continue to whatever it was running before
             if mcu.family == "circuitpython":
                 # CircuitPython boards need a special reset command
-                mcu.run_command(["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"], resume=False)
+                mcu.run_command(
+                    ["exec", "--no-follow", "import microcontroller,time;time.sleep(0.01);microcontroller.reset()"],
+                    soft_reset=True,
+                )
             elif mcu.family == "unknown":
                 continue
             else:
