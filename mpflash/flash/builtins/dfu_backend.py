@@ -22,9 +22,7 @@ class DFUBackend(FlashBackend):
     name = "dfu"
     supported_ports = frozenset({"stm32"})
     supported_formats = (".dfu", ".bin")
-    supported_platforms = frozenset(
-        {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-    )
+    supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
     requires_bootloader = True
     priority = 10
 
@@ -32,6 +30,7 @@ class DFUBackend(FlashBackend):
 
     def is_board_ready(self, mcu: "MPRemoteBoard") -> bool:
         import time
+
         if _is_windows():
             driver_installed, status = _check_for_stm32_bootloader_device()
             if not driver_installed:
@@ -39,10 +38,7 @@ class DFUBackend(FlashBackend):
                 return False
             if status != "OK":
                 log.warning(f"STM32 BOOTLOADER device found, Device status: {status}")
-                log.error(
-                    "Please use Zadig to install a WinUSB (libusb)  driver.\n"
-                    "https://github.com/pbatard/libwdi/wiki/Zadig"
-                )
+                log.error("Please use Zadig to install a WinUSB (libusb)  driver.\nhttps://github.com/pbatard/libwdi/wiki/Zadig")
                 return False
         # Poll for DFU device for up to 3 seconds
         max_wait = 3.0
@@ -67,10 +63,7 @@ class DFUBackend(FlashBackend):
             return FlashResult(
                 success=False,
                 backend=self.name,
-                message=(
-                    f"Failed to enter bootloader for {ctx.mcu.board} on "
-                    f"{ctx.mcu.serialport}"
-                ),
+                message=(f"Failed to enter bootloader for {ctx.mcu.board} on {ctx.mcu.serialport}"),
             )
 
         updated = flash_stm32(ctx.mcu, ctx.fw_file, erase=ctx.erase)

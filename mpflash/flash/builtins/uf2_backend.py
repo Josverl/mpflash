@@ -26,9 +26,7 @@ class UF2Backend(FlashBackend):
     name = "uf2"
     supported_ports = frozenset({"rp2", "samd", "nrf"})
     supported_formats = (".uf2",)
-    supported_platforms = frozenset(
-        {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-    )
+    supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
     requires_bootloader = True
     priority = 10
 
@@ -74,10 +72,7 @@ class UF2Backend(FlashBackend):
             return FlashResult(
                 success=False,
                 backend=self.name,
-                message=(
-                    f"Failed to enter bootloader for {ctx.mcu.board} on "
-                    f"{ctx.mcu.serialport}"
-                ),
+                message=(f"Failed to enter bootloader for {ctx.mcu.board} on {ctx.mcu.serialport}"),
             )
 
         updated = flash_uf2(ctx.mcu, fw_file=ctx.fw_file)
