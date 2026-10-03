@@ -82,6 +82,9 @@ pyocd = [
     # TODO: remove the libusb-package pin when 3.14 wheels are available for libusb
     "libusb-package==1.0.26.1; python_version >= '3.14'",
 ]
+nrf = [
+    "adafruit-nrfutil==0.5.3.post16",
+]
 build = [
     "mpbuild>=1.0.0; python_version >= '3.12'",
     "mpbuild>=0.5.0,<1.0.0; python_version < '3.12'",  # Keep 0.5.x fallback for older Pythons

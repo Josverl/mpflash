@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "s140-6.1.1": {
+      "application_end": 737280,
+      "application_start": 155648,
+      "bootloader_version": "0.11.0",
+      "source_bootloader_versions": [
+        "0.6.0",
+        "0.11.0"
+      ],
+      "board_id": "nRF52840-nicenano",
+      "dfu": {
+        "bl_size": 39000,
+        "device_revision": 52840,
+        "device_type": 82,
+        "dfu_version": 0.5,
+        "sd_size": 151016,
+        "softdevice_req": [
+          65534
+        ]
+      },
+      "mcu": "nrf52840",
+      "package": "nice_nano_bootloader-0.11.0_s140_6.1.1.zip",
+      "package_size": 190874,
+      "sha256": "892b912af30b5b16b23dae383550c468c9fbd24e0312050b9d075b9f155473e8",
+      "softdevice": "S140 6.1.1",
+      "source": "https://github.com/adafruit/Adafruit_nRF52_Bootloader/releases/download/0.11.0/nice_nano_bootloader-0.11.0_s140_6.1.1.zip",
+      "uf2_family_id": 2913282112,
+      "usb_pid": 179,
+      "usb_vid": 9114,
+      "volume_label": "NICENANO"
+    },
+    "s140-7.3.0": {
+      "application_end": 737280,
+      "application_start": 159744,
+      "bootloader_version": "1.0.0",
+      "source_bootloader_versions": [
+        "1.0.0"
+      ],
+      "board_id": "nRF52840-SuperMini-v0",
+      "dfu": {
+        "bl_size": 39000,
+        "device_revision": 52840,
+        "device_type": 82,
+        "dfu_version": 0.5,
+        "sd_size": 152728,
+        "softdevice_req": [
+          65534
+        ]
+      },
+      "mcu": "nrf52840",
+      "package": "SuperMini_nRF52840_bootloader-1.0.0_s140_7.3.0.zip",
+      "package_size": 192586,
+      "sha256": "54bcde643caf7fd567275ed89405d3373cc61e33219985e66ebc6f11d225b22d",
+      "softdevice": "S140 7.3.0",
+      "source": "https://github.com/pdcook/nRFMicro-Arduino-Core/blob/2026077de21b520723ec4033f5fdc748b6dd3be8/bootloader/SuperMini_nRF52840/SuperMini_nRF52840_bootloader-1.0.0_s140_7.3.0.zip",
+      "uf2_family_id": 2913282112,
+      "usb_pid": 21124,
+      "usb_vid": 4617,
+      "volume_label": "SUPERMINI"
+    }
+  }
+}

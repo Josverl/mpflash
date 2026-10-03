@@ -47,6 +47,7 @@ src/mpflash/coverag*
 
 # no profile data or logs
 profile*.*
+!mpflash/flash/builtins/nrf_dfu/profiles.py
 **/*.log
 firmware/
 
