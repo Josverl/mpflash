@@ -103,7 +103,6 @@ def run_backup(
     plan: BackupPlan,
     output: Path,
     *,
-    include_files: bool = False,
     now: Optional[datetime] = None,
 ) -> Path:
     """Execute ``plan`` and return the published bundle folder.
@@ -113,7 +112,7 @@ def run_backup(
     notes = list(plan.notes)
     trees: List[str] = []
     with BundleWriter(output, bundle_name(plan.device, now=now)) as writer:
-        context = BackupContext(writer=writer, include_files=include_files)
+        context = BackupContext(writer=writer)
         for provider, capability in plan.selections:
             kind = capability.component
             before = len(writer.artifacts)

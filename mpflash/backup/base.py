@@ -28,7 +28,6 @@ class BackupContext:
     """Per-backup inputs shared with every provider."""
 
     writer: "BundleWriter"
-    include_files: bool = False
 
 
 @dataclass(frozen=True)

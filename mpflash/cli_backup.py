@@ -67,13 +67,6 @@ from .logger import log
     multiple=True,
     help="Component(s) to back up. By default everything MPFlash can both read and restore on the board is included.",
 )
-@click.option(
-    "--files",
-    "include_files",
-    is_flag=True,
-    default=False,
-    help="Also store the filesystem as individual files in the backup folder (informational; restore does not use it).",
-)
 @click.pass_context
 def cli_backup_board(
     ctx: click.Context,
@@ -82,7 +75,6 @@ def cli_backup_board(
     bluetooth: bool,
     output: Path,
     components: List[str],
-    include_files: bool,
 ) -> int:
     """Back up connected MicroPython boards into validated bundle folders."""
     from .backup.models import ComponentKind
@@ -105,7 +97,7 @@ def cli_backup_board(
             plan = plan_backup(mcu, requested)
             for note in plan.notes:
                 log.warning(note)
-            created.append(run_backup(mcu, plan, output, include_files=include_files))
+            created.append(run_backup(mcu, plan, output))
         except MPFlashError as error:
             failed += 1
             log.error(f"Backup of {mcu.board} on {mcu.serialport} failed: {error}")

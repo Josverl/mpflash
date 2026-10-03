@@ -126,16 +126,6 @@ def test_add_artifact_copy_records_hash_of_copied_file(tmp_path):
     assert not artifact.restorable
 
 
-def test_files_tree_is_recorded_when_requested(tmp_path):
-    with BundleWriter(tmp_path, "bundle") as writer:
-        (writer.files_dir() / "main.py").write_text("x", encoding="utf-8")
-        writer.add_artifact_bytes("vfs.zip", b"hello", **VFS)
-        root = writer.commit(DEVICE)
-
-    assert read_bundle(root).manifest.files_tree == "files"
-    assert (root / "files" / "main.py").exists()
-
-
 def test_reader_rejects_incomplete_folder_name(tmp_path):
     folder = tmp_path / f"bundle{INCOMPLETE_SUFFIX}"
     folder.mkdir()
