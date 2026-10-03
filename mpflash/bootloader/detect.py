@@ -18,9 +18,7 @@ if TYPE_CHECKING:
     from mpflash.flash.base import FlashBackend
 
 
-def in_bootloader(
-    mcu: MPRemoteBoard, *, backend: Optional["FlashBackend"] = None
-) -> bool:
+def in_bootloader(mcu: MPRemoteBoard, *, backend: Optional["FlashBackend"] = None) -> bool:
     """Return ``True`` when ``mcu`` is in a state the backend can flash.
 
     If ``backend`` is omitted, the flash registry is consulted for a backend
@@ -28,18 +26,14 @@ def in_bootloader(
     they short-circuit to ``True``.
     """
     if mcu.port in {"esp32", "esp8266"}:
-        log.debug(
-            "esp32/esp8266 does not have a bootloader mode, Assume OK to flash"
-        )
+        log.debug("esp32/esp8266 does not have a bootloader mode, Assume OK to flash")
         return True
 
     if backend is None:
         backend = backend_for_port(mcu.port)
 
     if backend is None:
-        log.error(
-            f"Bootloader mode not supported on {mcu.board} on {mcu.serialport}"
-        )
+        log.error(f"Bootloader mode not supported on {mcu.board} on {mcu.serialport}")
         return False
 
     return bool(backend.is_board_ready(mcu))
@@ -57,14 +51,10 @@ def backend_for_port(port: str) -> Optional["FlashBackend"]:
     # JIT import — the flash registry pulls in the built-in backends.
     from mpflash.flash.registry import get_backends
 
-    candidates = [
-        b for b in get_backends() if not b.supported_ports or port in b.supported_ports
-    ]
+    candidates = [b for b in get_backends() if not b.supported_ports or port in b.supported_ports]
     if not candidates:
         return None
     # Prefer bootloader-requiring backends with the highest priority — those
     # are the ones that actually have a meaningful readiness probe.
-    candidates.sort(
-        key=lambda b: (b.requires_bootloader, b.priority), reverse=True
-    )
+    candidates.sort(key=lambda b: (b.requires_bootloader, b.priority), reverse=True)
     return candidates[0]

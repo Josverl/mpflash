@@ -59,14 +59,10 @@ def enter_bootloader(
     preferred = list(backend.get_preferred_bootloaders(mcu)) if backend else []
     method_list = resolve_methods(method.value, preferred)
     if not method_list:
-        log.debug(
-            f"No bootloader activators resolved for {mcu.port} (method={method.value})"
-        )
+        log.debug(f"No bootloader activators resolved for {mcu.port} (method={method.value})")
         return True
 
-    log.info(
-        f"Entering bootloader on {mcu.serialport} using methods {method_list}"
-    )
+    log.info(f"Entering bootloader on {mcu.serialport} using methods {method_list}")
 
     result = False
     for name in method_list:
@@ -77,9 +73,7 @@ def enter_bootloader(
         try:
             result = bool(activator.activate(mcu, timeout=timeout))
         except MPFlashError as e:
-            log.warning(
-                f"Failed to enter bootloader on {mcu.serialport} using {name}"
-            )
+            log.warning(f"Failed to enter bootloader on {mcu.serialport} using {name}")
             log.exception(e)
             result = False
         if not result:
@@ -103,16 +97,10 @@ def enter_bootloader(
                 # volume extra time to mount and confirm it is actually there
                 # before reporting success — otherwise the flash backend will
                 # abort with "Board is not in bootloader mode".
-                log.debug(
-                    f"Serial port {serialport} disappeared after {name}; "
-                    "waiting for the UF2 drive to mount"
-                )
+                log.debug(f"Serial port {serialport} disappeared after {name}; waiting for the UF2 drive to mount")
                 if in_bootloader(mcu, backend=backend):
                     return True
-                log.warning(
-                    f"{serialport} reset into bootloader but the UF2 drive "
-                    "was not detected"
-                )
+                log.warning(f"{serialport} reset into bootloader but the UF2 drive was not detected")
                 continue
 
     return False

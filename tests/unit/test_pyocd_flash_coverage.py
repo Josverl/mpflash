@@ -393,9 +393,7 @@ class TestDetectTargetAndContext:
 
     def test_context_manager(self):
         probe = PyOCDProbe("ID", "desc")
-        with patch.object(probe, "connect") as mock_connect, patch.object(
-            probe, "disconnect"
-        ) as mock_disconnect:
+        with patch.object(probe, "connect") as mock_connect, patch.object(probe, "disconnect") as mock_disconnect:
             with probe as ctx:
                 assert ctx is probe
             mock_connect.assert_called_once()

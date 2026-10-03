@@ -266,10 +266,7 @@ class TestPyOCDProbeIntegration:
 
         assert probe.connect(target_type="r7fa4m1ab", frequency=1_000_000) is True
         successful_session.open.assert_called_once()
-        connect_modes = [
-            call.kwargs["options"].get("connect_mode")
-            for call in mock_helper.session_with_chosen_probe.call_args_list
-        ]
+        connect_modes = [call.kwargs["options"].get("connect_mode") for call in mock_helper.session_with_chosen_probe.call_args_list]
         assert connect_modes[:2] == ["under-reset", "halt"]
 
 
@@ -313,9 +310,7 @@ class TestPyOCDFlash:
     @patch("mpflash.flash.builtins.pyocd.flash.get_unsupported_reason")
     @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
     @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
-    def test_pyocd_flash_init_unsupported_target(
-        self, mock_detect, mock_available, mock_reason, mock_find_probe
-    ):
+    def test_pyocd_flash_init_unsupported_target(self, mock_detect, mock_available, mock_reason, mock_find_probe):
         """Test PyOCDFlash initialization with unsupported target."""
         mock_available.return_value = True
         mock_detect.return_value = None  # No target found
@@ -388,9 +383,7 @@ class TestPyOCDFlash:
     @patch("mpflash.flash.builtins.pyocd.flash.find_pyocd_probe")
     @patch("mpflash.flash.builtins.pyocd.flash.is_pyocd_available")
     @patch("mpflash.flash.builtins.pyocd.flash.detect_pyocd_target")
-    def test_flash_firmware_ra4m1_uses_halt_connect_mode(
-        self, mock_detect, mock_available, mock_find_probe
-    ):
+    def test_flash_firmware_ra4m1_uses_halt_connect_mode(self, mock_detect, mock_available, mock_find_probe):
         """Test RA4M1 flashing uses the pyOCD load default connect mode."""
         mock_available.return_value = True
         mock_detect.return_value = "r7fa4m1ab"

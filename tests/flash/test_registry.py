@@ -84,16 +84,12 @@ def test_explicit_pyocd_method_routes_to_pyocd(tmp_path: Path, monkeypatch):
         "mpflash.flash.builtins.pyocd_backend.PyOCDBackend.is_available",
         lambda self: True,
     )
-    monkeypatch.setattr(
-        "mpflash.flash.builtins.pyocd.core.is_pyocd_supported", lambda mcu: True
-    )
+    monkeypatch.setattr("mpflash.flash.builtins.pyocd.core.is_pyocd_supported", lambda mcu: True)
     backend = select_backend(mcu, fw, requested_name="pyocd")
     assert backend.name == "pyocd"
 
 
-def test_flash_mcu_pyocd_target_override_bypasses_target_lookup(
-    tmp_path: Path, monkeypatch
-):
+def test_flash_mcu_pyocd_target_override_bypasses_target_lookup(tmp_path: Path, monkeypatch):
     """Explicit target override should not require metadata-based pyOCD support."""
     mcu = _fake_mcu(port="rp2", board_id="RPI_PICO", cpu="RP2040")
     fw = tmp_path / "firmware.elf"
@@ -102,9 +98,7 @@ def test_flash_mcu_pyocd_target_override_bypasses_target_lookup(
     class _Backend:
         name = "pyocd"
         supported_formats = (".bin", ".hex", ".elf", ".axf")
-        supported_platforms = frozenset(
-            {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-        )
+        supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
 
         def is_available(self):
             return True
@@ -158,9 +152,7 @@ class _ToyBackend(FlashBackend):
     name = "toy"
     supported_ports = frozenset({"toy"})
     supported_formats = (".toy",)
-    supported_platforms = frozenset(
-        {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-    )
+    supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
     priority = 50
 
     def flash(self, ctx: FlashContext) -> FlashResult:

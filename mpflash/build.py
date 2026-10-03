@@ -235,7 +235,7 @@ class BuildManager:
     def clean(self, board: str) -> None:
         """Clean a board build directory using mpbuild clean."""
         from mpbuild.build import clean_board  # type: ignore
-        from mpbuild.find_boards import find_mpy_root # type: ignore
+        from mpbuild.find_boards import find_mpy_root  # type: ignore
 
         self._ensure_mpbuild_available()
         self._check_docker_available()

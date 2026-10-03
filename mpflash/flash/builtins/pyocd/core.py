@@ -361,10 +361,7 @@ def get_pyocd_targets() -> Dict[str, Dict[str, str]]:
             if subprocess_targets:
                 added = len([k for k in subprocess_targets if k not in targets])
                 targets.update(subprocess_targets)
-                log.debug(
-                    f"Merged {len(subprocess_targets)} subprocess targets "
-                    f"({added} new, {len(subprocess_targets) - added} updated)"
-                )
+                log.debug(f"Merged {len(subprocess_targets)} subprocess targets ({added} new, {len(subprocess_targets) - added} updated)")
 
     except Exception as subprocess_error:
         log.debug(f"Subprocess target discovery failed: {subprocess_error}")
@@ -465,9 +462,7 @@ def fuzzy_match_target(mcu_info: Dict[str, str], pyocd_targets: Dict[str, Dict[s
             port_score = 0.2
         elif port == "samd" and "samd" in target_lower:
             port_score = 0.2
-        elif port in {"renesas-ra", "renesas"} and (
-            "r7f" in target_lower or "renesas" in vendor or "ra" in target_lower
-        ):
+        elif port in {"renesas-ra", "renesas"} and ("r7f" in target_lower or "renesas" in vendor or "ra" in target_lower):
             port_score = 0.2
         scores.append(("port", port_score))
 

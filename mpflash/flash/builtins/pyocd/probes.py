@@ -98,10 +98,7 @@ def find_debug_probe(probe_id: Optional[str] = None) -> Optional[DebugProbe]:
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:
-        raise MPFlashError(
-            f"Ambiguous probe ID '{probe_id}' matches multiple probes: "
-            f"{[p.unique_id for p in matches]}"
-        )
+        raise MPFlashError(f"Ambiguous probe ID '{probe_id}' matches multiple probes: {[p.unique_id for p in matches]}")
     return None
 
 
