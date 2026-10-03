@@ -17,7 +17,6 @@ from mpflash.errors import MPFlashError
 
 SCHEMA_VERSION = 1
 ARTIFACT_DIR = "artifacts"
-FILES_DIR = "files"
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -236,7 +235,6 @@ class Manifest:
     host: Mapping[str, str]
     device: DeviceIdentity
     artifacts: Tuple[Artifact, ...]
-    files_tree: Optional[str] = None
     schema_version: int = SCHEMA_VERSION
     complete: bool = True
     notes: Tuple[str, ...] = field(default_factory=tuple)
@@ -245,8 +243,6 @@ class Manifest:
         paths = [artifact.path for artifact in self.artifacts]
         if len(set(paths)) != len(paths):
             raise MPFlashError("Bundle manifest lists the same artifact path more than once")
-        if self.files_tree is not None:
-            validate_relative_path(self.files_tree, prefix=FILES_DIR)
 
     @property
     def components(self) -> Tuple[ComponentKind, ...]:
@@ -263,7 +259,6 @@ class Manifest:
             "host": dict(self.host),
             "device": self.device.to_dict(),
             "artifacts": [artifact.to_dict() for artifact in self.artifacts],
-            "files_tree": self.files_tree,
             "notes": list(self.notes),
         }
 
@@ -289,9 +284,6 @@ class Manifest:
             raise MPFlashError("Bundle notes must be a list of strings")
         if not all(isinstance(key, str) and isinstance(value, str) for key, value in host.items()):
             raise MPFlashError("Bundle host information must contain strings")
-        files_tree = data.get("files_tree")
-        if files_tree is not None and not isinstance(files_tree, str):
-            raise MPFlashError("Bundle files_tree must be a string or null")
         for item in artifacts:
             if not isinstance(item, Mapping):
                 raise MPFlashError("Bundle artifacts must be JSON objects")
@@ -301,7 +293,6 @@ class Manifest:
             host=dict(host),
             device=DeviceIdentity.from_dict(device),
             artifacts=tuple(Artifact.from_dict(item) for item in artifacts),
-            files_tree=files_tree,
             notes=tuple(notes),
         )
 

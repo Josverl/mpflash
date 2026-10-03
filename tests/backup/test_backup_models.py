@@ -41,7 +41,6 @@ def make_manifest_dict(**overrides) -> dict:
         "host": {"system": "Windows"},
         "device": {"port": "esp32", "board_id": "ESP32_GENERIC"},
         "artifacts": [make_artifact().to_dict()],
-        "files_tree": None,
         "notes": [],
     }
     data.update(overrides)
@@ -130,7 +129,7 @@ def test_manifest_round_trips_through_dict():
         covers=(ComponentKind.ROMFS,),
         exclusions=("eFuses",),
     )
-    manifest = Manifest.from_dict(make_manifest_dict(artifacts=[flash.to_dict(), make_artifact().to_dict()], files_tree="files"))
+    manifest = Manifest.from_dict(make_manifest_dict(artifacts=[flash.to_dict(), make_artifact().to_dict()]))
 
     assert Manifest.from_dict(manifest.to_dict()) == manifest
     assert manifest.components == (ComponentKind.FLASH, ComponentKind.VFS)
@@ -147,8 +146,6 @@ def test_manifest_round_trips_through_dict():
         ({"artifacts": [5]}, "JSON objects"),
         ({"notes": [1]}, "notes"),
         ({"host": {"system": 1}}, "host information"),
-        ({"files_tree": "elsewhere"}, "inside 'files'"),
-        ({"files_tree": 5}, "files_tree"),
         ({"created_utc": ""}, "created_utc"),
     ],
 )
