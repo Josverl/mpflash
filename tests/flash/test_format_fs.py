@@ -1,13 +1,13 @@
 """Tests for the ``--format`` filesystem reformat feature."""
 
 import ast
+import weakref
 
 import pytest
 
 from mpflash.errors import MPFlashError
 from mpflash.flash.format_fs import (
     FORMAT_SCRIPT,
-    SUPPORTED_FORMAT_PORTS,
     format_filesystem,
 )
 from mpflash.mpremoteboard import MPRemoteBoard
@@ -131,6 +131,53 @@ def test_get_bdev_falls_back_to_flashbdev(monkeypatch):
     monkeypatch.setitem(sys.modules, "flashbdev", fake)
 
     assert _load_format_bdev_namespace()["_get_bdev"]() is sentinel
+
+
+def test_main_releases_mounted_fs_before_mkfs():
+    """The old VFS object must be collected before formatting its block device."""
+    events = []
+
+    class _MountedFs:
+        def __repr__(self):
+            return "<VfsLfs2>"
+
+    mounted_fs = _MountedFs()
+    mounted_ref = weakref.ref(mounted_fs)
+
+    class _FormattingLfs2:
+        @staticmethod
+        def mkfs(bdev, **kwargs):
+            assert mounted_ref() is None
+            events.append(("mkfs", bdev, kwargs))
+
+        def __init__(self, bdev, **kwargs):
+            events.append(("init", bdev, kwargs))
+
+    class _Vfs:
+        VfsLfs2 = _FormattingLfs2
+        mounted = mounted_fs
+
+        @classmethod
+        def mount(cls, *args):
+            if args:
+                events.append(("mount", *args))
+                return None
+            return [(cls.mounted, "/")]
+
+        @classmethod
+        def umount(cls, point):
+            cls.mounted = None
+
+    del mounted_fs
+    namespace = _load_format_bdev_namespace()
+    bdev = object()
+    namespace["_vfs"] = lambda: _Vfs
+    namespace["_get_bdev"] = lambda: bdev
+
+    namespace["main"]()
+
+    assert events[0] == ("mkfs", bdev, {"progsize": 256})
+    assert events[-1][0] == "mount"
 
 
 def _fakeboard(port="rp2", serialport="COM42"):

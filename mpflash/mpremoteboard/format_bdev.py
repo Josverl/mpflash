@@ -142,6 +142,11 @@ def main():
             vfs.umount(point)
         except Exception:
             pass
+    # ESP32 must release the old VFS object before formatting its block device.
+    fs = None
+    import gc
+
+    gc.collect()
     try:
         if fs_cls is getattr(vfs, "VfsLfs2", None):
             fs_cls.mkfs(bdev, progsize=256)
