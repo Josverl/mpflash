@@ -11,6 +11,7 @@ from . import uf2_backend  # noqa: F401
 from . import dfu_backend  # noqa: F401
 from . import esptool_backend  # noqa: F401
 from . import openocd_backend  # noqa: F401
+from . import nrf_dfu_backend  # noqa: F401
 
 # pyOCD is optional — its backend module guards its own imports.
 try:

@@ -5,6 +5,7 @@ import pytest
 
 from mpflash.errors import MPFlashError
 from mpflash.flash.builtins.uf2 import nrf
+from mpflash.flash.builtins.uf2.boardid import read_uf2_board_info
 
 
 def test_build_nrf_reset_uf2_targets_invalid_uicr_bootloader_update():
@@ -216,3 +217,17 @@ def test_enrich_mounted_nrf_bootloader_does_not_guess(mocker):
 
     assert "port" not in first.__dict__
     assert "port" not in second.__dict__
+
+
+def test_read_uf2_board_info_normalizes_softdevice(tmp_path: Path):
+    (tmp_path / "INFO_UF2.TXT").write_text(
+        "UF2 Bootloader 0.6.0 lib/nrfx\nModel: nice!nano\nBoard-ID: nRF52840-nicenano\nSoftDevice: S140 version 6.1.1\n",
+        encoding="utf-8",
+    )
+
+    info = read_uf2_board_info(tmp_path)
+
+    assert info.bootloader_version == "0.6.0"
+    assert info.model == "nice!nano"
+    assert info.board_id == "nRF52840-nicenano"
+    assert info.softdevice == "S140 6.1.1"

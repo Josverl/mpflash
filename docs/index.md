@@ -6,6 +6,7 @@ This is the comprehensive documentation for MPFlash, a command-line tool and Pyt
 
 ### User Documentation
 - **[README.md](../README.md)** - Quick start guide and basic usage
+- **[nRF SoftDevice and bootloader migration](nrf-softdevice-migration.md)** - Safely replace allowlisted nRF52840 SoftDevice+bootloader profiles
 - **[User Guide](user-guide.md)** - Detailed usage instructions *(to be created)*
 - **[Installation Guide](installation.md)** - Installation instructions *(to be created)*
 
@@ -180,7 +181,7 @@ mpflash --dir ./scratch flash --board ESP32_GENERIC --serial COM3
 - ✅ **STM32** - Full support
 - ✅ **SAMD** - Full support
 - ✅ **PSOC Edge** - Full support
-- ⏳ **Nordic nRF** - Planned
+- ✅ **Nordic nRF** - Application UF2 flashing plus allowlisted offline SoftDevice/bootloader migration
 - ⏳ **CC3200** - Planned
 - ⏳ **i.MX RT** - Planned
 
@@ -221,7 +222,7 @@ MPFlash is licensed under the MIT License. See [LICENSE](../LICENSE) for details
 
 ### Medium Term (Next 6 Months)
 - [ ] GUI application
-- [ ] Nordic nRF support
+- [ ] Expand Nordic nRF board and migration-profile coverage
 - [ ] Cloud firmware storage
 - [ ] Firmware verification and signing
 

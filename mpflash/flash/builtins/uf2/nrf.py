@@ -91,7 +91,8 @@ def reset_nrf_to_application(volume: Path, timeout: int = 3) -> None:
     raise MPFlashError(f"nRF UF2 volume {volume} remained mounted after reset")
 
 
-def _bootloader_command(mcu: "MPRemoteBoard") -> str:
+def nrf_bootloader_command(mcu: "MPRemoteBoard") -> str:
+    """Return the runtime command that requests Adafruit UF2 mode."""
     if mcu.family == "circuitpython":
         return "import microcontroller;microcontroller.on_next_reset(microcontroller.RunMode.UF2);microcontroller.reset()"
     if mcu.family == "micropython":
@@ -99,10 +100,15 @@ def _bootloader_command(mcu: "MPRemoteBoard") -> str:
     raise MPFlashError(f"Cannot enter the nRF UF2 bootloader from {mcu.family or 'unknown'} firmware")
 
 
-def probe_nrf_softdevice(mcu: "MPRemoteBoard", timeout: int = 10) -> Optional[str]:
-    """Round-trip an nRF board through UF2 mode and return its SoftDevice."""
-    existing_volumes = mounted_uf2_volumes()
-    command = _bootloader_command(mcu)
+def enter_nrf_uf2_bootloader(
+    mcu: "MPRemoteBoard",
+    timeout: int = 10,
+    *,
+    existing_volumes: Optional[set[Path]] = None,
+) -> Path:
+    """Request Adafruit UF2 mode and return the one newly mounted volume."""
+    previous = mounted_uf2_volumes() if existing_volumes is None else existing_volumes
+    command = nrf_bootloader_command(mcu)
     rc, _ = mcu.run_command(
         ["exec", "--no-follow", command],
         no_info=True,
@@ -113,9 +119,15 @@ def probe_nrf_softdevice(mcu: "MPRemoteBoard", timeout: int = 10) -> Optional[st
     if rc == 0:
         log.debug(f"nRF bootloader command on {mcu.serialport} completed before disconnect")
 
-    volume = wait_for_new_volume(existing_volumes, timeout=timeout)
+    volume = wait_for_new_volume(previous, timeout=timeout)
     if volume is None:
         raise MPFlashError(f"nRF board on {mcu.serialport} did not expose a new UF2 volume")
+    return volume
+
+
+def probe_nrf_softdevice(mcu: "MPRemoteBoard", timeout: int = 10) -> Optional[str]:
+    """Round-trip an nRF board through UF2 mode and return its SoftDevice."""
+    volume = enter_nrf_uf2_bootloader(mcu, timeout=timeout)
 
     board_id = get_board_id(volume)
     softdevice = get_softdevice(volume)
