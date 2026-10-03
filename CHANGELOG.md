@@ -13,6 +13,11 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
+- **Backup bundle foundation (not yet user-visible)** — `mpflash.backup` provides a
+  schema-versioned, hash-verified bundle format (`README.md`, `manifest.json`, artifacts),
+  an atomic writer and strict reader, and a provider registry with the
+  `mpflash.backup_plugins` entry-point group. The `backup` and `restore` commands are
+  hidden until the VFS and ESP providers land.
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
   migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
   S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the
