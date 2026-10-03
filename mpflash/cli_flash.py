@@ -17,6 +17,27 @@ from mpflash.versions import clean_version
 @cli.command(
     "flash",
     short_help="Flash one or all connected MicroPython boards with a specific firmware and version.",
+    epilog="""
+nRF SOFTDEVICE + BOOTLOADER MIGRATION
+
+Install support with: pip install "mpflash[nrf]"
+
+First register a MicroPython UF2 linked for the target SoftDevice:
+  mpflash add --path firmware.uf2 --board PROMICRO_NRF52840 --port nrf --version 1.29.0
+
+Migrate a running board:
+  mpflash flash --serial COM77 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0
+
+Migrate a board already mounted in UF2 mode:
+  mpflash flash --volume D:\\ --serial COM78 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0
+
+Repair a matching profile whose application no longer boots:
+  mpflash flash --volume D:\\ --serial COM79 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0 --repair-softdevice
+
+This erases the existing application and filesystem. Do not interrupt the
+Serial DFU transfer; recovery may require an SWD probe. See
+docs/nrf-softdevice-migration.md for profiles, validation, and recovery.
+""",
 )
 @click.option(
     "--version",
@@ -45,7 +66,10 @@ from mpflash.versions import clean_version
     multiple=True,
     default=[],
     show_default=True,
-    help="Mounted UF2 boot volume path(s), e.g. D:\\, d:\\, or /Volumes/RPI-RP2 (Windows backslashes accepted)",
+    help=(
+        "Mounted UF2 boot volume path(s), e.g. D:\\, d:\\, or /Volumes/RPI-RP2. "
+        "With --softdevice, also specify that device's CDC interface using --serial."
+    ),
     metavar="PATH",
 )
 @click.option(
@@ -128,7 +152,35 @@ from mpflash.versions import clean_version
     type=click.Choice([e.value for e in FlashMethod]),
     default="auto",
     show_default=True,
-    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'nrf-dfu' only with --softdevice.""",
+)
+@click.option(
+    "--softdevice",
+    "softdevice_target",
+    type=click.Choice(["s140-6.1.1", "s140-7.3.0"], case_sensitive=False),
+    default=None,
+    help=(
+        "Destructively migrate an allowlisted nRF52840 SoftDevice+bootloader, "
+        "then flash a matching registered application UF2. See the examples below."
+    ),
+    metavar="PROFILE",
+)
+@click.option(
+    "--repair-softdevice",
+    "force_softdevice_repair",
+    is_flag=True,
+    default=False,
+    help=(
+        "Force reinstall the selected allowlisted SoftDevice+bootloader even when "
+        "UF2 metadata already reports that profile. Use only to repair suspected corruption."
+    ),
+)
+@click.option(
+    "--yes",
+    "confirm_destructive",
+    is_flag=True,
+    default=False,
+    help="""Confirm destructive nRF SoftDevice migration without prompting.""",
 )
 @click.option(
     "--probe",
@@ -251,9 +303,23 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     else:
         kwargs["boards"] = [kwargs.pop("board")]
 
+    softdevice_target = kwargs.pop("softdevice_target", None)
+    force_softdevice_repair = kwargs.pop("force_softdevice_repair", False)
+    confirm_destructive = kwargs.pop("confirm_destructive", False)
+
     # Convert flash_method to method and convert to enum
     flash_method_str = kwargs.pop("flash_method", "auto")
     flash_method = FlashMethod(flash_method_str)
+    if softdevice_target:
+        if flash_method not in {FlashMethod.AUTO, FlashMethod.NRF_DFU}:
+            raise click.UsageError("--softdevice cannot be combined with a flash method other than 'auto' or 'nrf-dfu'.")
+        flash_method = FlashMethod.NRF_DFU
+    elif flash_method == FlashMethod.NRF_DFU:
+        raise click.UsageError("--method nrf-dfu requires --softdevice.")
+    if force_softdevice_repair and not softdevice_target:
+        raise click.UsageError("--repair-softdevice requires --softdevice.")
+    if confirm_destructive and not softdevice_target:
+        raise click.UsageError("--yes is only valid with --softdevice.")
 
     # Extract pyOCD options
     probe_id = kwargs.pop("probe_id", None)
@@ -391,10 +457,22 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         log.warning("--clean only applies when --build is enabled; ignoring --clean")
 
     tasks = []
+    nrf_dfu_port = ""
 
     # Normalize volume paths: accept both Windows backslashes and POSIX forward slashes
     if params.volumes:
         params.volumes = [str(Path(v)) for v in params.volumes]
+    if softdevice_target:
+        explicit_serials = [value for value in params.serial if value not in {"", "*", "?"}]
+        if len(explicit_serials) != 1:
+            raise click.UsageError(
+                "--softdevice requires exactly one explicit --serial CDC port; "
+                "wildcards and multi-board destructive migrations are not allowed."
+            )
+        if len(params.volumes) > 1:
+            raise click.UsageError("--softdevice accepts at most one --volume.")
+        if params.volumes:
+            nrf_dfu_port = explicit_serials[0]
 
     if params.volumes:
         # Explicit UF2 mount path(s) for boards already in bootloader mode.
@@ -475,6 +553,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
             params.versions[0],
             serial_ports=comports,
             board_id=board_id,
+            custom_firmware=params.custom,
             port=params.ports[0] if params.ports else None,
         )
     else:
@@ -484,6 +563,8 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
             params.versions[0],
             connected_comports=connected_comports,
         )
+    if softdevice_target and len(tasks) != 1:
+        raise click.UsageError(f"--softdevice requires exactly one flash task, but firmware selection produced {len(tasks)}.")
     if not params.custom:
         jid.ensure_firmware_downloaded_tasks(tasks, version=params.versions[0], force=params.force)
     if flashed := flash_tasks(
@@ -499,6 +580,10 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         retry_on_error=params.retry_on_error,
         retry_baud=params.retry_baud,
         retry_flash_mode=params.retry_flash_mode,
+        softdevice_target=softdevice_target,
+        force_softdevice_repair=force_softdevice_repair,
+        nrf_dfu_port=nrf_dfu_port,
+        confirm_migration=((lambda message: True) if confirm_destructive else (lambda message: click.confirm(message, default=False))),
     ):
         log.info(f"Flashed {len(flashed)} boards")
         show_mcus(flashed, title="Updated boards after flashing")

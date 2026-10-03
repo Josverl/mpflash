@@ -32,7 +32,7 @@ def test_get_board_id_empty_file(tmp_path: Path):
 
 def test_get_board_id_no_file(tmp_path: Path):
     with pytest.raises(FileNotFoundError):
-        x = get_board_id(tmp_path)
+        get_board_id(tmp_path)
 
 
 def test_get_softdevice_valid(tmp_path: Path):
@@ -49,3 +49,9 @@ def test_get_softdevice_absent(tmp_path: Path):
 
 def test_get_softdevice_no_file(tmp_path: Path):
     assert get_softdevice(tmp_path) is None
+
+
+def test_get_softdevice_replaces_invalid_utf8(tmp_path: Path):
+    (tmp_path / "INFO_UF2.TXT").write_bytes(b"Board-ID: nRF52840-nicenano\nSoftDevice: S140 6.1.1\xff\n")
+
+    assert get_softdevice(tmp_path) == "S140 6.1.1\ufffd"

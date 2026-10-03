@@ -29,6 +29,7 @@ _METHOD_NAME_MAP = {
     FlashMethod.PYOCD: "pyocd",
     FlashMethod.UF2: "uf2",
     FlashMethod.DFU: "dfu",
+    FlashMethod.NRF_DFU: "nrf-dfu",
     FlashMethod.ESPTOOL: "esptool",
 }
 

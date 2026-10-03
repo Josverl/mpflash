@@ -63,6 +63,7 @@ class FlashMethod(Enum):
     AUTO = "auto"
     UF2 = "uf2"  # UF2 file copy method
     DFU = "dfu"  # STM32 DFU method
+    NRF_DFU = "nrf-dfu"  # nRF SoftDevice+bootloader Serial DFU, then application UF2
     ESPTOOL = "esptool"  # ESP32/ESP8266 esptool method
     PYOCD = "pyocd"  # SWD/JTAG programming via pyOCD
 

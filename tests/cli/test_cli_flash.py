@@ -8,7 +8,7 @@ from pytest_mock import MockerFixture
 
 # # module under test :
 from mpflash import cli_main
-from mpflash.common import DownloadParams
+from mpflash.common import DownloadParams, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.flash.worklist import FlashTask
 from mpflash.mpremoteboard import MPRemoteBoard
@@ -86,6 +86,25 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
 
 
 # TODO : Add more tests scenarios for flash
+
+
+@pytest.mark.parametrize(
+    "args, message",
+    [
+        (["flash", "--method", "nrf-dfu"], "--method nrf-dfu requires --softdevice"),
+        (["flash", "--repair-softdevice"], "--repair-softdevice requires --softdevice"),
+        (["flash", "--yes"], "--yes is only valid with --softdevice"),
+        (
+            ["flash", "--softdevice", "s140-7.3.0", "--method", "uf2"],
+            "--softdevice cannot be combined",
+        ),
+    ],
+)
+def test_nrf_softdevice_options_reject_invalid_combinations(args, message):
+    result = CliRunner().invoke(cli_main.cli, args)
+
+    assert result.exit_code == 2
+    assert message in result.output
 
 
 @pytest.mark.parametrize(
@@ -236,6 +255,7 @@ def test_mpflash_uses_interactive_board_for_unresponsive_serial_port(
         ANY,
         serial_ports=["COM40"],
         board_id="ESP32_GENERIC_C2",
+        custom_firmware=False,
         port="esp32",
     )
 
@@ -368,6 +388,227 @@ def test_mpflash_flash_with_explicit_uf2_volume(mocker: MockerFixture):
     expected_path = str(Path("D:\\"))
     assert m_create_worklist.call_args.kwargs["serial_ports"] == [expected_path]
     m_flash_tasks.assert_called_once()
+
+
+def test_mpflash_flash_custom_unknown_uf2_board_with_volume(session_fx, tmp_path, mocker: MockerFixture):
+    """Allow an explicitly described custom UF2 board absent from the board database."""
+    volume = tmp_path / "PROMICRO"
+    volume.mkdir()
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        custom_id="PROMICRO_NRF52840",
+        version="v1.27.2",
+        port="nrf",
+        firmware_file="nrf/PROMICRO_NRF52840-v1.27.2.uf2",
+        custom=True,
+    )
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+    flash_tasks = mocker.patch("mpflash.flash.flash_tasks", side_effect=lambda tasks, *_args, **_kwargs: [tasks[0].board])
+    mocker.patch("mpflash.list.show_mcus")
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.2",
+            "--custom",
+            "--volume",
+            str(volume),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    task = flash_tasks.call_args.args[0][0]
+    assert task.board.board == "PROMICRO_NRF52840"
+    assert task.board.port == "nrf"
+    assert task.board.serialport == str(volume)
+    assert task.firmware.custom is True
+
+
+def test_mpflash_flash_custom_unknown_uf2_board_with_serial(session_fx, mocker: MockerFixture):
+    """Pass custom firmware selection through the explicit serial-port path."""
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        custom_id="PROMICRO_NRF52840",
+        version="v1.27.1",
+        port="nrf",
+        firmware_file="nrf/PROMICRO_NRF52840-v1.27.1.uf2",
+        custom=True,
+    )
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+    mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["COM77"])
+    flash_tasks = mocker.patch("mpflash.flash.flash_tasks", side_effect=lambda tasks, *_args, **_kwargs: [tasks[0].board])
+    mocker.patch("mpflash.list.show_mcus")
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.1",
+            "--custom",
+            "--serial",
+            "COM77",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    task = flash_tasks.call_args.args[0][0]
+    assert task.board.board == "PROMICRO_NRF52840"
+    assert task.board.port == "nrf"
+    assert task.board.serialport == "COM77"
+    assert task.firmware.custom is True
+
+
+def test_mpflash_flash_routes_softdevice_migration_to_nrf_dfu(session_fx, tmp_path, mocker: MockerFixture):
+    volume = tmp_path / "PROMICRO"
+    volume.mkdir()
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        custom_id="PROMICRO_NRF52840",
+        version="v1.27.0",
+        port="nrf",
+        firmware_file="nrf/PROMICRO_NRF52840-v1.27.0.uf2",
+        custom=True,
+    )
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+    flash_tasks = mocker.patch("mpflash.flash.flash_tasks", side_effect=lambda tasks, *_args, **_kwargs: [tasks[0].board])
+    mocker.patch("mpflash.list.show_mcus")
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.0",
+            "--custom",
+            "--volume",
+            str(volume),
+            "--serial",
+            "COM78",
+            "--softdevice",
+            "s140-7.3.0",
+            "--repair-softdevice",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert flash_tasks.call_args.kwargs["method"] == FlashMethod.NRF_DFU
+    assert flash_tasks.call_args.kwargs["softdevice_target"] == "s140-7.3.0"
+    assert flash_tasks.call_args.kwargs["force_softdevice_repair"] is True
+    assert flash_tasks.call_args.kwargs["nrf_dfu_port"] == "COM78"
+    assert flash_tasks.call_args.kwargs["confirm_migration"]("prompt") is True
+
+
+def test_mpflash_softdevice_volume_requires_explicit_serial(session_fx, tmp_path, mocker: MockerFixture):
+    volume = tmp_path / "PROMICRO"
+    volume.mkdir()
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.0",
+            "--custom",
+            "--volume",
+            str(volume),
+            "--softdevice",
+            "s140-7.3.0",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "requires exactly one explicit --serial CDC port" in result.output
+
+
+def test_mpflash_softdevice_runtime_requires_one_explicit_serial(mocker: MockerFixture):
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.0",
+            "--custom",
+            "--softdevice",
+            "s140-7.3.0",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "requires exactly one explicit --serial CDC port" in result.output
+
+
+def test_mpflash_softdevice_rejects_multiple_volumes(tmp_path, mocker: MockerFixture):
+    first = tmp_path / "FIRST"
+    second = tmp_path / "SECOND"
+    first.mkdir()
+    second.mkdir()
+    mocker.patch("mpflash.ask_input.ask_missing_params", Mock(side_effect=fake_ask_missing_params))
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "flash",
+            "--board",
+            "PROMICRO_NRF52840",
+            "--port",
+            "nrf",
+            "--version",
+            "1.27.0",
+            "--custom",
+            "--volume",
+            str(first),
+            "--volume",
+            str(second),
+            "--serial",
+            "COM78",
+            "--softdevice",
+            "s140-7.3.0",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "accepts at most one --volume" in result.output
+
+
+def test_mpflash_flash_help_documents_nrf_migration():
+    result = CliRunner().invoke(cli_main.cli, ["flash", "--help"])
+
+    assert result.exit_code == 0
+    assert "nRF SOFTDEVICE + BOOTLOADER MIGRATION" in result.output
+    assert "--repair-softdevice" in result.output
+    assert "Repair a matching profile" in result.output
+    assert "--volume D:" in result.output
+    assert "--serial COM78" in result.output
 
 
 def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):

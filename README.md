@@ -29,6 +29,7 @@ Not planned: `cc3200`, `pic16bit`
  - **Download firmware** — fetch MicroPython firmware for a version, matched to a specified board or your attached board(s).
  - **Flash boards** — flash one or all connected boards with a specific firmware or version, downloading it if needed.
  - **Flash via a debug probe (pyOCD)** — program `stm32`, `rp2` and `samd` targets over SWD/JTAG using a CMSIS-DAP / ST-Link / J-Link probe with `mpflash flash --method pyocd`. CMSIS packs for missing targets are installed automatically. Install with `pip install "mpflash[pyocd]"`.
+ - **Migrate an nRF SoftDevice offline** — replace an allowlisted nice!nano/SuperMini nRF52840 SoftDevice+bootloader over Serial DFU, then install a matching MicroPython UF2. Install with `pip install "mpflash[nrf]"`.
  - **Build firmware locally (mpbuild)** — use `mpflash flash --build` to compile MicroPython with [mpbuild](https://pypi.org/project/mpbuild/) (requires Docker) right before flashing.
  - **Pluggable flash & bootloader backends** — flashing and bootloader activation are selectable, port-agnostic plugins, and third-party backends can register their own. List them with `mpflash plugins`.
  - **Filesystem erase over serial** — `--erase` wipes the MicroPython filesystem via its block device.
@@ -67,6 +68,62 @@ Common options are:
  - `--serial` to specify the serial port(s) to flash, defaults to all connected boards.
  - `--board` to specify which firmware to flash to a single board
  - `--variant` to specify a specific variant of the board
+
+### Migrating a nice!nano-compatible nRF52840 SoftDevice
+
+Ordinary UF2 files cannot replace the SoftDevice. For allowlisted
+nice!nano-compatible ProMicro/SuperMini nRF52840 boards, MPFlash can perform a
+staged Serial DFU migration and then flash a MicroPython application linked for
+the target SoftDevice.
+
+Install the optional transport and register the matching application firmware:
+
+```powershell
+pip install "mpflash[nrf]"
+mpflash add --path .\firmware.uf2 --board PROMICRO_NRF52840 --port nrf --version 1.29.0
+```
+
+Migrate a running board to the selected profile:
+
+```powershell
+mpflash flash --serial COM77 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0
+```
+
+For a board already mounted in UF2 mode, specify both its mass-storage volume
+and CDC interface so MPFlash can bind the destructive transfer to the selected
+device:
+
+```powershell
+mpflash flash --volume D:\ --serial COM78 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0
+```
+
+If the UF2 bootloader still mounts but the matching application does not boot,
+force reinstall the selected allowlisted profile before restoring the
+application:
+
+```powershell
+mpflash flash --volume D:\ --serial COM79 --board PROMICRO_NRF52840 --port nrf --version 1.29.0 --custom --softdevice s140-7.3.0 --repair-softdevice
+```
+
+Bootloader metadata reports the expected SoftDevice version but cannot prove
+that its flash contents are intact. Do not manually copy an application UF2
+whose start address does not match the selected profile.
+
+Add `--yes` only for unattended use.
+
+Supported profiles are:
+
+- `s140-6.1.1`: Adafruit nice!nano bootloader 0.11.0,
+  `nRF52840-nicenano`, USB `239A:00B3`.
+- `s140-7.3.0`: pdcook SuperMini bootloader 1.0.0,
+  `nRF52840-SuperMini-v0`, USB `1209:5284`.
+
+The migration erases the existing application and filesystem. MPFlash validates
+the current bootloader identity, the packaged DFU artifact hash, and the
+application UF2 address range before asking for confirmation. There is no
+automatic rollback. If the SoftDevice+bootloader transfer is interrupted, SWD
+recovery with pyOCD or J-Link may be required. Firmware blobs are included in
+the installed package and are never downloaded while flashing.
 
 **Downloading firmware:**
 `mpflash download` will download the latest stable firmware for all connected boards, or a specific board if specified. It will download the firmware from the official MicroPython website and save it in your `Downloads/firmware` directory.  

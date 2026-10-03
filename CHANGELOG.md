@@ -13,6 +13,25 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
+- **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
+  migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
+  S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the
+  bootloader, pinned Serial DFU package, and matching application UF2 before
+  replacing the SoftDevice+bootloader and restoring MicroPython. Firmware blobs
+  and license notices are packaged locally; flashing performs no runtime
+  downloads. Install the transport with the `nrf` extra.
+- **Forced nRF SoftDevice repair** — `flash --repair-softdevice` reinstalls the
+  selected allowlisted SoftDevice+bootloader package even when UF2 metadata
+  already reports that profile, allowing recovery when the application region
+  or SoftDevice contents were corrupted by an incompatible UF2.
+- **Explicit custom firmware metadata** — `mpflash add` accepts `--board`,
+  `--port`, and `--version`, and explicitly described custom UF2 firmware can
+  be selected for otherwise unknown boards with `flash --custom --volume`.
+- **nRF SoftDevice details in `mpflash list`** — runtime nRF boards are
+  round-tripped through UF2 mode so the installed SoftDevice can be read from
+  `INFO_UF2.TXT`, then returned to their application without changing flash.
+  Already-mounted nRF bootloaders are also reported when they can be matched
+  unambiguously. Use `--no-softdevice` or `--no-reset` to skip the probe.
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
   flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
   the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,
