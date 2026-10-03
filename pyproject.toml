@@ -270,6 +270,7 @@ exclude_lines = [
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
+extend-exclude = ["libs/**", "repos/**", "mpflash/vendor/**"]
 
 # Same as Black.
 line-length = 140
@@ -281,7 +282,7 @@ target-version = "py310"
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
 quote-style = "double"
-exclude = [".*", "__*", "dist", "repos"]
+exclude = [".*", "__*", "dist"]
 
 # Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
@@ -293,8 +294,11 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint]
-exclude = [".*", "__*", "dist", "repos", "mpflash\\vendor"]
-ignore = ["F821"]
+exclude = [".*", "__*", "dist", "mpflash\\vendor"]
+ignore = [
+    "E712",
+    "F821",
+    ]
 
 [tool.uv]
 prerelease = "allow"
