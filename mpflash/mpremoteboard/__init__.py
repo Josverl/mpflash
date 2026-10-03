@@ -103,6 +103,7 @@ class MPRemoteBoard:
         self.arch = ""
         self.mpy = ""
         self.build = ""
+        self.softdevice = ""
         self.location = location  # USB location
         self.usb_manufacturer = ""
         self.usb_product = ""

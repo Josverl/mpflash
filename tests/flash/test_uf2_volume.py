@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+from mpflash.errors import MPFlashError
 from mpflash.flash.builtins.uf2 import volume
 from mpflash.flash.context import Platform
 
@@ -41,6 +44,42 @@ def test_wait_for_volume_unknown_platform_returns_none(mocker):
     fake_platform = type("P", (), {"value": "unknown"})()
     mocker.patch("mpflash.flash.builtins.uf2.volume._platform", return_value=fake_platform)
     assert volume.wait_for_volume("RP2", timeout=1) is None
+
+
+def test_mounted_uf2_volumes_filters_partitions(tmp_path, mocker):
+    uf2 = tmp_path / "uf2"
+    uf2.mkdir()
+    (uf2 / "INFO_UF2.TXT").write_text("UF2")
+    other = tmp_path / "other"
+    other.mkdir()
+    partitions = [
+        mocker.Mock(mountpoint=str(uf2)),
+        mocker.Mock(mountpoint=str(other)),
+    ]
+    mocker.patch("psutil.disk_partitions", return_value=partitions)
+
+    assert volume.mounted_uf2_volumes() == {uf2}
+
+
+def test_wait_for_new_volume_ignores_existing_volume(mocker):
+    existing = Path("D:/")
+    added = Path("E:/")
+    mocker.patch(
+        "mpflash.flash.builtins.uf2.volume.mounted_uf2_volumes",
+        return_value={existing, added},
+    )
+
+    assert volume.wait_for_new_volume({existing}, timeout=1) == added
+
+
+def test_wait_for_new_volume_rejects_ambiguous_volumes(mocker):
+    mocker.patch(
+        "mpflash.flash.builtins.uf2.volume.mounted_uf2_volumes",
+        return_value={Path("E:/"), Path("F:/")},
+    )
+
+    with pytest.raises(MPFlashError, match="Multiple new UF2 volumes"):
+        volume.wait_for_new_volume(set(), timeout=1)
 
 
 def test_resolve_explicit_volume_valid_and_invalid(tmp_path, mocker):

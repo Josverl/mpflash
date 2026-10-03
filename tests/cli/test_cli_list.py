@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 import pytest
@@ -24,21 +25,24 @@ pytestmark = pytest.mark.mpflash
         ("4", 0, ["list", "--json", "--no-progress"]),
         ("5", 0, ["list", "--no-reset"]),
         ("6", 0, ["list", "--reset"]),
+        ("7", 0, ["list", "--no-softdevice"]),
     ],
 )
 def test_mpflash_list(id, ex_code, args: List[str], mocker: MockerFixture):
     m_list_mcus = mocker.patch("mpflash.connected.list_mcus", return_value=[], autospec=True)
     m_show_mcus = mocker.patch("mpflash.list.show_mcus", return_value=None, autospec=True)
-    m_print = mocker.patch("mpflash.cli_list.print", return_value=None, autospec=True)
+    m_echo = mocker.patch("mpflash.cli_list.click.echo", return_value=None, autospec=True)
 
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, args, standalone_mode=True)
     assert result.exit_code == ex_code
 
     m_list_mcus.assert_called_once()
+    assert m_list_mcus.call_args.kwargs["probe_softdevice"] is ("--no-reset" not in args and "--no-softdevice" not in args)
     if "--json" in args:
-        m_print.assert_called_once()
-    if "--no-progress" not in args and "--json" not in args:
+        m_echo.assert_called_once()
+        m_show_mcus.assert_not_called()
+    elif "--no-progress" not in args:
         m_show_mcus.assert_called_once()
 
 
@@ -69,6 +73,35 @@ def test_mpflash_list_reset_family_specific_commands(mocker: MockerFixture):
     )
     unknown.run_command.assert_not_called()
     mpy.run_command.assert_called_once_with("reset")
+
+
+def test_mpflash_list_json_is_machine_readable(mocker: MockerFixture):
+    class _Mcu:
+        family = "unknown"
+        softdevice = "S140 version 6.1.1"
+        toml = {}
+
+        def to_dict(self):
+            return {
+                "description": "A long nRF description that must not be wrapped inside JSON output",
+                "softdevice": self.softdevice,
+            }
+
+    mocker.patch("mpflash.connected.list_mcus", return_value=[_Mcu()], autospec=True)
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        ["list", "--json", "--no-reset"],
+        standalone_mode=True,
+    )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == [
+        {
+            "description": "A long nRF description that must not be wrapped inside JSON output",
+            "softdevice": "S140 version 6.1.1",
+        }
+    ]
 
 
 def test_mpflash_list_returns_one_when_all_ignored(mocker: MockerFixture):

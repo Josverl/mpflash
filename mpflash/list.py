@@ -96,6 +96,7 @@ def mcu_table(
     is_wide = console.width > 99
     needs_build = any(mcu.build for mcu in conn_mcus)
     needs_variant = any(mcu.variant for mcu in conn_mcus)
+    needs_softdevice = any(getattr(mcu, "softdevice", "") for mcu in conn_mcus)
 
     table.add_column("Serial" if is_wide else "Ser.", overflow="fold")
     table.add_column("Family" if is_wide else "Fam.", overflow="crop", max_width=None if is_wide else 4)
@@ -107,6 +108,12 @@ def mcu_table(
     if is_wide:
         table.add_column("CPU")
     table.add_column("Version", overflow="fold", min_width=5, max_width=16)
+    if needs_softdevice:
+        table.add_column(
+            "SoftDevice" if is_wide else "SD",
+            overflow="fold",
+            max_width=14,
+        )
     if needs_build:
         table.add_column("Build" if is_wide else "Bld", justify="right")
     if config.usb:
@@ -130,6 +137,8 @@ def mcu_table(
         if is_wide:
             row.append(mcu.cpu)
         row.append(clean_version(mcu.version))
+        if needs_softdevice:
+            row.append(getattr(mcu, "softdevice", ""))
         if needs_build:
             row.append(mcu.build)
         if config.usb:
