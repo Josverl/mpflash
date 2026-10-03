@@ -101,6 +101,13 @@ mpflash = "mpflash.cli_main:mpflash"
 # Example (commented out):
 # my-backend = "mypkg.backend:MyBackend"
 
+# Entry-point group used by third-party packages to register additional backup
+# and restore providers. Each entry must point at a BackupProvider subclass or
+# instance (see mpflash.backup.base).
+[project.entry-points."mpflash.backup_plugins"]
+# Example (commented out):
+# my-provider = "mypkg.backup:MyProvider"
+
 [project.urls]
 Homepage = "https://github.com/Josverl/mpflash"
 Documentation = "https://github.com/Josverl/mpflash/blob/main/README.md"
