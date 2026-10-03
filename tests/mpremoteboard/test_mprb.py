@@ -6,7 +6,6 @@ import pytest
 from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
 
-from mpflash.db.loader import HERE
 from mpflash.mpremoteboard import OK, MPRemoteBoard
 from mpflash.mpremoteboard.runner import run
 
@@ -23,10 +22,12 @@ def test_mpremoteboard_new():
     assert mprb.family == "unknown"
 
 
-def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
+@pytest.mark.parametrize("serialport", ["COM40", "/dev/ttyACM0"])
+def test_mpremoteboard_retains_pyserial_usb_descriptors(serialport: str, mocker: MockerFixture):
     port = MagicMock(
         vid=0x1D50,
         pid=0x6196,
+        serial_number="ABC123",
         manufacturer="Black Magic Debug",
         product="Black Magic Probe",
         description="Black Magic Probe GDB Server (COM40)",
@@ -36,13 +37,14 @@ def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
         return_value=[port],
     )
 
-    mprb = MPRemoteBoard("COM40")
+    mprb = MPRemoteBoard(serialport)
 
     assert mprb.vid == 0x1D50
     assert mprb.pid == 0x6196
     assert mprb.usb_manufacturer == "Black Magic Debug"
     assert mprb.usb_product == "Black Magic Probe"
     assert mprb.usb_description == "Black Magic Probe GDB Server (COM40)"
+    assert mprb.serial_number == "ABC123"
 
 
 @pytest.mark.parametrize(
@@ -88,7 +90,7 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     mprb = MPRemoteBoard(port)
     assert not mprb.connected
     command = ["run", "mpy_fw_info.py"]
-    result = mprb.run_command(command)  # type: ignore
+    mprb.run_command(command)  # type: ignore
 
     assert mprb.connected
     assert m_run.called
@@ -105,7 +107,7 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     assert "soft-reset" not in m_run.mock_calls[0].args[0]
 
     # Subsequent commands also preserve interpreter state by default.
-    result = mprb.run_command(command)  # type: ignore
+    mprb.run_command(command)  # type: ignore
     assert "resume" not in m_run.mock_calls[1].args[0]
     assert "soft-reset" not in m_run.mock_calls[1].args[0]
 
@@ -142,7 +144,7 @@ def test_mpremoteboard_run_deprecated_resume(resume, expects_soft_reset, mocker:
     command = m_run.call_args.args[0]
     assert ("soft-reset" in command) is expects_soft_reset
     assert "resume" not in command
-    assert warning[0].filename == __file__
+    assert Path(warning[0].filename).resolve() == Path(__file__).resolve()
 
 
 @pytest.mark.parametrize("soft_reset", [False, True])
@@ -176,10 +178,10 @@ def test_mpremoteboard_disconnect(port, mocker: MockerFixture):
     assert not mprb.connected
 
     if not port:
-        assert result == False
+        assert not result
         return
 
-    assert result == True
+    assert result
     assert m_run.called
     assert m_run.call_count == 1
 
@@ -207,7 +209,7 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
 
     mprb = MPRemoteBoard("COM20")
-    result = mprb.get_mcu_info()  # type: ignore
+    mprb.get_mcu_info()  # type: ignore
 
     assert m_run.called
     assert "soft-reset" in m_run.call_args_list[0].args[0]
@@ -433,6 +435,44 @@ def test_wait_for_restart_does_not_multiply_get_info_retries(
 
     assert get_mcu_info.call_count == 3
     assert restarted is False
+
+
+def test_wait_for_restart_reattaches_with_usbipd_on_wsl2(mocker: MockerFixture, monkeypatch):
+    from mpflash.config import config
+
+    mprb = MPRemoteBoard("/dev/ttyACM0")
+    mprb.vid = 0x2E8A
+    mprb.pid = 0x1002
+    mprb.serial_number = "E46024C7434C552A"
+    monkeypatch.setattr("mpflash.mpremoteboard.ON_WSL2", True)
+    monkeypatch.setattr(config, "usbipd", True)
+    mocker.patch.object(mprb, "_refresh_serialport", return_value=False)
+    mocker.patch("mpflash.mpremoteboard.time.sleep")
+    mocker.patch("mpflash.mpremoteboard.usbipd.find_usbipd", return_value="usbipd.exe")
+    reattach = mocker.patch("mpflash.mpremoteboard.usbipd.reattach_usbipd_device", return_value=True)
+    mocker.patch.object(MPRemoteBoard.get_mcu_info, "__wrapped__", autospec=True)
+
+    assert mprb.wait_for_restart(timeout=1) is True
+    reattach.assert_called_once_with(
+        vid=0x2E8A,
+        pid=0x1002,
+        serial_number="E46024C7434C552A",
+        executable="usbipd.exe",
+    )
+
+
+def test_wait_for_restart_respects_no_usbipd(mocker: MockerFixture, monkeypatch):
+    from mpflash.config import config
+
+    mprb = MPRemoteBoard("/dev/ttyACM0")
+    monkeypatch.setattr("mpflash.mpremoteboard.ON_WSL2", True)
+    monkeypatch.setattr(config, "usbipd", False)
+    find_usbipd = mocker.patch("mpflash.mpremoteboard.usbipd.find_usbipd")
+    mocker.patch("mpflash.mpremoteboard.time.sleep")
+    mocker.patch.object(MPRemoteBoard.get_mcu_info, "__wrapped__", autospec=True)
+
+    assert mprb.wait_for_restart(timeout=1) is True
+    find_usbipd.assert_not_called()
 
 
 def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixture):

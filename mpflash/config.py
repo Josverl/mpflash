@@ -21,6 +21,7 @@ class MPFlashConfig:
     quiet: bool = False
     verbose: bool = False
     usb: bool = False
+    usbipd: bool = True
     ignore_ports: List[str] = []
     _firmware_folder: Optional[Path] = None
     # test options specified on the commandline
