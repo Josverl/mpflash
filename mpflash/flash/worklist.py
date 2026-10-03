@@ -32,7 +32,7 @@ from loguru import logger as log
 
 from typing_extensions import TypeAlias
 
-from mpflash.common import filtered_portinfos
+from mpflash.common import UF2_PORTS, filtered_portinfos
 from mpflash.config import config
 from mpflash.db.models import Firmware
 from mpflash.downloaded import find_downloaded_firmware
@@ -194,6 +194,13 @@ def _create_manual_board(serial_port: str, board_id: str, version: str, custom: 
         # which pyOCD target detection uses to pick the right CMSIS target.
         board.description = info.description or board.description
     except (LookupError, MPFlashError) as e:
+        board.board = board_id
+        board.port = port
+        if custom and port in UF2_PORTS:
+            firmware = _find_firmware_for_board(board, version, custom=True)
+            if firmware:
+                log.info(f"Using custom firmware metadata for unknown UF2 board {board_id}")
+                return _create_flash_task(board, firmware)
         log.error(f"Board {board_id} not found in board database")
         log.exception(e)
         return _create_flash_task(board, None)
