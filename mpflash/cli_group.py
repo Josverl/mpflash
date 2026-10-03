@@ -51,6 +51,11 @@ def cb_usb(ctx, param, value: bool):
     return value
 
 
+def cb_usbipd(ctx, param, value: bool):
+    config.usbipd = bool(value)
+    return value
+
+
 def cb_quiet(ctx, param, value):
     log.trace(f"Setting quiet mode to {value}")
     if value:
@@ -112,6 +117,15 @@ def cb_firmware_dir(ctx, param, value: Path | None):
     default=False,
     help="Shows USB location of the connected boards.",
     callback=cb_usb,
+    show_default=True,
+)
+@click.option(
+    "--usbipd/--no-usbipd",
+    is_eager=True,
+    default=True,
+    envvar="MPFLASH_USBIPD",
+    help="Automatically reattach USB devices to WSL2 with usbipd when available.",
+    callback=cb_usbipd,
     show_default=True,
 )
 @click.option(
