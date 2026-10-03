@@ -107,7 +107,7 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     assert "soft-reset" not in m_run.mock_calls[0].args[0]
 
     # Subsequent commands also preserve interpreter state by default.
-    result = mprb.run_command(command)  # type: ignore
+    mprb.run_command(command)  # type: ignore
     assert "resume" not in m_run.mock_calls[1].args[0]
     assert "soft-reset" not in m_run.mock_calls[1].args[0]
 
@@ -144,7 +144,7 @@ def test_mpremoteboard_run_deprecated_resume(resume, expects_soft_reset, mocker:
     command = m_run.call_args.args[0]
     assert ("soft-reset" in command) is expects_soft_reset
     assert "resume" not in command
-    assert warning[0].filename == __file__
+    assert Path(warning[0].filename).resolve() == Path(__file__).resolve()
 
 
 @pytest.mark.parametrize("soft_reset", [False, True])
