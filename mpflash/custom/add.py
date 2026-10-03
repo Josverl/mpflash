@@ -6,13 +6,17 @@ from loguru import logger as log
 from mpflash.custom.naming import custom_fw_from_path
 from mpflash.db.models import Firmware, database
 from mpflash.errors import MPFlashError
+from mpflash.versions import clean_version
 
 
 def add_custom_firmware(
     fw_path: Path,
     force: bool = False,
     description: str = "",
-    custom: bool = False,
+    custom: bool = True,
+    board_id: str = "",
+    port: str = "",
+    version: str = "",
 ) -> int:
     """Add a custom MicroPython firmware from a local file."""
 
@@ -25,6 +29,16 @@ def add_custom_firmware(
         raise MPFlashError(f"Firmware file does not exist: {fw_path}")
 
     fw_dict = custom_fw_from_path(fw_path)
+    if board_id:
+        fw_dict["board_id"] = board_id
+        fw_dict["custom_id"] = board_id
+    if port:
+        fw_dict["port"] = port
+    if version:
+        fw_dict["version"] = clean_version(version)
+    if board_id or port or version:
+        firmware_name = f"{fw_dict['board_id']}-{fw_dict['version']}{fw_path.suffix}"
+        fw_dict["firmware_file"] = (Path(str(fw_dict["port"])) / firmware_name).as_posix() if fw_dict["port"] else firmware_name
     if description:
         fw_dict["description"] = description
     if add_firmware(
@@ -69,15 +83,18 @@ def add_firmware(
             log.error(f"Source file {source} does not exist or is not a file")
             return False
 
-        new_fw = Firmware(**fw_info)
-        if custom:
-            new_fw.custom = True
+        firmware_data = dict(fw_info)
+        firmware_data["custom"] = custom
+        new_fw = Firmware(**firmware_data)
 
         if not new_fw.board_id:
             log.error("board_id is required")
             return False
 
-        fw_filename = config.firmware_folder / new_fw.firmware_file
+        firmware_file = new_fw.firmware_file
+        if not isinstance(firmware_file, str):
+            raise TypeError("firmware_file must be a string")
+        fw_filename = config.firmware_folder / firmware_file
 
         if not copy_fn(source, fw_filename, force):
             log.error(f"Failed to copy {source} to {fw_filename}")

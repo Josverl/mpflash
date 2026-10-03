@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -109,6 +108,64 @@ def test_find_downloaded_firmware_port_isolation(mocker: MockerFixture, session_
     esp32_board_ids = {fw.board_id for fw in esp32_results}
     esp8266_board_ids = {fw.board_id for fw in esp8266_results}
     assert not esp32_board_ids.intersection(esp8266_board_ids), f"ESP32 and ESP8266 results overlap: {esp32_board_ids & esp8266_board_ids}"
+
+
+def test_find_downloaded_firmware_selects_matching_custom_record(session_fx):
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        custom_id="PROMICRO_NRF52840",
+        version="v1.27.0",
+        port="nrf",
+        firmware_file="nrf/PROMICRO_NRF52840-v1.27.0.uf2",
+        custom=True,
+    )
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        version="v1.27.0",
+        port="nrf",
+        firmware_file="nrf/release.uf2",
+        custom=False,
+    )
+
+    result = find_downloaded_firmware(
+        board_id="PROMICRO_NRF52840",
+        version="1.27.0",
+        port="nrf",
+        custom=True,
+    )
+
+    assert len(result) == 1
+    assert result[0].custom is True
+    assert result[0].firmware_file == "nrf/PROMICRO_NRF52840-v1.27.0.uf2"
+
+
+def test_find_downloaded_firmware_supports_legacy_custom_record(session_fx):
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        custom_id="PROMICRO_NRF52840",
+        version="v1.26.0",
+        port="nrf",
+        firmware_file="nrf/PROMICRO_NRF52840-v1.26.0.uf2",
+        custom=False,
+    )
+    Firmware.create(
+        board_id="PROMICRO_NRF52840",
+        version="v1.26.0",
+        port="nrf",
+        firmware_file="nrf/release.uf2",
+        custom=False,
+    )
+
+    result = find_downloaded_firmware(
+        board_id="PROMICRO_NRF52840",
+        version="1.26.0",
+        port="nrf",
+        custom=True,
+    )
+
+    assert len(result) == 1
+    assert result[0].custom_id == "PROMICRO_NRF52840"
+    assert result[0].firmware_file == "nrf/PROMICRO_NRF52840-v1.26.0.uf2"
 
 
 def test_find_downloaded_firmware_preview_exact_match(mocker: MockerFixture, session_fx):
