@@ -26,6 +26,8 @@ from .cli_flash import cli_flash_board
 from .cli_format import cli_format_board
 from .cli_group import cli
 from .cli_list import cli_list_mcus
+from . import cli_backup  # noqa: F401 - registers `mpflash backup` via @cli.command
+from . import cli_restore  # noqa: F401 - registers `mpflash restore` via @cli.command
 from . import cli_pyocd  # noqa: F401 - registers pyOCD subcommands via @cli.command
 from . import cli_plugins  # noqa: F401 - registers `mpflash plugins` subcommand
 from .db.core import migrate_database
