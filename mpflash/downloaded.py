@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import List
 
@@ -58,6 +57,7 @@ def find_downloaded_firmware(
         # Find all preview firmwares for this board/port, return the latest (highest build)
         if custom:
             qry = Firmware.select().where(Firmware.custom_id == board_id)
+            qry = qry.where(Firmware.custom == True)  # noqa: E712 - Peewee expression
         else:
             qry = Firmware.select().where(Firmware.board_id == board_id)
         if port:
@@ -67,10 +67,28 @@ def find_downloaded_firmware(
         fw_list = list(qry)
         if fw_list:
             return [fw_list[0]]
+        if custom:
+            qry = Firmware.select().where(Firmware.custom_id == board_id)
+            if port:
+                qry = qry.where(Firmware.port == port)
+            qry = qry.where(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
+            fw_list = list(qry)
+            if fw_list:
+                return [fw_list[0]]
     else:
-        fw_list = list(Firmware.select().where((Firmware.board_id == board_id) & (Firmware.version == version)))
+        qry = Firmware.select().where((Firmware.board_id == board_id) & (Firmware.version == version) & (Firmware.custom == custom))
+        if port:
+            qry = qry.where(Firmware.port == port)
+        fw_list = list(qry)
         if fw_list:
             return fw_list
+        if custom:
+            qry = Firmware.select().where((Firmware.custom_id == board_id) & (Firmware.version == version))
+            if port:
+                qry = qry.where(Firmware.port == port)
+            fw_list = list(qry)
+            if fw_list:
+                return fw_list
 
     #
     more_board_ids = alternate_board_names(board_id, port)
@@ -78,6 +96,8 @@ def find_downloaded_firmware(
     log.debug(f"2nd search with renamed board_id :{board_id}")
     if "preview" in version:
         qry = Firmware.select().where(Firmware.board_id.in_(more_board_ids))
+        if custom:
+            qry = qry.where(Firmware.custom == True)  # noqa: E712 - Peewee expression
         if port:
             qry = qry.where(Firmware.port == port)
         qry = qry.where(Firmware.firmware_file.contains("preview")).order_by(Firmware.build.desc())
@@ -85,7 +105,7 @@ def find_downloaded_firmware(
         if fw_list:
             return [fw_list[0]]
     else:
-        qry = Firmware.select().where((Firmware.board_id.in_(more_board_ids)) & (Firmware.version == version))
+        qry = Firmware.select().where((Firmware.board_id.in_(more_board_ids)) & (Firmware.version == version) & (Firmware.custom == custom))
         if port:
             qry = qry.where(Firmware.port == port)
         fw_list = list(qry)
