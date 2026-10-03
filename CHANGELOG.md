@@ -23,6 +23,13 @@ All notable changes to mpflash are documented in this file.
   on hardware). The filesystem is stored once, in `artifacts/vfs.zip`, with a hashed
   inventory; restore verifies every file by SHA-256, deletes files that are not in the backup
   and leaves ROMFS and SD cards alone.
+- **ESP raw flash backup provider** — byte-exact backup and restore of the whole SPI flash of
+  a UART-connected ESP32 or ESP8266 through esptool, verified on hardware by restoring a
+  damaged board and re-reading an identical image. The image already contains the filesystem,
+  so restoring it replaces that too. Chips with flash encryption, secure boot or secure
+  download mode are refused, restore requires the same chip and flash size, the result is
+  verified by MD5 and esptool's `force` option is never used. eFuses and keys are not part of
+  the image. Native-USB ESP boards are not supported yet.
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
   migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
   S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the
