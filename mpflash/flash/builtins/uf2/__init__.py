@@ -14,9 +14,11 @@ from typing import Optional
 from loguru import logger as log
 
 from mpflash.common import PORT_FWTYPES
+from mpflash.errors import MPFlashError
 from mpflash.mpremoteboard import MPRemoteBoard
 
 from .boardid import get_board_id, get_softdevice
+from .hex2uf2 import hex_to_uf2
 from .linux import dismount_uf2_linux, wait_for_UF2_linux
 from .macos import wait_for_UF2_macos
 from .windows import wait_for_UF2_windows
@@ -90,6 +92,14 @@ def flash_uf2(mcu: MPRemoteBoard, fw_file: Path) -> Optional[MPRemoteBoard]:
         display_port = Path(mcu.serialport).as_posix() if Path(mcu.serialport).is_absolute() or Path(mcu.serialport).drive else mcu.serialport
         log.error(f"UF2 not supported on {mcu.board} on {display_port}")
         return None
+
+    if fw_file.suffix.lower() == ".hex":
+        # boards without a published .uf2 firmware can use a converted .hex firmware
+        try:
+            fw_file = hex_to_uf2(fw_file, port=mcu.port)
+        except MPFlashError as e:
+            log.error(f"Could not convert {fw_file.name} to .uf2: {e}")
+            return None
 
     destination = _resolve_uf2_destination(mcu)
 
