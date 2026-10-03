@@ -8,7 +8,6 @@ from mpflash.common import BootloaderMethod
 from mpflash.db.models import Firmware
 from mpflash.flash import flash_tasks
 from mpflash.flash.worklist import FlashTask, FlashTaskList
-from mpflash.mpboard_id import board_id
 from mpflash.mpremoteboard import MPRemoteBoard
 
 pytestmark = [pytest.mark.mpflash]
@@ -24,7 +23,7 @@ def test_enter_bootloader(mocker: MockerFixture, bl_method):
     m_bl_man = mocker.patch("mpflash.bootloader.builtins.manual.enter_bootloader_manual", return_value=True)
     m_bl_tch = mocker.patch("mpflash.bootloader.builtins.touch1200.enter_bootloader_touch_1200bps", return_value=True)
 
-    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)  # type: ignore
+    mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)
 
     m_sleep = mocker.patch("mpflash.bootloader.activate.time.sleep")
     enter_bootloader(board, method=bl_method)
@@ -47,7 +46,7 @@ def test_enter_bootloader_auto(mocker: MockerFixture):
     m_bl_mpy = mocker.patch("mpflash.bootloader.builtins.mpy.enter_bootloader_mpy", return_value=False)
     m_bl_man = mocker.patch("mpflash.bootloader.builtins.manual.enter_bootloader_manual", return_value=True)
 
-    m_in_bl = mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)  # type: ignore
+    mocker.patch("mpflash.bootloader.activate.in_bootloader", return_value=True)
 
     m_sleep = mocker.patch("mpflash.bootloader.activate.time.sleep")
     enter_bootloader(board, method=BootloaderMethod.AUTO)
@@ -101,8 +100,9 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
     m_flash_uf2 = mocker.patch("mpflash.flash.builtins.uf2.flash_uf2")
     m_flash_stm32 = mocker.patch("mpflash.flash.builtins.dfu.flash_stm32")
     m_flash_esp = mocker.patch("mpflash.flash.builtins.esp.flash_esp")
-    m_mpr_run = mocker.patch("mpflash.bootloader.builtins.mpy.MPRemoteBoard.run_command")  # type: ignore
+    mocker.patch("mpflash.bootloader.builtins.mpy.MPRemoteBoard.run_command")
     m_bootloader = mocker.patch("mpflash.bootloader.activate.enter_bootloader")
+    mocker.patch("serial.tools.list_ports.grep", return_value=[])
     # use
     mocker.patch("mpflash.flash.config._firmware_folder", test_fw_path)
     board = MPRemoteBoard("COM1")
