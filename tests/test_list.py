@@ -66,6 +66,37 @@ def test_mcu_table_shows_reported_port_on_second_line():
     assert table.columns[2]._cells == ["nrf\n[italic bright_cyan]nrf52"]
 
 
+def test_mcu_table_shows_softdevice_only_when_available():
+    nrf = MPRemoteBoard("COM8")
+    nrf.family = "micropython"
+    nrf.port = "nrf"
+    nrf.board_id = "PROMICRO_NRF52840"
+    nrf.softdevice = "S140 6.1.1"
+    rp2 = MPRemoteBoard("COM9")
+    rp2.family = "micropython"
+    rp2.port = "rp2"
+    rp2.board_id = "RPI_PICO"
+    mpflash.list.console = rich.console.Console(file=sys.stdout, width=110)
+
+    table = mcu_table([nrf, rp2], refresh=False)
+
+    softdevice_column = next(column for column in table.columns if column.header == "SoftDevice")
+    assert softdevice_column._cells == ["S140 6.1.1", ""]
+
+
+def test_mcu_table_omits_softdevice_when_unavailable():
+    mcu = MPRemoteBoard("COM8")
+    mcu.family = "micropython"
+    mcu.port = "nrf"
+    mcu.board_id = "PROMICRO_NRF52840"
+    mpflash.list.console = rich.console.Console(file=sys.stdout, width=110)
+
+    table = mcu_table([mcu], refresh=False)
+
+    assert "SoftDevice" not in [column.header for column in table.columns]
+    assert mcu.to_dict()["softdevice"] == ""
+
+
 def test_usb_device_description_includes_available_pyserial_details():
     mcu = MPRemoteBoard("COM41")
     mcu.vid = 0x1D50
@@ -74,9 +105,7 @@ def test_usb_device_description_includes_available_pyserial_details():
     mcu.usb_product = ""
     mcu.usb_description = "USB Serial Device (COM41)"
 
-    assert usb_device_description(mcu) == (
-        "1d50:6196\nMicrosoft USB Serial Device"
-    )
+    assert usb_device_description(mcu) == ("1d50:6196\nMicrosoft USB Serial Device")
 
 
 # def mock_get_mcu_info(self: MPRemoteBoard):

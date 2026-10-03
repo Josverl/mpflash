@@ -1,4 +1,3 @@
-import pytest
 from pytest_mock import MockerFixture
 from serial.tools.list_ports_common import ListPortInfo
 
@@ -225,6 +224,36 @@ class TestListMcus:
         mock_mcu1.get_mcu_info.assert_called_once()
         mock_mcu2.get_mcu_info.assert_called_once()
 
+    def test_nrf_softdevice_probe_when_enabled(self, mocker: MockerFixture):
+        mock_port = mocker.Mock(spec=ListPortInfo)
+        mock_port.device = "COM7"
+        mock_port.location = "1-1.3"
+        mock_port.hwid = "USB VID:PID=239A:8052"
+        mocker.patch("mpflash.connected.filtered_portinfos", return_value=[mock_port])
+        mocker.patch("mpflash.connected.find_serial_by_path", return_value=None)
+        mock_mcu = mocker.Mock(spec=MPRemoteBoard)
+        mock_mcu.serialport = "COM7"
+        mock_mcu.family = "micropython"
+        mock_mcu.port = "nrf"
+        mock_mcu.softdevice = ""
+        mock_mcu.get_mcu_info = mocker.Mock()
+        mocker.patch("mpflash.connected.MPRemoteBoard", return_value=mock_mcu)
+        probe = mocker.patch(
+            "mpflash.flash.builtins.uf2.nrf.probe_nrf_softdevice",
+            return_value="S140 7.3.0",
+        )
+
+        result = list_mcus(
+            include=[],
+            ignore=[],
+            bluetooth=False,
+            probe_softdevice=True,
+        )
+
+        assert result == [mock_mcu]
+        assert mock_mcu.softdevice == "S140 7.3.0"
+        probe.assert_called_once_with(mock_mcu)
+
     def test_connection_error_handling(self, mocker: MockerFixture):
         """Test handling of connection errors."""
         # Create mock port info
@@ -250,6 +279,38 @@ class TestListMcus:
         assert len(result) == 1  # MCU is still in list
         assert result[0] == mock_mcu
         mock_print.assert_called_once_with("Error: Failed to connect")
+
+    def test_bootloader_connection_error_suppressed_after_enrichment(self, mocker: MockerFixture):
+        mock_port = mocker.Mock(spec=ListPortInfo)
+        mock_port.device = "COM8"
+        mock_port.location = "1-1.4"
+        mock_port.hwid = "USB VID:PID=239A:00B3"
+        mocker.patch("mpflash.connected.filtered_portinfos", return_value=[mock_port])
+        mocker.patch("mpflash.connected.find_serial_by_path", return_value=None)
+        mock_print = mocker.patch("mpflash.connected.print")
+        mock_mcu = mocker.Mock(spec=MPRemoteBoard)
+        mock_mcu.serialport = "COM8"
+        mock_mcu.port = ""
+        mock_mcu.get_mcu_info.side_effect = ConnectionError("Failed to connect")
+        mocker.patch("mpflash.connected.MPRemoteBoard", return_value=mock_mcu)
+
+        def enrich(mcus):
+            mcus[0].port = "nrf"
+
+        mocker.patch(
+            "mpflash.flash.builtins.uf2.nrf.enrich_mounted_nrf_bootloader",
+            side_effect=enrich,
+        )
+
+        result = list_mcus(
+            include=[],
+            ignore=[],
+            bluetooth=False,
+            probe_softdevice=True,
+        )
+
+        assert result == [mock_mcu]
+        mock_print.assert_not_called()
 
     def test_fallback_location_handling(self, mocker: MockerFixture):
         """Test fallback location handling when find_serial_by_path returns None."""

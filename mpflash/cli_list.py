@@ -1,9 +1,7 @@
 import json
-import time
 from typing import List
 
 import rich_click as click
-from rich import print
 
 from .cli_group import cli
 from .logger import make_quiet
@@ -70,7 +68,23 @@ from .logger import make_quiet
     show_default=True,
     help="""Reset the board after listing.""",
 )
-def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json: bool, progress: bool = True, reset: bool = True) -> int:
+@click.option(
+    "--softdevice/--no-softdevice",
+    "softdevice",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help="Enter nRF UF2 mode to report its SoftDevice. Disabled by --no-reset.",
+)
+def cli_list_mcus(
+    serial: List[str],
+    ignore: List[str],
+    bluetooth: bool,
+    as_json: bool,
+    progress: bool = True,
+    reset: bool = True,
+    softdevice: bool = True,
+) -> int:
     """List the connected MCU boards, and output in a nice table or json."""
     from .connected import list_mcus
     from .list import show_mcus
@@ -82,13 +96,18 @@ def cli_list_mcus(serial: List[str], ignore: List[str], bluetooth: bool, as_json
         make_quiet()
     # TODO? Ask user to select a serialport if [?] is given ?
 
-    conn_mcus = list_mcus(ignore=ignore, include=serial, bluetooth=bluetooth)
+    conn_mcus = list_mcus(
+        ignore=ignore,
+        include=serial,
+        bluetooth=bluetooth,
+        probe_softdevice=softdevice and reset,
+    )
     # ignore boards that have the [mpflash] ignore flag set
     conn_mcus = [item for item in conn_mcus if not (item.toml.get("mpflash", {}).get("ignore", False))]
     if as_json:
-        print(json.dumps([mcu.to_dict() for mcu in conn_mcus], indent=4))
+        click.echo(json.dumps([mcu.to_dict() for mcu in conn_mcus], indent=4))
 
-    if progress:
+    if progress and not as_json:
         show_mcus(conn_mcus, refresh=False)
     if reset:
         for mcu in conn_mcus:

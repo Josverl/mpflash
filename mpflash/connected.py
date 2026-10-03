@@ -5,6 +5,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from rich.table import Column
 
 from mpflash.common import filtered_portinfos, find_serial_by_path
+from mpflash.errors import MPFlashError
+from mpflash.logger import log
 from mpflash.mpremoteboard import MPRemoteBoard
 
 
@@ -38,7 +40,13 @@ rp_text = TextColumn("{task.description} {task.fields[device]}", table_column=Co
 rp_bar = BarColumn(bar_width=None, table_column=Column())
 
 
-def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False) -> List[MPRemoteBoard]:
+def list_mcus(
+    *,
+    ignore: List[str],
+    include: List[str],
+    bluetooth: bool = False,
+    probe_softdevice: bool = False,
+) -> List[MPRemoteBoard]:
     """
     Retrieves information about connected microcontroller boards.
 
@@ -73,16 +81,34 @@ def list_mcus(*, ignore: List[str], include: List[str], bluetooth: bool = False)
         progress.tasks[tsk_scan].fields["device"] = "..."
         progress.tasks[tsk_scan].visible = True
         progress.start_task(tsk_scan)
+        connection_errors: List[Tuple[MPRemoteBoard, ConnectionError]] = []
         try:
             for mcu in connected_mcus:
                 progress.update(tsk_scan, device=mcu.serialport.replace("/dev/tty", "tty"))
                 try:
                     mcu.get_mcu_info()
                 except ConnectionError as e:
-                    print(f"Error: {e}")
+                    if probe_softdevice:
+                        connection_errors.append((mcu, e))
+                    else:
+                        print(f"Error: {e}")
                     continue
+                if probe_softdevice and mcu.port == "nrf":
+                    from mpflash.flash.builtins.uf2.nrf import probe_nrf_softdevice
+
+                    try:
+                        mcu.softdevice = probe_nrf_softdevice(mcu) or ""
+                    except MPFlashError as error:
+                        log.error(f"Failed to read SoftDevice from {mcu.serialport}: {error}")
         finally:
             # transient
             progress.stop_task(tsk_scan)
             progress.tasks[tsk_scan].visible = False
+    if probe_softdevice:
+        from mpflash.flash.builtins.uf2.nrf import enrich_mounted_nrf_bootloader
+
+        enrich_mounted_nrf_bootloader(connected_mcus)
+        for mcu, error in connection_errors:
+            if mcu.port != "nrf":
+                print(f"Error: {error}")
     return connected_mcus
