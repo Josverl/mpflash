@@ -20,9 +20,20 @@ def test_mpflash_help():
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, ["--help"])
     assert result.exit_code == 0
-    expected = ["Usage:", "Options", "Commands", "--dir", "download", "flash", "list"]
+    expected = ["Usage:", "Options", "Commands", "--dir", "--usbipd", "download", "flash", "list"]
     for word in expected:
         assert word in result.output
+
+
+@pytest.mark.parametrize(("option", "enabled"), [("--usbipd", True), ("--no-usbipd", False)])
+def test_global_usbipd_option(option: str, enabled: bool):
+    previous = cli_group.config.usbipd
+    try:
+        result = CliRunner().invoke(cli_main.cli, [option, "--help"])
+        assert result.exit_code == 0
+        assert cli_group.config.usbipd is enabled
+    finally:
+        cli_group.config.usbipd = previous
 
 
 # FIXME
@@ -57,8 +68,8 @@ def test_cli_quiet(params: List[str]):
     runner = CliRunner()
     result = runner.invoke(cli_main.cli, params)
     assert result
-    assert cli_group.config.quiet == True
-    assert cli_group.config.verbose == False
+    assert cli_group.config.quiet
+    assert not cli_group.config.verbose
 
 
 def test_global_dir_keeps_db_and_firmware_folder_aligned(mocker, tmp_path):

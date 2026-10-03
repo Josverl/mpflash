@@ -70,6 +70,7 @@ class MPRemoteBoard:
         self.usb_product = ""
         self.usb_description = ""
         self.usb_serial_number = ""
+        self.serial_number = ""
         self.toml = {}
 
         # For filesystem paths (UF2 volume paths), skip serial port lookup.
@@ -101,6 +102,7 @@ class MPRemoteBoard:
                     self.usb_product = port.product or ""
                     self.usb_description = port.description or ""
                     self.usb_serial_number = port.serial_number or ""
+                    self.serial_number = port.serial_number or ""
                 except Exception:
                     self.vid = 0x00
                     self.pid = 0x00
@@ -121,7 +123,7 @@ class MPRemoteBoard:
     def board(self) -> str:
         _board = self._board_id.split("-")[0]
         # Workaround for Pimoroni boards
-        if not "-" in self._board_id:
+        if "-" not in self._board_id:
             # match with the regex : (.*)(_\d+MB)$
             match = re.match(r"(.*)_(\d+MB)$", self._board_id)
             if match:
@@ -191,6 +193,24 @@ class MPRemoteBoard:
             )
         # sort by device name
         return sorted(output)
+
+    def _refresh_serialport(self) -> bool:
+        """Refresh a renamed serial device by stable USB identity."""
+        portinfos = list(serial.tools.list_ports.comports())
+        for portinfo in portinfos:
+            if portinfo.device.casefold() == self.serialport.casefold():
+                return True
+
+        if self.serial_number:
+            candidates = [portinfo for portinfo in portinfos if (portinfo.serial_number or "").casefold() == self.serial_number.casefold()]
+        else:
+            candidates = [
+                portinfo for portinfo in portinfos if self.vid and self.pid and portinfo.vid == self.vid and portinfo.pid == self.pid
+            ]
+        if len(candidates) != 1:
+            return False
+        self.serialport = candidates[0].device
+        return True
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
     def get_mcu_info(self, timeout: int = DEFAULT_TIMEOUT, *, log_errors: bool = True, resume: Optional[bool] = False):
@@ -427,12 +447,36 @@ class MPRemoteBoard:
     def wait_for_restart(self, timeout: int = 10) -> bool:
         """Wait for the board to restart, using one probe per second."""
         probe = type(self).get_mcu_info.__wrapped__
+        usbipd_executable = None
+        usbipd_result: Optional[bool] = None
+        if ON_WSL2:
+            from mpflash.config import config
+
+            if config.usbipd:
+                from mpflash.mpremoteboard.usbipd import find_usbipd
+
+                usbipd_executable = find_usbipd()
         for _ in range(timeout):
             time.sleep(1)
+            port_available = self._refresh_serialport()
+            if usbipd_executable and not port_available and usbipd_result is None:
+                from mpflash.mpremoteboard.usbipd import reattach_usbipd_device
+
+                usbipd_result = reattach_usbipd_device(
+                    vid=self.vid,
+                    pid=self.pid,
+                    serial_number=self.serial_number,
+                    executable=usbipd_executable,
+                )
             with contextlib.suppress(ConnectionError, MPFlashError):
                 # resume=True so polling does not reset the board on every probe
                 probe(self, log_errors=False, resume=True)
                 return True
+        if usbipd_executable and not self._refresh_serialport():
+            identity = f"{self.vid:04x}:{self.pid:04x}"
+            if self.serial_number:
+                identity += f" serial {self.serial_number}"
+            log.warning(f"USB device {identity} did not return to WSL2. Run 'usbipd list', then 'usbipd attach --wsl --busid <BUSID>'.")
         return False
 
     def to_dict(self) -> dict:

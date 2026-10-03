@@ -137,6 +137,18 @@ On Windows this will not be an issue, but on Linux you can use  udev rules to gi
 For Infineon PSOC Edge boards (KitProg3 probe), mpflash can install the bundled udev rule for you after asking,
 [see the Infineon permissions documentation](docs/psoc_edge_udev_rules.md).
 
+## WSL2 USB reattachment
+
+When a board restarts under WSL2, MPFlash can automatically reattach it using
+`usbipd.exe` (or `usbipd`) if available on `PATH`. Initially share and attach the
+board with usbipd as usual; MPFlash does not bind devices or request elevation.
+Reattachment requires a unique matching USB device and does not guess between
+identical boards without a serial number.
+
+Disable automatic reattachment with `mpflash --no-usbipd ...` or
+`MPFLASH_USBIPD=0`. If automatic reattachment fails, MPFlash logs the manual
+`usbipd attach --wsl --busid <BUSID>` command.
+
 ## Use MPFlash in your own project
 
 MPFlash can be used as a library in your own project. mpflash is used in [micropython-stubber]() to download and flash the firmware to the connected boards.

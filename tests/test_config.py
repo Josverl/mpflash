@@ -26,6 +26,7 @@ def test_config_initialization():
     assert config.quiet is False
     assert config.verbose is False
     assert config.usb is False
+    assert config.usbipd is True
     assert config.ignore_ports == []
     assert config._firmware_folder is None
     assert config.tests == []
@@ -67,9 +68,9 @@ def test_firmware_folder_default(mocker):
     mock_downloads.return_value = mock_downloads_path
 
     # Mock the Path.exists and mkdir methods
-    mock_exists = mocker.patch("pathlib.Path.exists", return_value=False)
-    mock_is_dir = mocker.patch("pathlib.Path.is_dir", return_value=True)
-    mock_mkdir = mocker.patch("pathlib.Path.mkdir")
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.mkdir")
 
     mocker.patch.dict("os.environ", {}, clear=True)
     result = config.firmware_folder
@@ -90,12 +91,12 @@ def test_firmware_folder_invalid_environment_variable(mocker, tmp_path):
     mock_downloads.return_value = mock_downloads_path
 
     # Mock Path operations
-    mock_exists = mocker.patch("pathlib.Path.exists", return_value=False)
-    mock_is_dir = mocker.patch("pathlib.Path.is_dir", return_value=True)
-    mock_mkdir = mocker.patch("pathlib.Path.mkdir")
+    mocker.patch("pathlib.Path.exists", return_value=False)
+    mocker.patch("pathlib.Path.is_dir", return_value=True)
+    mocker.patch("pathlib.Path.mkdir")
 
     mocker.patch.dict("os.environ", {"MPFLASH_FIRMWARE": str(invalid_path)})
-    result = config.firmware_folder
+    config.firmware_folder
 
     mock_log.warning.assert_called_once()
     assert "invalid directory" in mock_log.warning.call_args[0][0]
@@ -207,7 +208,7 @@ def test_gh_client_property_cached(mocker):
     """Test that gh_client property is cached."""
     config = MPFlashConfig()
     mock_github = mocker.patch("github.Github")
-    mock_auth = mocker.patch("github.Auth")
+    mocker.patch("github.Auth")
 
     # First access
     result1 = config.gh_client
