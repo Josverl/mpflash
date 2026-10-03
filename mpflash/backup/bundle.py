@@ -29,7 +29,6 @@ from mpflash.errors import MPFlashError
 
 from .models import (
     ARTIFACT_DIR,
-    FILES_DIR,
     Artifact,
     ArtifactRole,
     ComponentKind,
@@ -84,7 +83,6 @@ class BundleWriter:
         self.final = self.parent / name
         self.staging = self.parent / f"{name}{INCOMPLETE_SUFFIX}"
         self._artifacts: list[Artifact] = []
-        self._files_tree: Optional[str] = None
         self._committed = False
         self._entered = False
 
@@ -117,15 +115,6 @@ class BundleWriter:
         if "/" in filename:
             raise MPFlashError(f"Artifact filename {filename!r} must not contain folders")
         return self.staging / ARTIFACT_DIR / filename
-
-    def files_dir(self) -> Path:
-        """Return the staging folder for the optional expanded VFS tree."""
-        if not self._entered:
-            raise MPFlashError("BundleWriter must be used as a context manager")
-        target = self.staging / FILES_DIR
-        target.mkdir(mode=0o700, exist_ok=True)
-        self._files_tree = FILES_DIR
-        return target
 
     def register_artifact(
         self,
@@ -187,11 +176,11 @@ class BundleWriter:
             host=_host_info(),
             device=device,
             artifacts=tuple(self._artifacts),
-            files_tree=self._files_tree,
             notes=tuple(notes),
         )
-        (self.staging / MANIFEST_NAME).write_text(json.dumps(manifest.to_dict(), indent=2) + "\n", encoding="utf-8")
-        (self.staging / README_NAME).write_text(render_readme(manifest, self.name, tree_text), encoding="utf-8")
+        # newline="\n": the same bundle must be byte-identical on every host (Windows would otherwise write CRLF).
+        (self.staging / MANIFEST_NAME).write_text(json.dumps(manifest.to_dict(), indent=2) + "\n", encoding="utf-8", newline="\n")
+        (self.staging / README_NAME).write_text(render_readme(manifest, self.name, tree_text), encoding="utf-8", newline="\n")
         _restrict(self.staging / MANIFEST_NAME, 0o600)
         _restrict(self.staging / README_NAME, 0o600)
         if self.final.exists():
@@ -332,9 +321,12 @@ def render_readme(manifest: Manifest, folder_name: str, tree_text: str = "") -> 
         )
     lines += ["", "## Not included", ""]
     lines += [f"- {text}" for text in _STANDING_EXCLUSIONS]
+    listed: dict[str, list[str]] = {}
     for artifact in manifest.artifacts:
         for exclusion in artifact.exclusions:
-            lines.append(f"- `{artifact.path}`: {exclusion}")
+            listed.setdefault(exclusion, []).append(f"`{artifact.path}`")
+    lines += [f"- {', '.join(paths)}: {exclusion}" for exclusion, paths in listed.items()]
+    for artifact in manifest.artifacts:
         if artifact.covers:
             covered = ", ".join(kind.value for kind in artifact.covers)
             lines.append(f"- `{artifact.path}` already contains: {covered}. Restoring it replaces those components.")
@@ -351,8 +343,6 @@ def render_readme(manifest: Manifest, folder_name: str, tree_text: str = "") -> 
         "",
         "Restore verifies every file hash and refuses boards that do not match the device above.",
     ]
-    if manifest.files_tree:
-        lines += ["", f"The `{manifest.files_tree}/` folder is an informational copy of the file tree; restore does not use it."]
     if tree_text.strip():
         lines += ["", "## Filesystem tree", "", "```text", tree_text.rstrip(), "```"]
     return "\n".join(lines) + "\n"

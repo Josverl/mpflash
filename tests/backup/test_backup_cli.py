@@ -50,12 +50,18 @@ def test_backup_creates_a_bundle_for_each_connected_board(board, full_provider, 
     assert full_provider.backed_up == [FLASH, VFS, ComponentKind.ROMFS]
 
 
-def test_backup_component_and_files_options_are_forwarded(board, full_provider, tmp_path):
-    result = run("backup", "--output", str(tmp_path), "-c", "vfs", "--files")
+def test_backup_component_option_is_forwarded(board, full_provider, tmp_path):
+    result = run("backup", "--output", str(tmp_path), "-c", "vfs")
 
     assert result.exit_code == 0, result.output
     assert full_provider.backed_up == [VFS]
-    assert full_provider.contexts[0].include_files is True
+
+
+def test_backup_has_no_files_option_because_the_zip_is_the_only_copy(board, full_provider, tmp_path):
+    result = run("backup", "--output", str(tmp_path), "--files")
+
+    assert result.exit_code == 2
+    assert full_provider.backed_up == []
 
 
 def test_backup_without_boards_fails(mocker: MockerFixture, tmp_path):
@@ -147,7 +153,8 @@ def test_restore_requires_serial_and_existing_folder(made_backup, tmp_path):
 
 
 def test_restore_requires_exactly_one_responsive_board(made_backup, full_provider, mocker: MockerFixture):
-    mocker.patch("mpflash.connected.list_mcus", return_value=[], autospec=True)
+    # No autospec: list_mcus is already a mock here, and Python 3.12+ refuses to spec a Mock.
+    mocker.patch("mpflash.connected.list_mcus", return_value=[])
 
     assert run("restore", str(made_backup), "--serial", "COM9", "--yes").exit_code == 1
     assert full_provider.restored == []

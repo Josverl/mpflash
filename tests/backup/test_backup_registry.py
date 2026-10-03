@@ -11,6 +11,8 @@ from mpflash.backup.models import ComponentKind
 
 @pytest.fixture(autouse=True)
 def clean_registry(monkeypatch):
+    import mpflash.backup.builtins  # noqa: F401 - register the built-ins before the registry is replaced
+
     monkeypatch.setattr(registry, "_providers", {})
     monkeypatch.setattr(registry, "_entry_points_loaded", False)
 

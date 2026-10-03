@@ -108,14 +108,6 @@ def test_run_backup_publishes_a_verified_bundle(full_provider, mcu, tmp_path):
     assert "tree of vfs" in readme and "vfs note" in readme
 
 
-def test_run_backup_passes_files_option_to_providers(full_provider, mcu, tmp_path):
-    root = backup_to(tmp_path, mcu, [VFS], include_files=True)
-
-    assert full_provider.contexts[0].include_files is True
-    assert (root / "files" / "main.py").exists()
-    assert read_bundle(root).manifest.files_tree == "files"
-
-
 def test_run_backup_leaves_nothing_behind_when_a_provider_fails(isolated_registry, mcu, tmp_path):
     isolated_registry(capability(VFS), fail_backup=True)
 

@@ -13,6 +13,8 @@ from mpflash.mpremoteboard import MPRemoteBoard
 @pytest.fixture
 def isolated_registry(monkeypatch: pytest.MonkeyPatch) -> Callable[..., FakeProvider]:
     """Replace the provider registry with an empty one and return a registering factory."""
+    import mpflash.backup.builtins  # noqa: F401 - register the built-ins before the registry is replaced
+
     monkeypatch.setattr(registry, "_providers", {})
     monkeypatch.setattr(registry, "_entry_points_loaded", True)
 

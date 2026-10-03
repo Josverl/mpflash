@@ -17,7 +17,12 @@ All notable changes to mpflash are documented in this file.
   schema-versioned, hash-verified bundle format (`README.md`, `manifest.json`, artifacts),
   an atomic writer and strict reader, and a provider registry with the
   `mpflash.backup_plugins` entry-point group. The `backup` and `restore` commands are
-  hidden until the VFS and ESP providers land.
+  hidden until the MVP is documented.
+- **VFS backup provider** — logical backup and mirror-restore of the MicroPython filesystem
+  of any responsive board over one raw-REPL connection (SAMD, nRF, ESP32 and ESP8266 verified
+  on hardware). The filesystem is stored once, in `artifacts/vfs.zip`, with a hashed
+  inventory; restore verifies every file by SHA-256, deletes files that are not in the backup
+  and leaves ROMFS and SD cards alone.
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
   migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
   S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the
@@ -37,6 +42,7 @@ All notable changes to mpflash are documented in this file.
   `INFO_UF2.TXT`, then returned to their application without changing flash.
   Already-mounted nRF bootloaders are also reported when they can be matched
   unambiguously. Use `--no-softdevice` or `--no-reset` to skip the probe.
+
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
   flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
   the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,

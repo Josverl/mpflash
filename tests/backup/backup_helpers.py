@@ -70,8 +70,6 @@ class FakeProvider(BackupProvider):
             return BackupOutput()
         cap = next(item for item in self._capabilities if item.component is component)
         is_flash = component is ComponentKind.FLASH
-        if component is ComponentKind.VFS and ctx.include_files:
-            (ctx.writer.files_dir() / "main.py").write_text("print('hi')\n", encoding="utf-8")
         ctx.writer.add_artifact_bytes(
             f"{component.value}.bin",
             b"x" * FLASH_SIZE if is_flash else b"files",
