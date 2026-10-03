@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import List
 from unittest.mock import ANY, Mock
@@ -12,6 +13,17 @@ from mpflash.common import DownloadParams, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.flash.worklist import FlashTask
 from mpflash.mpremoteboard import MPRemoteBoard
+
+
+def plain(text: str) -> str:
+    """Make CLI output comparable across hosts.
+
+    rich-click forces terminal rendering when GITHUB_ACTIONS is set: it colours the output and wraps long
+    messages inside a bordered panel at 80 columns. Strip that so assertions check the message, not the layout.
+    """
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text)
+    text = re.sub(r"[\u2500-\u257f]", " ", text)  # box drawing characters
+    return " ".join(text.split())
 
 # mark all tests
 pytestmark = pytest.mark.mpflash
@@ -104,7 +116,7 @@ def test_nrf_softdevice_options_reject_invalid_combinations(args, message):
     result = CliRunner().invoke(cli_main.cli, args)
 
     assert result.exit_code == 2
-    assert message in result.output
+    assert message in plain(result.output)
 
 
 @pytest.mark.parametrize(
@@ -539,7 +551,7 @@ def test_mpflash_softdevice_volume_requires_explicit_serial(session_fx, tmp_path
     )
 
     assert result.exit_code == 2
-    assert "requires exactly one explicit --serial CDC port" in result.output
+    assert "requires exactly one explicit --serial CDC port" in plain(result.output)
 
 
 def test_mpflash_softdevice_runtime_requires_one_explicit_serial(mocker: MockerFixture):
@@ -563,7 +575,7 @@ def test_mpflash_softdevice_runtime_requires_one_explicit_serial(mocker: MockerF
     )
 
     assert result.exit_code == 2
-    assert "requires exactly one explicit --serial CDC port" in result.output
+    assert "requires exactly one explicit --serial CDC port" in plain(result.output)
 
 
 def test_mpflash_softdevice_rejects_multiple_volumes(tmp_path, mocker: MockerFixture):
@@ -597,18 +609,18 @@ def test_mpflash_softdevice_rejects_multiple_volumes(tmp_path, mocker: MockerFix
     )
 
     assert result.exit_code == 2
-    assert "accepts at most one --volume" in result.output
+    assert "accepts at most one --volume" in plain(result.output)
 
 
 def test_mpflash_flash_help_documents_nrf_migration():
     result = CliRunner().invoke(cli_main.cli, ["flash", "--help"])
 
     assert result.exit_code == 0
-    assert "nRF SOFTDEVICE + BOOTLOADER MIGRATION" in result.output
-    assert "--repair-softdevice" in result.output
-    assert "Repair a matching profile" in result.output
-    assert "--volume D:" in result.output
-    assert "--serial COM78" in result.output
+    assert "nRF SOFTDEVICE + BOOTLOADER MIGRATION" in plain(result.output)
+    assert "--repair-softdevice" in plain(result.output)
+    assert "Repair a matching profile" in plain(result.output)
+    assert "--volume D:" in plain(result.output)
+    assert "--serial COM78" in plain(result.output)
 
 
 def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):
