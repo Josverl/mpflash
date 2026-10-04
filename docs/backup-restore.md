@@ -1,8 +1,11 @@
 # Backing up and restoring a board
 
 `mpflash backup` reads data from connected MicroPython boards into a folder (a *bundle*), and
-`mpflash restore` writes a bundle back to **one** board. Both commands use only what is already on the
-board and in the mpflash environment: there are no extra tools or drivers to install.
+`mpflash restore` writes a bundle back to **one** board. Most providers use only what is already on the
+board and in the mpflash environment. STM32 raw-flash backup and restore additionally require
+`dfu-util` 0.11 or newer on `PATH`; Windows also requires a compatible WinUSB, libusbK, or libusb-win32
+driver for the STM32 DFU device. On Linux, the current user needs USB-device permissions, typically through
+the distribution's udev rules.
 
 ```text
 mpflash backup                          # every connected board, everything it supports
@@ -25,6 +28,7 @@ saved; by default everything is included, or choose with `--component flash|vfs|
 | ESP32 / ESP8266 (UART) | `flash` | esptool | exact | the whole SPI flash, including firmware, bootloader and the filesystem |
 | ESP32-C3 (and other chips with built-in USB-Serial/JTAG) | `flash` | esptool | exact | verified on an ESP32-C3 |
 | RP2040 | `flash` | raw REPL + UF2 bootloader | exact | the whole QSPI flash; no picotool or driver needed |
+| STM32 with DfuSe internal flash | `flash` | dfu-util | exact | only the advertised readable, erasable and writable main-flash range; requires `dfu-util` |
 | boards with `vfs.rom_ioctl` (MicroPython 1.25+) and a ROMFS | `romfs` | `vfs.rom_ioctl` | exact | the ROMFS image mounted at `/rom`; verified on SAMD and nRF52840 |
 
 A raw `flash` image already contains the filesystem and ROMFS, so those are not also restored when it is.
@@ -44,6 +48,10 @@ hash computed on the device, or a second read) before it is reported as created.
 
 * ESP: eFuses/OTP (MAC address, keys, security configuration), RAM, RTC memory and PSRAM.
 * RP2040: RAM and the boot ROM. Erased 4 KiB blocks are not transferred and are stored as erased.
+* STM32: ROM system memory/bootloader, option bytes and OTP. A DfuSe range is used only when it is
+  explicitly advertised as readable, erasable and writable; read-protected or ambiguous layouts are
+  rejected. A bootloader stored inside the advertised main-flash range is included. MPFlash never
+  requests read-unprotection or mass erase.
 * SD cards and other removable storage, which are never read or modified.
 * ESP32 chips with flash encryption, secure boot or secure download mode are **refused**; their flash cannot be
   read or rewritten faithfully.
@@ -103,7 +111,8 @@ Raw flash restores take about as long again, because the image is written and ve
   for raw flash yet: esptool cannot reach the bootloader without a re-enumeration step. Their files can still be
   backed up with `vfs`. ESP32-C3 and other chips using the built-in USB-Serial/JTAG (`303A:1001`) work.
 * **RP2040 only.** RP2350 needs a different UF2 family and partition handling. Raw backup does not offer it.
-* **STM32 (DFU), SAMD (bootloader), nRF, MIMXRT and debug-probe raw reads** are not available yet. Use `vfs`.
+* **STM32 DFU** requires `dfu-util` and an accessible DfuSe main-flash range. Read protection is never bypassed.
+  **SAMD (bootloader), nRF, MIMXRT and debug-probe raw reads** are not available yet. Use `vfs`.
 * A board must be responsive MicroPython for `vfs`, `romfs` and RP2040 backups.
 * If a restore fails part way, run it again: the same bundle can be restored repeatedly. If an ESP board does
   not start afterwards, the raw flash restore can be repeated; the ROM bootloader is in the chip and cannot be overwritten.

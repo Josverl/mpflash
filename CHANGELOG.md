@@ -48,6 +48,10 @@ All notable changes to mpflash are documented in this file.
   `vfs.rom_ioctl` (the interface behind `mpremote romfs`), for memory-mapped and block-device partitions.
   Verified on a SAMD Wio Terminal and an nRF52840 by deploying a different image and restoring the backup.
   Boards without a ROMFS partition do not offer the component.
+- **STM32 DfuSe raw-flash backup provider** — reads and restores only the DfuSe-advertised internal main-flash
+  range using `dfu-util`, verifies restores by reading the bytes back, and never requests unprotection or mass
+  erase. It requires `dfu-util` 0.11 or newer; system memory, option bytes, OTP and protected or ambiguous
+  ranges are excluded.
 - **Faster file backups** — files are read as base64 with a checksum in one request per chunk and hashed by a helper that is installed once, instead of several round trips per file. An ESP8266 with 92 files went from 66 s to 45 s; other boards are 25-35 % faster. Boards without inascii.crc32 (ESP8266) rely on the per-file SHA-256 check that every backup already does.
 - **Faster serial reads** — the backup commands read raw-REPL output in bulk instead of one byte
   at a time (mpremote's own reader). Large reads from a Pico measured about 4x faster; small
