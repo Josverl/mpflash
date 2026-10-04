@@ -37,6 +37,10 @@ All notable changes to mpflash are documented in this file.
   bootloader, rewriting only the 4 KiB sectors that differ. Every chunk carries a CRC32 and is
   retried if damaged, and the whole image is verified by a SHA-256 calculated on the board. Erased
   blocks are not transferred, so a mostly empty board takes seconds and a full 16 MiB about a minute.
+- **ROMFS backup provider** — backs up and restores the ROMFS image mounted at `/rom` byte for byte through
+  `vfs.rom_ioctl` (the interface behind `mpremote romfs`), for memory-mapped and block-device partitions.
+  Verified on a SAMD Wio Terminal and an nRF52840 by deploying a different image and restoring the backup.
+  Boards without a ROMFS partition do not offer the component.
 - **Faster serial reads** — the backup commands read raw-REPL output in bulk instead of one byte
   at a time (mpremote's own reader). Large reads from a Pico measured about 4x faster; small
   filesystems are dominated by per-file latency and are unchanged.
