@@ -29,7 +29,8 @@ All notable changes to mpflash are documented in this file.
   so restoring it replaces that too. Chips with flash encryption, secure boot or secure
   download mode are refused, restore requires the same chip and flash size, the result is
   verified by MD5 and esptool's `force` option is never used. eFuses and keys are not part of
-  the image. Native-USB ESP boards are not supported yet.
+  the image. ESP32-C3 and other chips with a built-in USB-Serial/JTAG port are supported (verified on a
+  C3); ESP32-S2/S3 boards on a TinyUSB serial port are not supported yet.
 - **RP2040 raw flash backup provider** — backup and restore of the whole flash of an RP2040
   board running MicroPython (verified on a Pico LiPo 16MB). No picotool, driver or extra
   dependency is needed: the flash is read through the REPL and restored through the board's UF2
