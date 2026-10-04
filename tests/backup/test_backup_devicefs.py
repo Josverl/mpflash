@@ -194,7 +194,7 @@ class FakeSerialTransport(FakeTransport):
 @pytest.fixture
 def serial(monkeypatch):
     FakeSerialTransport.instances = []
-    monkeypatch.setattr("mpremote.transport_serial.SerialTransport", FakeSerialTransport)
+    monkeypatch.setattr(devicefs, "_bulk_transport_class", lambda: FakeSerialTransport)
     return FakeSerialTransport
 
 
@@ -221,7 +221,7 @@ def test_unopenable_port_is_reported(monkeypatch):
     def refuse(device, **kwargs):
         raise TransportError("failed to access COM9")
 
-    monkeypatch.setattr("mpremote.transport_serial.SerialTransport", refuse)
+    monkeypatch.setattr(devicefs, "_bulk_transport_class", lambda: refuse)
 
     with pytest.raises(MPFlashError, match="Could not open COM9: failed to access COM9"):
         with open_device_fs("COM9"):
@@ -246,3 +246,129 @@ def test_unresponsive_board_is_reported_and_the_port_still_closed(serial, monkey
 
 def test_summary_helper_describes_mounts():
     assert devicefs.mount_table_summary([Mount("/", "VfsLfs2"), Mount("/x", "")]) == ("/ (VfsLfs2)", "/x (unknown filesystem)")
+
+
+# ---------------------------------------------------------------------------
+# bulk reading of command output
+# ---------------------------------------------------------------------------
+
+
+class FakeSerial:
+    """A serial port that delivers prepared chunks and counts how it is read."""
+
+    def __init__(self, chunks):
+        self.chunks = list(chunks)
+        self.pending = bytearray()
+        self.read_sizes = []
+
+    @property
+    def in_waiting(self):
+        if not self.pending and self.chunks:
+            self.pending += self.chunks.pop(0)
+        return len(self.pending)
+
+    def read(self, count):
+        data = bytes(self.pending[:count])
+        del self.pending[:count]
+        self.read_sizes.append(count)
+        return data
+
+
+def follow(chunks, timeout=1.0):
+    leftover = bytearray()
+    out, err = devicefs.follow_in_bulk(FakeSerial(chunks), timeout, TransportError, leftover)
+    return out, err, bytes(leftover)
+
+
+@pytest.mark.parametrize(
+    "chunks, expected",
+    [
+        ([b"hello\x04\x04>"], (b"hello", b"", b">")),
+        ([b"hello\x04", b"\x04"], (b"hello", b"", b"")),
+        ([b"hel", b"lo\x04err", b"or\x04>"], (b"hello", b"error", b">")),
+        ([b"\x04\x04"], (b"", b"", b"")),
+        ([b"a", b"b", b"\x04", b"c", b"\x04", b">"], (b"ab", b"c", b"")),
+        ([b"out\x04Traceback...\x04>"], (b"out", b"Traceback...", b">")),
+    ],
+)
+def test_output_is_split_at_the_two_end_markers_wherever_the_chunks_fall(chunks, expected):
+    assert follow(chunks) == expected
+
+
+def test_binary_safe_apart_from_the_end_marker():
+    payload = bytes(value for value in range(256) if value != 4) * 4
+
+    out, err, _ = follow([payload[:100], payload[100:700], payload[700:] + b"\x04\x04"])
+
+    assert out == payload and err == b""
+
+
+def test_large_output_is_read_in_bulk_not_byte_by_byte():
+    data = b"x" * (1024 * 1024)
+    chunks = [data[i : i + 4096] for i in range(0, len(data), 4096)]
+    chunks[-1] += b"\x04\x04"
+    serial = FakeSerial(chunks)
+
+    out, _ = devicefs.follow_in_bulk(serial, 1.0, TransportError, bytearray())
+
+    assert out == data
+    assert len(serial.read_sizes) == len(chunks)  # one read per chunk that arrived
+    assert min(serial.read_sizes) > 1
+
+
+@pytest.mark.parametrize("chunks, which", [([], "first"), ([b"partial output"], "first"), ([b"out\x04", b"err"], "second")])
+def test_a_silent_board_times_out_and_says_which_marker_was_missing(chunks, which):
+    with pytest.raises(TransportError, match=f"timeout waiting for the {which} end of output marker"):
+        follow(chunks, timeout=0.05)
+
+
+# ---------------------------------------------------------------------------
+# the transport subclass
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def transport():
+    from mpremote.transport_serial import SerialTransport
+
+    cls = devicefs._bulk_transport_class()
+    instance = cls.__new__(cls)  # no port is opened
+    instance._leftover = bytearray()
+    return instance, SerialTransport
+
+
+def test_the_transport_is_mpremotes_serial_transport_with_bulk_reads(transport):
+    instance, base = transport
+
+    assert isinstance(instance, base) and devicefs._bulk_transport_class() is type(instance)
+
+
+def test_a_prompt_read_past_the_output_is_handed_to_the_next_command(transport):
+    instance, _ = transport
+    instance.serial = FakeSerial([b"out\x04\x04>"])
+
+    assert instance.follow(1.0) == (b"out", b"")
+    assert instance.read_until(1, b">") == b">"  # returned without touching the port again
+    assert instance._leftover == bytearray()
+
+
+def test_read_until_continues_on_the_port_when_the_prompt_has_not_arrived(transport, monkeypatch):
+    instance, base = transport
+    monkeypatch.setattr(base, "read_until", lambda self, *args, **kwargs: b"zz>")
+
+    assert instance.read_until(1, b">") == b"zz>"
+
+
+def test_read_until_keeps_stray_bytes_read_past_the_output(transport, monkeypatch):
+    instance, base = transport
+    instance._leftover.extend(b"x")
+    monkeypatch.setattr(base, "read_until", lambda self, *args, **kwargs: b"zz>")
+
+    assert instance.read_until(1, b">") == b"xzz>"
+
+
+def test_streaming_consumers_keep_mpremotes_own_follow(transport, monkeypatch):
+    instance, base = transport
+    monkeypatch.setattr(base, "follow", lambda self, timeout, data_consumer=None: (b"streamed", b""))
+
+    assert instance.follow(1.0, data_consumer=lambda data: None) == (b"streamed", b"")
