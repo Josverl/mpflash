@@ -23,7 +23,7 @@ DFU_TIMEOUT = 300
 RESTART_TIMEOUT = 20
 
 _DEVICE_RE = re.compile(r'Found DFU: \[0483:df11\].*?\balt=(\d+), name="([^"]*)"')
-_LAYOUT_RE = re.compile(r"^@Internal Flash /(?P<address>0[xX][0-9a-fA-F]+)/(?P<segments>[^/]+)$")
+_LAYOUT_RE = re.compile(r"^@Internal Flash[ \t]+/(?P<address>0[xX][0-9a-fA-F]+)/(?P<segments>[^/]+)$")
 _SEGMENT_RE = re.compile(r"(?P<count>[0-9]+)\*(?P<size>[0-9]+)(?P<unit>[BKMG])(?P<access>[a-g])")
 
 EXCLUSIONS = (

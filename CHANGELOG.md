@@ -6,6 +6,11 @@ All notable changes to mpflash are documented in this file.
 
 ### Fixed
 
+- Accept DfuSe internal-flash descriptors with multiple spaces or tabs after the name,
+  including the double-space descriptor advertised by a Pyboard v1.1.
+
+### Changed
+
 - Preserve each detected board's identity during automatic flashing; do not
   apply the sole responding board's firmware to unrelated serial ports.
 - Reject ESP firmware/chip mismatches before erasing or writing, and retain
