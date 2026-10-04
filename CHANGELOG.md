@@ -30,6 +30,15 @@ All notable changes to mpflash are documented in this file.
   download mode are refused, restore requires the same chip and flash size, the result is
   verified by MD5 and esptool's `force` option is never used. eFuses and keys are not part of
   the image. Native-USB ESP boards are not supported yet.
+- **RP2040 raw flash backup provider** — backup and restore of the whole flash of an RP2040
+  board running MicroPython (verified on a Pico LiPo 16MB). No picotool, driver or extra
+  dependency is needed: the flash is read through the REPL and restored through the board's UF2
+  bootloader, rewriting only the 4 KiB sectors that differ. Every chunk carries a CRC32 and is
+  retried if damaged, and the whole image is verified by a SHA-256 calculated on the board. Erased
+  blocks are not transferred, so a mostly empty board takes seconds and a full 16 MiB about a minute.
+- **Faster serial reads** — the backup commands read raw-REPL output in bulk instead of one byte
+  at a time (mpremote's own reader). Large reads from a Pico measured about 4x faster; small
+  filesystems are dominated by per-file latency and are unchanged.
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
   migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
   S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the
