@@ -19,9 +19,9 @@ import hashlib
 from typing import Any, Callable, ContextManager, Optional, Sequence, Tuple
 
 from mpflash.backup.base import BackupContext, BackupOutput, BackupProvider
-from mpflash.backup.builtins.rp2 import READ_ATTEMPTS, Repl, _decode_chunk
+from mpflash.backup.builtins.rp2 import Repl
 from mpflash.backup.bundle import Bundle
-from mpflash.backup.devicefs import open_device_fs
+from mpflash.backup.devicefs import READ_ATTEMPTS, decode_chunk, open_device_fs
 from mpflash.backup.models import Artifact, ArtifactRole, ComponentKind, Exactness, ProviderCapability
 from mpflash.backup.registry import register
 from mpflash.errors import MPFlashError
@@ -145,7 +145,7 @@ class RomfsDevice:
         problem = ""
         for attempt in range(1, READ_ATTEMPTS + 1):
             reply = self._repl.exec(f"_rd({offset}, {length})", timeout=30)
-            data, problem = _decode_chunk(reply, length)
+            data, problem = decode_chunk(reply, length)
             if data is not None:
                 return data
             log.warning(f"ROMFS read at {offset:#x} failed ({problem}); attempt {attempt} of {READ_ATTEMPTS}")
