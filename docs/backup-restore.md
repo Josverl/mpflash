@@ -121,7 +121,12 @@ Raw flash restores take about as long again, because the image is written and ve
 * **RP2350 support is Pico 2 only.** Other RP2350 boards, partitioned layouts and secure boot are not supported.
   The standard Pico 2 uses UF2 family `rp2350-arm-s` (`0xE48BFF59`); it does not use the RP2040 family.
 * **STM32 DFU** requires `dfu-util` and an accessible DfuSe main-flash range. Read protection is never bypassed.
-  **SAMD (bootloader), nRF, MIMXRT and debug-probe raw reads** are not available yet. Use `vfs`.
+  On a Pyboard v1.1 (STM32F405RG), two 1 MiB main-flash uploads matched byte for byte and leaving DFU
+  returned to MicroPython. Software DFU entry did not work on that board, and manual entry could not
+  be repeated reliably, so its restore/readback hardware round trip is **not yet verified**.
+  Follow the board's documented manual DFU-entry procedure when software entry fails; remove any
+  BOOT0/DFU jumper before attempting to return to normal firmware.
+* **SAMD (bootloader), nRF, MIMXRT and debug-probe raw reads** are not available yet. Use `vfs`.
 * A board must be responsive MicroPython for `vfs`, `romfs`, RP2040 and Pico 2 backups.
 * If a restore fails part way, run it again: the same bundle can be restored repeatedly. If an ESP board does
   not start afterwards, the raw flash restore can be repeated; the ROM bootloader is in the chip and cannot be overwritten.

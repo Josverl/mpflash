@@ -67,8 +67,9 @@ def mcu():
     return fake_mcu(port="stm32", cpu="STM32F405RG", board_id="PYBV11", board="PYBV11")
 
 
-def test_parse_flash_range_uses_only_advertised_internal_flash():
-    result = parse_flash_range(DFU_LISTING)
+@pytest.mark.parametrize("spacing", [" ", "  ", "\t"])
+def test_parse_flash_range_uses_only_advertised_internal_flash(spacing):
+    result = parse_flash_range(DFU_LISTING.replace("@Internal Flash /", f"@Internal Flash{spacing}/"))
 
     assert result.alternate == 0
     assert result.address == FLASH_BASE
