@@ -10,9 +10,12 @@ contains a read-only ROM mount or is virtual).
 
 from __future__ import annotations
 
+import ast
 import hashlib
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Generator, List, Optional, Protocol, Tuple, Type
 
 from mpflash.errors import MPFlashError
@@ -108,6 +111,20 @@ class MpremoteDeviceFs:
 
         return self._run(action)
 
+    # -- raw REPL --------------------------------------------------------
+
+    def exec(self, command: str, timeout: float = 10) -> bytes:
+        """Run ``command`` on the board and return its stdout; raises ``MPFlashError`` on any device error."""
+        return self._exec(command, timeout)
+
+    def eval(self, expression: str, timeout: float = 10) -> Any:
+        """Evaluate ``expression`` on the board and return its value (a Python literal such as bytes, int or str)."""
+        output = self._exec(f"print(repr({expression}))", timeout)
+        try:
+            return ast.literal_eval(output.decode().strip())
+        except (ValueError, SyntaxError, UnicodeDecodeError) as error:
+            raise MPFlashError(f"Unexpected reply from the board for {expression!r}: {output[:80]!r}") from error
+
     # -- DeviceFs --------------------------------------------------------
 
     def mounts(self) -> List[Mount]:
@@ -175,19 +192,85 @@ def _last_line(text: str) -> str:
     return lines[-1] if lines else "device error"
 
 
+_EOT = 4  # the raw REPL ends stdout and then stderr with this byte
+
+
+def follow_in_bulk(serial: Any, timeout: float, error: Type[Exception], leftover: bytearray) -> Tuple[bytes, bytes]:
+    """Read the stdout and stderr of a raw-REPL command, each ended by ``0x04``, in bulk.
+
+    mpremote's own ``follow()`` reads one byte per loop iteration, which caps throughput near
+    25 KB/s however fast the link is, and a reader that slow also makes a board's USB transmit
+    buffer time out and drop data. Reading whatever is waiting is limited by the link instead.
+
+    Bytes read beyond the second ``0x04`` (the raw REPL prompt ``>``) are put in ``leftover`` so the
+    next command can still see them.
+    """
+    parts: List[bytes] = []
+    pending = bytearray()
+    last = time.monotonic()
+    while True:
+        waiting = serial.in_waiting
+        if not waiting:
+            if time.monotonic() - last > timeout:
+                raise error(f"timeout waiting for the {'first' if not parts else 'second'} end of output marker")
+            time.sleep(0.0005)
+            continue
+        chunk = serial.read(waiting)
+        last = time.monotonic()
+        start = 0
+        while True:
+            end = chunk.find(_EOT, start)
+            if end < 0:
+                pending.extend(chunk[start:])
+                break
+            pending.extend(chunk[start:end])
+            parts.append(bytes(pending))
+            pending.clear()
+            start = end + 1
+            if len(parts) == 2:
+                leftover.extend(chunk[start:])
+                return parts[0], parts[1]
+
+
+@lru_cache(maxsize=1)
+def _bulk_transport_class() -> Any:
+    """Return mpremote's ``SerialTransport`` with bulk reads (imported lazily; mpremote is slow to import)."""
+    from mpremote.transport import TransportError
+    from mpremote.transport_serial import SerialTransport
+
+    class BulkSerialTransport(SerialTransport):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            super().__init__(*args, **kwargs)
+            self._leftover = bytearray()
+
+        def read_until(self, min_num_bytes: int, ending: bytes, *args: Any, **kwargs: Any) -> bytes:
+            # Bytes that follow_in_bulk read past the previous command's output (normally the b">" prompt).
+            head = bytes(self._leftover)
+            self._leftover.clear()
+            if head.endswith(ending):
+                return head
+            return head + super().read_until(min_num_bytes, ending, *args, **kwargs)
+
+        def follow(self, timeout: float, data_consumer: Any = None) -> Tuple[bytes, bytes]:
+            if data_consumer is not None:  # streaming consumers keep mpremote's own behaviour
+                return super().follow(timeout, data_consumer)
+            return follow_in_bulk(self.serial, timeout, TransportError, self._leftover)
+
+    return BulkSerialTransport
+
+
 @contextmanager
-def open_device_fs(serialport: str, *, soft_reset: bool = True) -> Generator[DeviceFs, None, None]:
-    """Open one raw-REPL connection to ``serialport`` and yield its filesystem.
+def open_device_fs(serialport: str, *, soft_reset: bool = True) -> Generator[MpremoteDeviceFs, None, None]:
+    """Open one raw-REPL connection to ``serialport`` and yield its filesystem (and raw REPL).
 
     ``soft_reset=True`` stops the running application and closes its open files, which gives a
     consistent view for backup and restore. Read-only inspection can use ``soft_reset=False`` to
     leave the interpreter state untouched.
     """
     from mpremote.transport import TransportError
-    from mpremote.transport_serial import SerialTransport
 
     try:
-        transport = SerialTransport(serialport)
+        transport = _bulk_transport_class()(serialport)
     except TransportError as error:
         raise MPFlashError(f"Could not open {serialport}: {error}") from error
     try:
