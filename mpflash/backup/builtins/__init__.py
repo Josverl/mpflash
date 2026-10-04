@@ -4,4 +4,4 @@ Each provider module calls :func:`mpflash.backup.registry.register` at import
 time and is imported here.
 """
 
-from . import esp, rp2, vfs  # noqa: F401
+from . import esp, romfs, rp2, vfs  # noqa: F401
