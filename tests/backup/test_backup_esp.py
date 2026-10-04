@@ -117,7 +117,10 @@ def test_provider_offers_exact_restorable_flash_covering_filesystems(mcu):
     [
         {"port": "rp2"},
         {"connected": False},
-        {"vid": 0x303A},  # native USB needs a ROM-bootloader re-enumeration that is not implemented
+        # TinyUSB CDC of an ESP32-S2/S3 needs machine.bootloader() and a re-enumeration: not implemented
+        {"vid": 0x303A, "pid": 0x4001},
+        {"vid": 0x303A, "pid": 0x0002},
+        {"vid": 0x303A, "pid": 0},
         {"board": "ARDUINO_NANO_ESP32"},
     ],
 )
@@ -129,6 +132,13 @@ def test_provider_does_not_apply_to_other_boards(overrides):
 
 def test_esp8266_is_supported(mcu):
     mcu.port = "esp8266"
+
+    assert len(EspFlashProvider().capabilities(mcu)) == 1
+
+
+def test_native_usb_serial_jtag_boards_are_supported(mcu):
+    """Verified on an ESP32-C3: esptool resets the built-in USB-Serial/JTAG into the bootloader itself."""
+    mcu.vid, mcu.pid, mcu.cpu = 0x303A, 0x1001, "ESP32-C3"
 
     assert len(EspFlashProvider().capabilities(mcu)) == 1
 
@@ -470,3 +480,82 @@ def test_connect_raises_a_clear_error_when_the_bootloader_is_unreachable(monkeyp
     with pytest.raises(MPFlashError, match="Could not connect to the ESP bootloader on COM9: could not open port"):
         with connect_esptool("COM9", "ESP32"):
             pass
+
+
+class FakeUsbJtagEsp(FakeEsp):
+    """Serves the stub's READ_FLASH protocol: command, 2 KiB frames each acknowledged, then the MD5."""
+
+    ESP_CMDS = {"READ_FLASH": 0xD2}
+
+    def __init__(self, image: bytes, corrupt_digest=False):
+        super().__init__()
+        self.image, self.corrupt_digest = image, corrupt_digest
+        self.command = None
+        self.acks: List[int] = []
+        self.frames: List[bytes] = []
+        self._port = type("Port", (), {"timeout": None})()
+
+    def uses_usb_jtag_serial(self):
+        return True
+
+    def check_command(self, name, command, data):
+        import struct
+
+        self.command = (name, command, struct.unpack("<IIII", data))
+        offset, length, frame, _ = self.command[2]
+        body = self.image[offset : offset + length]
+        self.frames = [body[i : i + frame] for i in range(0, len(body), frame)]
+        digest = hashlib.md5(body).digest()
+        self.frames.append(b"\x00" * 16 if self.corrupt_digest else digest)
+
+    def read(self):
+        return self.frames.pop(0)
+
+    def write(self, packet):
+        import struct
+
+        self.acks.append(struct.unpack("<I", packet)[0])
+
+
+def test_adapter_reads_usb_serial_jtag_chips_in_small_frames(tmp_path):
+    image = bytes(range(256)) * 40  # 10 KiB: five 2 KiB frames
+    esp = FakeUsbJtagEsp(image)
+    cmds = FakeCmds()
+
+    esp_module._EsptoolDevice(esp, cmds).read_flash(tmp_path / "out.bin", len(image))
+
+    assert (tmp_path / "out.bin").read_bytes() == image
+    assert esp.command[2] == (0, len(image), 2048, 64)  # the stub's 4 KiB frames stall this USB peripheral
+    assert esp.acks == [2048 * n for n in range(1, 6)]
+    assert cmds.calls == []  # esptool's own read_flash is not used
+
+
+def test_adapter_rejects_a_usb_serial_jtag_read_that_fails_its_checksum(tmp_path):
+    esp = FakeUsbJtagEsp(b"\x55" * 4096, corrupt_digest=True)
+
+    with pytest.raises(MPFlashError, match="did not match its checksum"):
+        esp_module._EsptoolDevice(esp, FakeCmds()).read_flash(tmp_path / "out.bin", 4096)
+
+
+def test_connect_does_not_retry_when_the_caller_fails_after_connecting(monkeypatch):
+    import esptool.cmds as cmds
+
+    opened = []
+
+    @contextmanager
+    def detect_chip(port, **kwargs):
+        opened.append(port)
+        yield FakeEsp()
+
+    monkeypatch.setattr(cmds, "detect_chip", detect_chip)
+    monkeypatch.setattr(cmds, "run_stub", lambda esp: esp)
+    FakeEsp.change_baud = lambda self, baud: None
+
+    try:
+        with pytest.raises(RuntimeError, match="read failed"):
+            with connect_esptool("COM9", "ESP32"):
+                raise RuntimeError("read failed")
+    finally:
+        del FakeEsp.change_baud
+
+    assert opened == ["COM9"]
