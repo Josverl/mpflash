@@ -1,4 +1,4 @@
-"""Hardware-in-the-loop raw flash backup and restore round trip for an RP2040 board.
+"""Hardware-in-the-loop raw flash round trip for an RP2040 or supported RP2350 board.
 
 DESTRUCTIVE: sectors of the board's flash are rewritten (from its own backup). Use a disposable board:
 
@@ -46,7 +46,9 @@ def flash_backup(mcu: MPRemoteBoard, out: Path) -> Path:
 def test_rp2_flash_backup_survives_damage_and_restores_byte_for_byte(hw_uf2_port, mpflash_db, tmp_path):
     mcu = MPRemoteBoard(hw_uf2_port, update=False)
     mcu.get_mcu_info(timeout=15)
-    assert mcu.port == "rp2" and mcu.cpu.upper() == "RP2040"
+    assert mcu.port == "rp2" and mcu.cpu.upper() in {"RP2040", "RP2350"}
+    if mcu.cpu.upper() == "RP2350":
+        assert mcu.board_id == "RPI_PICO2"
 
     remove_marker(mcu.serialport)
     try:
@@ -55,6 +57,9 @@ def test_rp2_flash_backup_survives_damage_and_restores_byte_for_byte(hw_uf2_port
         bundle.verify()
         (artifact,) = bundle.manifest.artifacts
         assert artifact.address == 0x10000000 and artifact.length == artifact.size > 0
+        if mcu.cpu.upper() == "RP2350":
+            assert artifact.length == 4 * 1024 * 1024
+            assert artifact.provider == "rp2350-flash"
 
         # Damage the board: write a file into its filesystem, which lives inside the flash image.
         with open_device_fs(mcu.serialport) as fs:

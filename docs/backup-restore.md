@@ -28,6 +28,7 @@ saved; by default everything is included, or choose with `--component flash|vfs|
 | ESP32 / ESP8266 (UART) | `flash` | esptool | exact | the whole SPI flash, including firmware, bootloader and the filesystem |
 | ESP32-C3 (and other chips with built-in USB-Serial/JTAG) | `flash` | esptool | exact | verified on an ESP32-C3 |
 | RP2040 | `flash` | raw REPL + UF2 bootloader | exact | the whole QSPI flash; no picotool or driver needed |
+| Raspberry Pi Pico 2 (`RPI_PICO2`, RP2350) | `flash` | raw REPL + Arm RP2350 UF2 bootloader | exact | the standard unpartitioned 4 MiB QSPI flash; security and geometry checked before reading/writing |
 | STM32 with DfuSe internal flash | `flash` | dfu-util | exact | only the advertised readable, erasable and writable main-flash range; requires `dfu-util` |
 | boards with `vfs.rom_ioctl` (MicroPython 1.25+) and a ROMFS | `romfs` | `vfs.rom_ioctl` | exact | the ROMFS image mounted at `/rom`; verified on SAMD and nRF52840 |
 
@@ -48,6 +49,12 @@ hash computed on the device, or a second read) before it is reported as created.
 
 * ESP: eFuses/OTP (MAC address, keys, security configuration), RAM, RTC memory and PSRAM.
 * RP2040: RAM and the boot ROM. Erased 4 KiB blocks are not transferred and are stored as erased.
+* Pico 2: RAM, boot ROM, OTP and keys. Only the standard 4 MiB board with Arm secure-mode MicroPython,
+  a 3 MiB filesystem starting at flash offset 1 MiB, identity XIP mapping and no partition table is supported.
+  Secure boot, non-secure/RISC-V execution, restricted UF2 permissions, additional flash chips and unknown
+  geometries are refused. Source images containing partition tables or unsupported executable types are refused too.
+  The boot ROM's flash-window size is not used as a physical size probe: it may default to 16 MiB.
+  MPFlash never reads beyond the Pico 2's documented 4 MiB flash or probes it by out-of-range address aliasing.
 * STM32: ROM system memory/bootloader, option bytes and OTP. A DfuSe range is used only when it is
   explicitly advertised as readable, erasable and writable; read-protected or ambiguous layouts are
   rejected. A bootloader stored inside the advertised main-flash range is included. MPFlash never
@@ -75,7 +82,7 @@ folder that looks usable. `mpflash restore` verifies every hash before touching 
 * Restore is destructive and asks for confirmation; use `--yes` when running non-interactively.
 * A restore of a bundle made from a different physical board (different serial number) shows a warning.
 * Raw flash restores check that the target is the same chip with the same flash size, then verify the result
-  (MD5 on ESP, SHA-256 on RP2040 and ROMFS). `esptool`'s `force` option is never used.
+  (MD5 on ESP, SHA-256 on RP2040, Pico 2 and ROMFS). `esptool`'s `force` option is never used.
 * Boards reset when a restore finishes.
 
 ### Examples
@@ -102,6 +109,7 @@ Measured on real boards (MicroPython 1.29.0, Windows):
 | ESP32-C3 (4 MiB) | raw flash backup | about 30 s |
 | ESP8266 | raw flash round trip (three backups and one restore) | about 6.5 minutes |
 | Pico (16 MiB, 7 MiB of data) | raw flash backup | about 1.5 minutes |
+| Pico 2 (4 MiB, about 2.8 MiB of data) | raw flash backup / backup-damage-restore-backup round trip | about 15 s / 38 s |
 
 Raw flash restores take about as long again, because the image is written and verified.
 
@@ -110,10 +118,11 @@ Raw flash restores take about as long again, because the image is written and ve
 * **Native USB ESP32-S2/S3 boards** that present a TinyUSB serial port (USB ID `303A:4001`) are not supported
   for raw flash yet: esptool cannot reach the bootloader without a re-enumeration step. Their files can still be
   backed up with `vfs`. ESP32-C3 and other chips using the built-in USB-Serial/JTAG (`303A:1001`) work.
-* **RP2040 only.** RP2350 needs a different UF2 family and partition handling. Raw backup does not offer it.
+* **RP2350 support is Pico 2 only.** Other RP2350 boards, partitioned layouts and secure boot are not supported.
+  The standard Pico 2 uses UF2 family `rp2350-arm-s` (`0xE48BFF59`); it does not use the RP2040 family.
 * **STM32 DFU** requires `dfu-util` and an accessible DfuSe main-flash range. Read protection is never bypassed.
   **SAMD (bootloader), nRF, MIMXRT and debug-probe raw reads** are not available yet. Use `vfs`.
-* A board must be responsive MicroPython for `vfs`, `romfs` and RP2040 backups.
+* A board must be responsive MicroPython for `vfs`, `romfs`, RP2040 and Pico 2 backups.
 * If a restore fails part way, run it again: the same bundle can be restored repeatedly. If an ESP board does
   not start afterwards, the raw flash restore can be repeated; the ROM bootloader is in the chip and cannot be overwritten.
 * A script that runs at boot and writes to the filesystem can make the final verification fail (RP2040); run the

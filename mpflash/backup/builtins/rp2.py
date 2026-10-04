@@ -19,7 +19,8 @@ How the reads stay fast and correct (measured on a Pico LiPo 16MB):
 * The whole image is checked against a SHA-256 computed on the board, which also verifies a restore
   without downloading the flash again.
 
-Only RP2040 is supported. RP2350 uses another UF2 family, partition tables and secure boot.
+This provider handles RP2040. The separate :mod:`.rp2350` provider reuses the transfers only for
+validated Pico 2 layouts, with a different UF2 family and conservative geometry/security gates.
 """
 
 from __future__ import annotations
@@ -180,8 +181,8 @@ class ReplFlash:
 # ---------------------------------------------------------------------------
 
 
-def build_uf2(image: bytes, blocks: Sequence[int]) -> bytes:
-    """Build a UF2 that programs the given 4 KiB ``blocks`` of ``image`` into RP2040 flash.
+def build_uf2(image: bytes, blocks: Sequence[int], *, family: int = UF2_FAMILY_RP2040) -> bytes:
+    """Build a UF2 that programs the given 4 KiB ``blocks`` with the selected chip's family ID.
 
     Every block is written in full (16 pages of 256 bytes), including erased ones, because the boot
     ROM only erases a sector when it is written to.
@@ -189,7 +190,7 @@ def build_uf2(image: bytes, blocks: Sequence[int]) -> bytes:
     pages = [(block * BLOCK + page * UF2_PAYLOAD) for block in sorted(blocks) for page in range(BLOCK // UF2_PAYLOAD)]
     out = bytearray()
     for number, offset in enumerate(pages):
-        header = struct.pack("<8I", *_UF2_MAGIC, _UF2_FLAG_FAMILY, XIP_BASE + offset, UF2_PAYLOAD, number, len(pages), UF2_FAMILY_RP2040)
+        header = struct.pack("<8I", *_UF2_MAGIC, _UF2_FLAG_FAMILY, XIP_BASE + offset, UF2_PAYLOAD, number, len(pages), family)
         payload = image[offset : offset + UF2_PAYLOAD]
         out += header + payload + bytes(476 - UF2_PAYLOAD) + struct.pack("<I", _UF2_END)
     return bytes(out)
@@ -239,7 +240,7 @@ def _flash_artifact(artifacts: Sequence[Artifact]) -> Artifact:
         raise MPFlashError("The bundle must contain exactly one raw flash image to restore")
     artifact = raw[0]
     if artifact.address != XIP_BASE or artifact.length is None or artifact.length % BLOCK:
-        raise MPFlashError("Only a raw RP2040 flash image that starts at 0x10000000 can be restored")
+        raise MPFlashError("Only a raw RP2 flash image that starts at 0x10000000 can be restored")
     return artifact
 
 
@@ -248,10 +249,18 @@ class Rp2FlashProvider(BackupProvider):
 
     name = "rp2-flash"
     priority = 10
+    uf2_family = UF2_FAMILY_RP2040
+    exclusions = EXCLUSIONS
 
     def __init__(self, opener: Opener = open_device_fs, flasher: Flasher = flash_through_bootloader):
         self._open = opener
         self._flash = flasher
+
+    def _device(self, mcu: Any, repl: Repl) -> Rp2Device:
+        return ReplFlash(repl)
+
+    def _validate_image(self, image: bytes) -> None:
+        """Allow providers to reject unsupported layouts before publishing or writing an image."""
 
     def capabilities(self, mcu: Any) -> Sequence[ProviderCapability]:
         if not getattr(mcu, "connected", False) or getattr(mcu, "family", "") != "micropython":
@@ -275,7 +284,7 @@ class Rp2FlashProvider(BackupProvider):
         writer = ctx.writer
         target = writer.artifact_path(FLASH_NAME)
         with self._open(mcu.serialport, soft_reset=True) as repl:
-            device = ReplFlash(repl)
+            device = self._device(mcu, repl)
             size = self._detect_size(device)
             free = shutil.disk_usage(target.parent).free
             if free < size + _DISK_MARGIN:
@@ -298,6 +307,7 @@ class Rp2FlashProvider(BackupProvider):
                 raise MPFlashError(
                     "The flash read did not match the SHA-256 calculated on the board; the transfer was corrupted. No backup was created."
                 )
+        self._validate_image(bytes(image))
         target.write_bytes(bytes(image))
         writer.register_artifact(
             FLASH_NAME,
@@ -308,11 +318,11 @@ class Rp2FlashProvider(BackupProvider):
             address=XIP_BASE,
             length=size,
             covers=COVERS,
-            exclusions=EXCLUSIONS,
+            exclusions=self.exclusions,
         )
         erased = len(blank)
         note = (
-            f"Flash: {size} bytes of RP2040 flash read through the REPL and verified by SHA-256 on the board; "
+            f"Flash: {size} bytes of {mcu.cpu} flash read through the REPL and verified by SHA-256 on the board; "
             f"{erased} of {size // BLOCK} erased blocks were not transferred. It includes the filesystem."
         )
         return BackupOutput(notes=(note,))
@@ -332,8 +342,9 @@ class Rp2FlashProvider(BackupProvider):
         artifact = _flash_artifact(artifacts)
         assert artifact.length is not None
         image = bundle.artifact_path(artifact).read_bytes()
+        self._validate_image(image)
         with self._open(mcu.serialport, soft_reset=False) as repl:
-            device = ReplFlash(repl)
+            device = self._device(mcu, repl)
             self._check_size(device, artifact.length)
             blocks = _differing_blocks(image, device, artifact.length)
         total = artifact.length // BLOCK
@@ -350,20 +361,25 @@ class Rp2FlashProvider(BackupProvider):
         assert artifact.length is not None
         size = artifact.length
         image = bundle.artifact_path(artifact).read_bytes()
+        if hashlib.sha256(image).hexdigest() != artifact.sha256:
+            raise MPFlashError("The RP2 flash image changed after validation; refusing to restore it")
+        self._validate_image(image)
         with self._open(mcu.serialport, soft_reset=True) as repl:
-            device = ReplFlash(repl)
+            device = self._device(mcu, repl)
             self._check_size(device, size)
             blocks = _differing_blocks(image, device, size)
         if blocks:
             log.info(f"Writing {len(blocks)} of {size // BLOCK} flash sectors through the UF2 bootloader")
             with tempfile.TemporaryDirectory(prefix="mpflash-restore-") as folder:
                 uf2 = Path(folder) / "restore.uf2"
-                uf2.write_bytes(build_uf2(image, blocks))
+                uf2.write_bytes(build_uf2(image, blocks, family=self.uf2_family))
                 self._flash(mcu, uf2)
         else:
             log.info("The flash already matches the backup; verifying only")
         with self._open(mcu.serialport, soft_reset=True) as repl:
-            written = ReplFlash(repl).sha256(size)
+            device = self._device(mcu, repl)
+            self._check_size(device, size)
+            written = device.sha256(size)
         if written != artifact.sha256:
             raise MPFlashError(
                 "The flash does not match the backup after restoring it "

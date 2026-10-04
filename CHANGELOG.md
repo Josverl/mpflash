@@ -48,6 +48,11 @@ All notable changes to mpflash are documented in this file.
   `vfs.rom_ioctl` (the interface behind `mpremote romfs`), for memory-mapped and block-device partitions.
   Verified on a SAMD Wio Terminal and an nRF52840 by deploying a different image and restoring the backup.
   Boards without a ROMFS partition do not offer the component.
+- **RP2350 Pico 2 raw-flash provider** — reads the standard unpartitioned 4 MiB flash through the REPL
+  without out-of-range alias probing, restores differing sectors with the RP2350 Arm UF2 family and verifies
+  the whole image by SHA-256. ROM security/partition permissions and XIP mapping are checked before
+  reading or writing; secure boot, unknown geometries and partitioned layouts are refused.
+  Verified on a Pico 2 by damaging its filesystem, restoring and re-reading an identical raw image.
 - **STM32 DfuSe raw-flash backup provider** — reads and restores only the DfuSe-advertised internal main-flash
   range using `dfu-util`, verifies restores by reading the bytes back, and never requests unprotection or mass
   erase. It requires `dfu-util` 0.11 or newer; system memory, option bytes, OTP and protected or ambiguous
