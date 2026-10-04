@@ -13,11 +13,11 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
-- **Backup bundle foundation (not yet user-visible)** — `mpflash.backup` provides a
-  schema-versioned, hash-verified bundle format (`README.md`, `manifest.json`, artifacts),
-  an atomic writer and strict reader, and a provider registry with the
-  `mpflash.backup_plugins` entry-point group. The `backup` and `restore` commands are
-  hidden until the MVP is documented.
+- **`mpflash backup` and `mpflash restore`** — back up connected boards into a verified bundle
+  folder and restore one board from it; see [docs/backup-restore.md](docs/backup-restore.md).
+  `mpflash.backup` provides a schema-versioned, hash-verified bundle format (`README.md`,
+  `manifest.json`, artifacts), an atomic writer and strict reader, and a provider registry with the
+  `mpflash.backup_plugins` entry-point group. Providers are listed below.
 - **VFS backup provider** — logical backup and mirror-restore of the MicroPython filesystem
   of any responsive board over one raw-REPL connection (SAMD, nRF, ESP32 and ESP8266 verified
   on hardware). The filesystem is stored once, in `artifacts/vfs.zip`, with a hashed
