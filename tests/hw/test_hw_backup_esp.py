@@ -25,6 +25,17 @@ pytestmark = [pytest.mark.hardware, pytest.mark.hw_esptool]
 MARKER = "/mpflash_hil_marker.txt"
 
 
+def remove_marker(port: str) -> None:
+    """Delete the marker file if present.
+
+    A leftover from an aborted run would be captured by the 'original' backup and make the final
+    comparison meaningless, so it is removed before the test and again afterwards.
+    """
+    with open_device_fs(port) as fs:
+        if MARKER.lstrip("/") in [entry.name for entry in fs.listdir("/")]:
+            fs.remove_file(MARKER)
+
+
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -37,25 +48,29 @@ def test_raw_flash_backup_survives_damage_and_restores_byte_for_byte(hw_esp_port
     mcu = MPRemoteBoard(hw_esp_port, update=False)
     mcu.get_mcu_info(timeout=15)
 
-    original = flash_backup(mcu, tmp_path / "original")
-    bundle = read_bundle(original)
-    bundle.verify()
-    (artifact,) = bundle.manifest.artifacts
-    assert artifact.address == 0 and artifact.length == artifact.size > 0
+    remove_marker(mcu.serialport)
+    try:
+        original = flash_backup(mcu, tmp_path / "original")
+        bundle = read_bundle(original)
+        bundle.verify()
+        (artifact,) = bundle.manifest.artifacts
+        assert artifact.address == 0 and artifact.length == artifact.size > 0
 
-    # Damage the board: add a file to its filesystem, which lives inside the flash image.
-    with open_device_fs(mcu.serialport) as fs:
-        fs.write_file(MARKER, b"this file is not in the backup")
-    assert flash_backup(mcu, tmp_path / "damaged") != original
-    damaged_hash = sha256(next((tmp_path / "damaged").iterdir()) / "artifacts" / "flash.bin")
-    assert damaged_hash != sha256(original / "artifacts" / "flash.bin")
+        # Damage the board: add a file to its filesystem, which lives inside the flash image.
+        with open_device_fs(mcu.serialport) as fs:
+            fs.write_file(MARKER, b"this file is not in the backup")
+        assert flash_backup(mcu, tmp_path / "damaged") != original
+        damaged_hash = sha256(next((tmp_path / "damaged").iterdir()) / "artifacts" / "flash.bin")
+        assert damaged_hash != sha256(original / "artifacts" / "flash.bin")
 
-    plan = plan_restore(bundle, mcu)
-    assert any("ENTIRE flash" in line for line in plan.lines)
-    run_restore(plan, mcu)
+        plan = plan_restore(bundle, mcu)
+        assert any("ENTIRE flash" in line for line in plan.lines)
+        run_restore(plan, mcu)
 
-    # The marker is gone and the flash is identical to the original image.
-    with open_device_fs(mcu.serialport, soft_reset=False) as fs:
-        assert MARKER.lstrip("/") not in [entry.name for entry in fs.listdir("/")]
-    after = flash_backup(mcu, tmp_path / "after")
-    assert sha256(after / "artifacts" / "flash.bin") == sha256(original / "artifacts" / "flash.bin")
+        # The marker is gone and the flash is identical to the original image.
+        with open_device_fs(mcu.serialport, soft_reset=False) as fs:
+            assert MARKER.lstrip("/") not in [entry.name for entry in fs.listdir("/")]
+        after = flash_backup(mcu, tmp_path / "after")
+        assert sha256(after / "artifacts" / "flash.bin") == sha256(original / "artifacts" / "flash.bin")
+    finally:
+        remove_marker(mcu.serialport)
