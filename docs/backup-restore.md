@@ -87,8 +87,9 @@ Measured on real boards (MicroPython 1.29.0, Windows):
 
 | Board | Operation | Time |
 |-------|-----------|------|
-| SAMD Wio Terminal | files | about 15 s |
-| nRF52840 | files | about 20 s |
+| SAMD Wio Terminal | files | about 10 s |
+| nRF52840 | files | about 15 s |
+| ESP8266 (92 files, 186 KB) | files | about 45 s (the 115200 baud UART is the limit) |
 | ESP32 (4 MiB) | raw flash backup | about 1 minute |
 | ESP32-C3 (4 MiB) | raw flash backup | about 30 s |
 | ESP8266 | raw flash round trip (three backups and one restore) | about 6.5 minutes |

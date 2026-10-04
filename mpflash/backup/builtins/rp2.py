@@ -24,7 +24,6 @@ Only RP2040 is supported. RP2350 uses another UF2 family, partition tables and s
 
 from __future__ import annotations
 
-import binascii
 import hashlib
 import shutil
 import struct
@@ -35,7 +34,7 @@ from typing import Any, Callable, Iterator, List, Optional, Protocol, Sequence, 
 
 from mpflash.backup.base import BackupContext, BackupOutput, BackupProvider
 from mpflash.backup.bundle import Bundle
-from mpflash.backup.devicefs import open_device_fs
+from mpflash.backup.devicefs import READ_ATTEMPTS, decode_chunk as _decode_chunk, open_device_fs
 from mpflash.backup.models import Artifact, ArtifactRole, ComponentKind, Exactness, ProviderCapability
 from mpflash.backup.registry import register
 from mpflash.errors import MPFlashError
@@ -98,26 +97,6 @@ def _sha(n):
         h.update(_A(_X + o, min(65536, n - o)))
     return h.digest()
 """
-
-
-READ_ATTEMPTS = 3
-
-
-def _decode_chunk(reply: bytes, length: int) -> Tuple[Optional[bytes], str]:
-    """Return ``(data, "")`` for a valid ``base64.crc32hex`` reply, otherwise ``(None, why)``."""
-    payload, separator, crc = reply.strip().partition(b".")
-    if not separator:
-        return None, "the reply was cut short before its checksum"
-    try:
-        data = binascii.a2b_base64(payload)
-        expected = int(crc, 16)
-    except ValueError:  # binascii.Error is a ValueError
-        return None, "the reply is not valid base64 and a checksum"
-    if len(data) != length:
-        return None, f"it holds {len(data)} bytes, expected {length}"
-    if binascii.crc32(data) != expected:
-        return None, "the checksum does not match"
-    return data, ""
 
 
 class Repl(Protocol):
