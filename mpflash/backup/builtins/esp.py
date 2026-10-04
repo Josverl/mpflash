@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import struct
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Generator, List, Optional, Protocol, Sequence
@@ -27,9 +28,15 @@ from mpflash.errors import MPFlashError
 from mpflash.logger import log
 
 FLASH_NAME = "flash.bin"
-#: Espressif's own USB VID: native-USB boards need a ROM-bootloader re-enumeration that is not implemented yet.
+#: Espressif's USB VID. Boards on it use the chip's own USB, which has no DTR/RTS lines for esptool to reset with.
 ESPRESSIF_USB_VID = 0x303A
+#: The built-in USB-Serial/JTAG peripheral (ESP32-C3/C6/H2, and the S3 when it uses it). esptool resets
+#: it into the bootloader itself, verified on an ESP32-C3. Other Espressif USB IDs, such as the TinyUSB
+#: CDC of an ESP32-S2/S3 running MicroPython (0x4001), need machine.bootloader() and a re-enumeration
+#: that is not implemented, so they are not offered.
+USB_SERIAL_JTAG_PID = 0x1001
 _FALLBACK_BAUD = 115_200
+_USB_JTAG_FRAME = 2048
 _DISK_MARGIN = 16 * 1024 * 1024
 _BOARD_BACK_TIMEOUT = 20
 
@@ -101,7 +108,38 @@ class _EsptoolDevice:
         return problems
 
     def read_flash(self, path: Path, size: int) -> None:
+        if self._uses_usb_jtag():
+            self._read_in_small_frames(path, size)
+            return
         self._cmds.read_flash(self._esp, 0, size, output=str(path), flash_size="keep")
+
+    def _uses_usb_jtag(self) -> bool:
+        try:
+            return bool(self._esp.uses_usb_jtag_serial())
+        except Exception:  # noqa: BLE001 - not knowing means the standard path
+            return False
+
+    def _read_in_small_frames(self, path: Path, size: int) -> None:
+        """Read the flash with the stub's frame size lowered to 2 KiB.
+
+        With esptool 5.3.0 the stub's 4 KiB frames stall the built-in USB-Serial/JTAG of an ESP32-C3 on some
+        flash content (deterministic at 0x108000 of one board; esptool 5.4.0 reads it). 2 KiB frames read
+        the same bytes reliably on both. This is esptool's own ``read_flash`` with a different frame size.
+        """
+        esp = self._esp
+        esp.check_command("read flash", esp.ESP_CMDS["READ_FLASH"], struct.pack("<IIII", 0, size, _USB_JTAG_FRAME, 64))
+        md5 = hashlib.md5(usedforsecurity=False)
+        received = 0
+        with path.open("wb") as stream:
+            while received < size:
+                esp._port.timeout = 3
+                frame = esp.read()
+                stream.write(frame)
+                md5.update(frame)
+                received += len(frame)
+                esp.write(struct.pack("<I", received))
+        if received != size or esp.read().hex() != md5.hexdigest():
+            raise MPFlashError(f"The flash read from the {self.chip} did not match its checksum")
 
     def write_flash(self, path: Path) -> None:
         # All "keep": the image is written exactly as stored. No force: esptool's guards stay active.
@@ -135,11 +173,13 @@ def connect_esptool(serialport: str, cpu: str) -> Generator[EspDevice, None, Non
     attempts: List[Optional[int]] = [baud, None]  # None = stay at the default baud rate
     last_error: Optional[Exception] = None
     for attempt in attempts:
+        connected = False
         try:
             with cmds.detect_chip(port=serialport) as esp:
                 esp = cmds.run_stub(esp)
                 if attempt:
                     esp.change_baud(attempt)
+                connected = True
                 yield _EsptoolDevice(esp, cmds)
                 return
         except MPFlashError:
@@ -147,6 +187,8 @@ def connect_esptool(serialport: str, cpu: str) -> Generator[EspDevice, None, Non
         except GeneratorExit:  # pragma: no cover - the caller left the block
             raise
         except Exception as error:  # noqa: BLE001 - esptool raises FatalError, serial and OS errors
+            if connected:
+                raise  # a failure inside the caller's block is not a connection failure
             if attempt is None:
                 raise MPFlashError(f"Could not connect to the ESP bootloader on {serialport}: {error}") from error
             last_error = error
@@ -188,7 +230,9 @@ class EspFlashProvider(BackupProvider):
     def capabilities(self, mcu: Any) -> Sequence[ProviderCapability]:
         if not getattr(mcu, "connected", False) or getattr(mcu, "port", "") not in ("esp32", "esp8266"):
             return ()
-        if getattr(mcu, "vid", 0) == ESPRESSIF_USB_VID or str(getattr(mcu, "board", "")).startswith("ARDUINO_"):
+        if str(getattr(mcu, "board", "")).startswith("ARDUINO_"):
+            return ()
+        if getattr(mcu, "vid", 0) == ESPRESSIF_USB_VID and getattr(mcu, "pid", 0) != USB_SERIAL_JTAG_PID:
             return ()
         return (
             ProviderCapability(
