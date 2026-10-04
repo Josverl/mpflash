@@ -11,6 +11,7 @@ contains a read-only ROM mount or is virtual).
 from __future__ import annotations
 
 import ast
+import binascii
 import hashlib
 import time
 from contextlib import contextmanager
@@ -19,11 +20,67 @@ from functools import lru_cache
 from typing import Any, Generator, List, Optional, Protocol, Tuple, Type
 
 from mpflash.errors import MPFlashError
+from mpflash.logger import log
 
 _STAT_DIR_BIT = 0x4000
 _HASH_BYTES_PER_SECOND = 20_000
 _MIN_CHUNK = 128
 _MAX_CHUNK = 4096
+READ_ATTEMPTS = 3
+
+# Runs on the board. Replies are written straight to stdout as base64 followed by a CRC32, which is
+# several times faster than print(repr(bytes)) and lets the host detect a reply the USB link damaged.
+_FILE_CODE = """
+import binascii, sys
+try:
+    _c = binascii.crc32
+except AttributeError:
+    _c = None
+def _rf(p, o, n):
+    with open(p, "rb") as f:
+        f.seek(o)
+        d = f.read(n)
+    sys.stdout.write(binascii.b2a_base64(d, newline=False))
+    sys.stdout.write(".%08x" % (_c(d) & 0xFFFFFFFF) if _c else ".-")
+"""
+
+
+_HASH_CODE = """
+import hashlib, binascii
+def _sh(p, n):
+    h = hashlib.sha256()
+    b = memoryview(bytearray(n))
+    with open(p, "rb") as f:
+        while True:
+            k = f.readinto(b)
+            if not k:
+                break
+            h.update(b[:k])
+    print(binascii.hexlify(h.digest()).decode())
+"""
+
+
+def decode_chunk(reply: bytes, length: Optional[int], *, allow_unchecked: bool = False) -> Tuple[Optional[bytes], str]:
+    """Return ``(data, "")`` for a valid ``base64.crc32hex`` reply, otherwise ``(None, why)``.
+
+    ``length`` is the exact number of bytes expected, or ``None`` when any length is acceptable.
+    A board without ``binascii.crc32`` (ESP8266) sends ``-`` instead of a checksum; that is accepted only
+    with ``allow_unchecked``, for callers that verify the whole result another way.
+    """
+    payload, separator, crc = reply.strip().partition(b".")
+    if not separator:
+        return None, "the reply was cut short before its checksum"
+    unchecked = allow_unchecked and crc == b"-"
+    try:
+        data = binascii.a2b_base64(payload)
+        expected = 0 if unchecked else int(crc, 16)
+    except ValueError:  # binascii.Error is a ValueError
+        return None, "the reply is not valid base64 and a checksum"
+    if length is not None and len(data) != length:
+        return None, f"it holds {len(data)} bytes, expected {length}"
+    if not unchecked and binascii.crc32(data) != expected:
+        return None, "the checksum does not match"
+    return data, ""
 
 
 @dataclass(frozen=True)
@@ -66,10 +123,10 @@ class DeviceFs(Protocol):
         ...
 
 
-def _chunk_size(free_memory: int) -> int:
-    """Pick a transfer chunk that fits the board's RAM, as a power of two."""
+def _chunk_size(free_memory: int, share: int = 64) -> int:
+    """Pick a transfer chunk of about ``1/share`` of the board's free RAM, as a power of two."""
     chunk = _MIN_CHUNK
-    while chunk * 2 <= min(max(free_memory // 64, _MIN_CHUNK), _MAX_CHUNK):
+    while chunk * 2 <= min(max(free_memory // share, _MIN_CHUNK), _MAX_CHUNK):
         chunk *= 2
     return chunk
 
@@ -81,8 +138,15 @@ class MpremoteDeviceFs:
         self._t = transport
         self._error = error_type
         self._chunk = _MIN_CHUNK
+        # Reads need about 2.4x their chunk in RAM (data, then its base64), so they can use a larger one
+        # than writes; on an ESP8266 4x larger chunks read a file 1.7x faster, which is the UART's limit.
+        self._read_chunk = _MIN_CHUNK
+        self._fast_reads: Optional[bool] = None
+        self._fast_hash: Optional[bool] = None
         try:
-            self._chunk = _chunk_size(int(self._eval("(__import__('gc').collect(), __import__('gc').mem_free())[1]")))
+            free = int(self._eval("(__import__('gc').collect(), __import__('gc').mem_free())[1]"))
+            self._chunk = _chunk_size(free)
+            self._read_chunk = _chunk_size(free, share=16)
         except (MPFlashError, ValueError, TypeError):
             pass
 
@@ -140,7 +204,35 @@ class MpremoteDeviceFs:
         return [DirEntry(entry.name, bool(entry.st_mode & _STAT_DIR_BIT)) for entry in entries]
 
     def read_file(self, path: str) -> bytes:
-        return bytes(self._run(lambda: self._t.fs_readfile(path, chunk_size=self._chunk)))
+        if self._fast_reads is None:
+            try:
+                self._exec(_FILE_CODE)
+                self._fast_reads = True
+            except MPFlashError as error:  # firmware without binascii.crc32 or b2a_base64(newline=)
+                log.debug(f"Using mpremote's file reads: {error}")
+                self._fast_reads = False
+        if not self._fast_reads:
+            return bytes(self._run(lambda: self._t.fs_readfile(path, chunk_size=self._chunk)))
+        return self._read_in_chunks(path)
+
+    def _read_in_chunks(self, path: str) -> bytes:
+        """Read a file one request per chunk; a file of up to one chunk takes a single round trip."""
+        data = bytearray()
+        while True:
+            part = self._request_chunk(path, len(data))
+            data += part
+            if len(part) < self._read_chunk:
+                return bytes(data)
+
+    def _request_chunk(self, path: str, offset: int) -> bytes:
+        problem = ""
+        for attempt in range(1, READ_ATTEMPTS + 1):
+            reply = self._exec(f"_rf({path!r}, {offset}, {self._read_chunk})", timeout=30)
+            part, problem = decode_chunk(reply, None, allow_unchecked=True)
+            if part is not None and len(part) <= self._read_chunk:
+                return part
+            log.warning(f"Read of {path} at {offset} failed ({problem or 'too long'}); attempt {attempt} of {READ_ATTEMPTS}")
+        raise MPFlashError(f"The board returned damaged data for {path} at offset {offset} {READ_ATTEMPTS} times in a row: {problem}")
 
     def write_file(self, path: str, data: bytes) -> None:
         self._run(lambda: self._t.fs_writefile(path, data, chunk_size=self._chunk))
@@ -159,24 +251,22 @@ class MpremoteDeviceFs:
 
         Falls back to hashing the transferred bytes when the firmware has no ``hashlib``.
         """
-        timeout = 10 + size_hint / _HASH_BYTES_PER_SECOND
-        try:
-            self._exec("import hashlib\n_h = hashlib.sha256()", 10)
-        except MPFlashError:
-            return hashlib.sha256(self.read_file(path)).hexdigest()
-        buffer = min(self._chunk, 512)
-        self._exec(
-            f"_b = memoryview(bytearray({buffer}))\n"
-            f"with open({path!r}, 'rb') as _f:\n"
-            " while True:\n"
-            "  _n = _f.readinto(_b)\n"
-            "  if not _n:\n"
-            "   break\n"
-            "  _h.update(_b[:_n])\n",
-            timeout,
-        )
-        digest = self._eval("_h.digest()")
-        return bytes(digest).hex()
+        if self._fast_hash is None:
+            try:
+                self._exec(_HASH_CODE)
+                self._fast_hash = True
+            except MPFlashError as error:
+                log.debug(f"Hashing files on the host: {error}")
+                self._fast_hash = False
+        if self._fast_hash:
+            try:
+                out = self._exec(f"_sh({path!r}, {min(self._chunk, 512)})", 10 + size_hint / _HASH_BYTES_PER_SECOND)
+                digest = out.decode().strip()
+                if len(digest) == 64:
+                    return digest
+            except MPFlashError:
+                pass
+        return hashlib.sha256(self.read_file(path)).hexdigest()
 
     def capacity(self, path: str) -> Optional[int]:
         try:

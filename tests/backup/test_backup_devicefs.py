@@ -1,5 +1,7 @@
 """The mpremote-backed ``DeviceFs`` adapter, tested against a fake transport."""
 
+import ast
+import binascii
 import hashlib
 from types import SimpleNamespace
 
@@ -17,6 +19,9 @@ class FakeTransport:
     def __init__(self, evals=None, exec_errors=None):
         self.evals = evals or {}
         self.exec_errors = exec_errors or {}
+        self.exec_outputs = {}
+        self.damaged_replies = 0
+        self.no_crc32 = False
         self.execs = []
         self.files = {}
         self.calls = []
@@ -34,7 +39,22 @@ class FakeTransport:
         for needle, error in self.exec_errors.items():
             if needle in command:
                 return b"", error
+        for needle, output in self.exec_outputs.items():
+            if needle in command:
+                return output, b""
+        if command.startswith("_rf("):
+            return self.serve_chunk(command), b""
         return b"", b""
+
+    def serve_chunk(self, command):
+        """Answer ``_rf(path, offset, size)`` as the board does: base64, a dot and the CRC32."""
+        path, offset, size = ast.literal_eval("(" + command[len("_rf(") : -1] + ")")
+        data = self.files[path][offset : offset + size]
+        reply = binascii.b2a_base64(data, newline=False) + (b".-" if self.no_crc32 else b".%08x" % binascii.crc32(data))
+        if self.damaged_replies > 0:
+            self.damaged_replies -= 1
+            reply = reply[:-4]
+        return reply
 
     def fs_listdir(self, path):
         return [SimpleNamespace(name="a.py", st_mode=0x8000), SimpleNamespace(name="lib", st_mode=0x4000)]
@@ -77,10 +97,93 @@ def test_transfers_use_a_chunk_matching_the_boards_memory():
     transport.files["/a"] = b"data"
     fs = adapter(transport)
 
-    fs.read_file("/a")
+    assert fs.read_file("/a") == b"data"
     fs.write_file("/b", b"x")
 
-    assert transport.calls == [("read", "/a", 512), ("write", "/b", 512)]
+    assert [c for c, _ in transport.execs if c.startswith("_rf(")] == ["_rf('/a', 0, 2048)"]
+    assert transport.calls == [("write", "/b", 512)]
+
+
+def test_a_small_file_is_read_in_a_single_round_trip():
+    transport = FakeTransport(evals={MEM: 34_720})
+    transport.files["/a"] = b"x" * 100
+
+    assert adapter(transport).read_file("/a") == b"x" * 100
+
+    assert len(transport.execs) == 2  # defining the helper once, then one request
+    assert transport.calls == []  # mpremote's own byte-at-a-time reader is not used
+
+
+@pytest.mark.parametrize("size", [0, 1, 2047, 2048, 2049, 4096, 5000])
+def test_files_are_reassembled_from_chunks_whatever_their_size(size):
+    transport = FakeTransport(evals={MEM: 34_720})
+    data = bytes(i % 251 for i in range(size))
+    transport.files["/f"] = data
+
+    assert adapter(transport).read_file("/f") == data
+
+
+def test_the_read_helper_is_installed_once_per_connection():
+    transport = FakeTransport(evals={MEM: 34_720})
+    transport.files["/a"] = b"1"
+    transport.files["/b"] = b"2"
+    fs = adapter(transport)
+
+    fs.read_file("/a")
+    fs.read_file("/b")
+
+    assert sum("def _rf" in command for command, _ in transport.execs) == 1
+
+
+def test_a_damaged_reply_is_requested_again():
+    transport = FakeTransport(evals={MEM: 34_720})
+    transport.files["/a"] = b"important"
+    transport.damaged_replies = 2
+
+    assert adapter(transport).read_file("/a") == b"important"
+
+
+def test_a_file_that_keeps_arriving_damaged_is_an_error():
+    transport = FakeTransport(evals={MEM: 34_720})
+    transport.files["/a"] = b"important"
+    transport.damaged_replies = 99
+
+    with pytest.raises(MPFlashError, match=r"damaged data for /a at offset 0 3 times in a row"):
+        adapter(transport).read_file("/a")
+
+
+def test_firmware_without_the_read_helper_uses_mpremotes_reader():
+    transport = FakeTransport(evals={MEM: 34_720}, exec_errors={"def _rf": b"AttributeError: no crc32"})
+    transport.files["/a"] = b"data"
+
+    assert adapter(transport).read_file("/a") == b"data"
+
+    assert transport.calls == [("read", "/a", 512)]
+
+
+def test_a_board_without_crc32_still_reads_files_and_leaves_checking_to_the_caller():
+    transport = FakeTransport(evals={MEM: 34_720})
+    transport.no_crc32 = True  # ESP8266: binascii has no crc32
+    data = bytes(range(256)) * 5
+    transport.files["/a"] = data
+
+    assert adapter(transport).read_file("/a") == data
+
+
+def test_unchecked_replies_are_only_accepted_when_the_caller_allows_them():
+    reply = binascii.b2a_base64(b"hello", newline=False) + b".-"
+
+    assert devicefs.decode_chunk(reply, None, allow_unchecked=True) == (b"hello", "")
+    assert devicefs.decode_chunk(reply, None)[0] is None
+
+
+def test_decode_chunk_accepts_any_length_when_none_is_expected():
+    data = b"hello"
+    reply = binascii.b2a_base64(data, newline=False) + b".%08x" % binascii.crc32(data)
+
+    assert devicefs.decode_chunk(reply, None) == (data, "")
+    assert devicefs.decode_chunk(reply, 5) == (data, "")
+    assert devicefs.decode_chunk(reply, 6)[0] is None
 
 
 def test_unknown_memory_keeps_the_smallest_chunk():
@@ -138,13 +241,27 @@ def test_os_errors_become_mpflash_errors():
 
 
 def test_sha256_hashes_on_the_device_with_a_timeout_that_grows_with_the_file():
-    digest = hashlib.sha256(b"abc").digest()
-    transport = FakeTransport(evals={MEM: 0, "h.digest()": digest})
+    digest = hashlib.sha256(b"abc").hexdigest()
+    transport = FakeTransport(evals={MEM: 0})
+    transport.exec_outputs["_sh("] = digest.encode() + b"\r\n"
 
-    assert adapter(transport).sha256("/big.bin", size_hint=1_000_000) == digest.hex()
+    assert adapter(transport).sha256("/big.bin", size_hint=1_000_000) == digest
 
-    hashing = [timeout for command, timeout in transport.execs if "readinto" in command]
-    assert hashing == [10 + 1_000_000 / 20_000]
+    assert [timeout for command, timeout in transport.execs if command.startswith("_sh(")] == [10 + 1_000_000 / 20_000]
+
+
+def test_the_hash_helper_is_installed_once_so_each_file_costs_one_round_trip():
+    digest = hashlib.sha256(b"abc").hexdigest()
+    transport = FakeTransport(evals={MEM: 0})
+    transport.exec_outputs["_sh("] = digest.encode()
+    fs = adapter(transport)
+
+    fs.sha256("/a")
+    fs.sha256("/b")
+    fs.sha256("/c")
+
+    assert sum("def _sh" in command for command, _ in transport.execs) == 1
+    assert sum(command.startswith("_sh(") for command, _ in transport.execs) == 3
 
 
 def test_sha256_falls_back_to_host_hashing_without_hashlib():
