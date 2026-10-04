@@ -30,6 +30,7 @@ Not planned: `cc3200`, `pic16bit`
  - **Flash boards** — flash one or all connected boards with a specific firmware or version, downloading it if needed.
  - **Flash via a debug probe (pyOCD)** — program `stm32`, `rp2` and `samd` targets over SWD/JTAG using a CMSIS-DAP / ST-Link / J-Link probe with `mpflash flash --method pyocd`. CMSIS packs for missing targets are installed automatically. Install with `pip install "mpflash[pyocd]"`.
  - **Migrate an nRF SoftDevice offline** — replace an allowlisted nice!nano/SuperMini nRF52840 SoftDevice+bootloader over Serial DFU, then install a matching MicroPython UF2. Install with `pip install "mpflash[nrf]"`.
+ - **Back up and restore boards** — `mpflash backup` saves the files, ROMFS or the whole raw flash (ESP32/ESP8266, ESP32-C3, RP2040) of connected boards into a verified folder, and `mpflash restore` writes it back to one board. See [Backing up and restoring a board](docs/backup-restore.md).
  - **Build firmware locally (mpbuild)** — use `mpflash flash --build` to compile MicroPython with [mpbuild](https://pypi.org/project/mpbuild/) (requires Docker) right before flashing.
  - **Pluggable flash & bootloader backends** — flashing and bootloader activation are selectable, port-agnostic plugins, and third-party backends can register their own. List them with `mpflash plugins`.
  - **Filesystem erase over serial** — `--erase` wipes the MicroPython filesystem via its block device.
@@ -52,6 +53,8 @@ You can use mpflash to perform various operations on your MicroPython boards. He
 | `mpflash download` | Download the MicroPython firmware(s) for the connected board(s) |
 | `mpflash format` | Reformat the filesystem of the connected board(s) without flashing new firmware |
 | `mpflash erase` | Erase the filesystem of the connected board(s) and reboot, without flashing new firmware |
+| `mpflash backup` | Back up the files, ROMFS or raw flash of the connected board(s) into a verified folder |
+| `mpflash restore` | Restore a backup folder onto one connected board (overwrites data) |
 
 **Listing connected boards:**  
 `mpflash list` will list all connected boards in a table , including their serial port, family, board name, CPU, version and build number.

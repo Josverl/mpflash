@@ -17,7 +17,6 @@ from .logger import log
 @cli.command(
     "backup",
     short_help="Back up connected MicroPython boards into a folder that `mpflash restore` can validate and restore.",
-    hidden=True,  # No providers are registered yet; unhidden by mpflash-ckb.4
 )
 @click.option(
     "--serial",
