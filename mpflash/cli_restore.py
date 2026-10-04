@@ -18,7 +18,6 @@ from .logger import log
 @cli.command(
     "restore",
     short_help="Restore a backup folder created by `mpflash backup` onto one connected board (overwrites data).",
-    hidden=True,  # No providers are registered yet; unhidden by mpflash-ckb.4
 )
 @click.argument("bundle", type=click.Path(exists=True, file_okay=False, path_type=Path), metavar="BACKUP_FOLDER")
 @click.option(
