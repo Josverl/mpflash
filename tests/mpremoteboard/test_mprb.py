@@ -237,8 +237,8 @@ def test_get_mcu_info_deprecated_resume(resume, expected_soft_reset, mocker: Moc
         "'board': 'ESP32_GENERIC', 'cpu': 'ESP32', 'version': '1.30.0-preview', "
         "'mpy': 'v6.3', 'description': 'Generic ESP32'}"
     ]
-    run_command = mocker.patch.object(MPRemoteBoard, "run_command", return_value=(OK, output))
-    mocker.patch.object(MPRemoteBoard, "get_board_info_toml")
+    run_command = mocker.patch.object(MPRemoteBoard, "run_command_once", return_value=(OK, output))
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml_once")
 
     with pytest.warns(DeprecationWarning, match="resume is deprecated"):
         MPRemoteBoard("COM20").get_mcu_info(resume=resume)
@@ -371,10 +371,10 @@ def test_mpremoteboard_info_board_id_from_toml(mocker: MockerFixture, session_me
 
     mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
 
-    def _set_toml(self, timeout=1):
+    def _set_toml(self, timeout=1, *, soft_reset=False):
         self.toml = {"mpflash": {"board_id": "MY_CUSTOM_C6"}}
 
-    mocker.patch.object(MPRemoteBoard, "get_board_info_toml", _set_toml)
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml_once", _set_toml)
 
     mprb = MPRemoteBoard("COM15")
     mprb.get_mcu_info()
@@ -394,7 +394,7 @@ def test_mpremoteboard_info_requires_payload(mocker: MockerFixture):
     mprb = MPRemoteBoard("COM15")
 
     with pytest.raises(ConnectionError):
-        MPRemoteBoard.get_mcu_info.__wrapped__(mprb)
+        mprb.get_mcu_info_once()
 
     assert mprb.connected is False
 
@@ -402,8 +402,8 @@ def test_mpremoteboard_info_requires_payload(mocker: MockerFixture):
 def test_wait_for_restart_uses_quiet_probe(mocker: MockerFixture):
     mprb = MPRemoteBoard("COM15")
     m_get = mocker.patch.object(
-        MPRemoteBoard.get_mcu_info,
-        "__wrapped__",
+        MPRemoteBoard,
+        "get_mcu_info_once",
         autospec=True,
         side_effect=[ConnectionError("not ready"), None],
     )
@@ -424,8 +424,8 @@ def test_wait_for_restart_does_not_multiply_get_info_retries(
 ):
     mprb = MPRemoteBoard("COM15")
     get_mcu_info = mocker.patch.object(
-        MPRemoteBoard.get_mcu_info,
-        "__wrapped__",
+        MPRemoteBoard,
+        "get_mcu_info_once",
         autospec=True,
         side_effect=ConnectionError("not ready"),
     )
@@ -450,7 +450,7 @@ def test_wait_for_restart_reattaches_with_usbipd_on_wsl2(mocker: MockerFixture, 
     mocker.patch("mpflash.mpremoteboard.time.sleep")
     mocker.patch("mpflash.mpremoteboard.usbipd.find_usbipd", return_value="usbipd.exe")
     reattach = mocker.patch("mpflash.mpremoteboard.usbipd.reattach_usbipd_device", return_value=True)
-    mocker.patch.object(MPRemoteBoard.get_mcu_info, "__wrapped__", autospec=True)
+    mocker.patch.object(MPRemoteBoard, "get_mcu_info_once", autospec=True)
 
     assert mprb.wait_for_restart(timeout=1) is True
     reattach.assert_called_once_with(
@@ -469,7 +469,7 @@ def test_wait_for_restart_respects_no_usbipd(mocker: MockerFixture, monkeypatch)
     monkeypatch.setattr(config, "usbipd", False)
     find_usbipd = mocker.patch("mpflash.mpremoteboard.usbipd.find_usbipd")
     mocker.patch("mpflash.mpremoteboard.time.sleep")
-    mocker.patch.object(MPRemoteBoard.get_mcu_info, "__wrapped__", autospec=True)
+    mocker.patch.object(MPRemoteBoard, "get_mcu_info_once", autospec=True)
 
     assert mprb.wait_for_restart(timeout=1) is True
     find_usbipd.assert_not_called()
@@ -479,7 +479,7 @@ def test_get_board_info_toml_missing_file_preserves_connected(mocker: MockerFixt
     mprb = MPRemoteBoard("COM15")
     mprb.connected = True
 
-    m_run = mocker.patch.object(mprb, "run_command", return_value=(1, []))
+    m_run = mocker.patch.object(mprb, "run_command_once", return_value=(1, []))
 
     mprb.get_board_info_toml()
 

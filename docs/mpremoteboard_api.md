@@ -47,6 +47,13 @@ board matching and its historical behavior.
 - **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
 	- Executes `mpremote` subcommands with logging control; interpreter state is
 		preserved unless `soft_reset=True`. Returns `(rc, output)`.
+- **`run_command_once(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
+	- Executes exactly one command attempt without application-level retries.
+		Use this for polling, arbitrary code, and mutating commands when retry
+		policy must remain under the caller's control.
+- **`get_board_info_toml_once(timeout=DEFAULT_TIMEOUT, *, soft_reset=False)`**
+	- Reads optional board metadata with one command attempt; the normal method
+		remains available for application-specific retry policies.
 - **`mip_install(name: str) -> bool`**
 	- Installs a MicroPython package using `mip install <name>`; marks the session
 		as connected upon success.

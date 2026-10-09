@@ -266,7 +266,7 @@ class MPRemoteBoard:
             self.description = info.get("description") or info["board"]
             self.board_id = info.get("board_id") or f"{info['board']}-{info.get('variant', '')}".rstrip("-")
             self._resolve_board_identity(info)
-            self.get_board_info_toml()
+            self.get_board_info_toml_once()
             self._apply_board_info_toml()
         except Exception as e:
             self.connected = False
@@ -285,6 +285,10 @@ class MPRemoteBoard:
         """Hook for applications to apply package-specific TOML metadata."""
 
     def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT, *, soft_reset: bool = False) -> None:
+        """Read optional board metadata, allowing facade retry policies."""
+        self.get_board_info_toml_once(timeout, soft_reset=soft_reset)
+
+    def get_board_info_toml_once(self, timeout: int = DEFAULT_TIMEOUT, *, soft_reset: bool = False) -> None:
         """
         Reads the content of the board_info.toml file from the connected board,
         and adds that to the board object.
@@ -297,7 +301,7 @@ class MPRemoteBoard:
         """
         was_connected = self.connected
         try:
-            rc, result = self.run_command(
+            rc, result = self.run_command_once(
                 ["cat", ":board_info.toml"],
                 no_info=True,
                 timeout=timeout,
@@ -395,6 +399,26 @@ class MPRemoteBoard:
         Returns:
         - bool: True if the command succeeded, False otherwise.
         """
+        return self.run_command_once(
+            cmd,
+            log_errors=log_errors,
+            no_info=no_info,
+            timeout=timeout,
+            soft_reset=soft_reset,
+            **kwargs,
+        )
+
+    def run_command_once(
+        self,
+        cmd: Union[str, List[str]],
+        *,
+        log_errors: bool = True,
+        no_info: bool = False,
+        timeout: int = 60,
+        soft_reset: bool = False,
+        **kwargs,
+    ):
+        """Run one mpremote command attempt without retrying."""
         if isinstance(cmd, str):
             cmd = cmd.split(" ")
         prefix = [sys.executable, "-m", "mpremote"]
