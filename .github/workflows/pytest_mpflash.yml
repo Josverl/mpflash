@@ -15,9 +15,10 @@ on:
             - .github/workflows/pytest_mpflash.yml
             - .github/workflows/codecov.yml
             - "mpflash/**"
+            - "packages/mpremoteboard/**"
             - "pyproject.toml"
-            - "poetry.lock"
-            - "tests"
+            - "uv.lock"
+            - "tests/**"
 
 env:
     PYTHONIOENCODING: utf-8
@@ -96,4 +97,3 @@ jobs:
                 token: ${{ secrets.CODECOV_TOKEN }}
                 files: results/junit.xml
                 fail_ci_if_error: false
-
