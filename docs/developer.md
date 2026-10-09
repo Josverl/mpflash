@@ -450,9 +450,18 @@ Use the configured tasks for development:
 Releases are automated through GitHub Actions. Pushing a `v*` tag triggers
 [`.github/workflows/release.yml`](../.github/workflows/release.yml), which:
 
-1. Builds the sdist and wheel with `uv build`
-2. Publishes them to PyPI using **trusted publishing** (OIDC, no token required)
-3. Creates a GitHub release with auto-generated notes
+1. Builds both `mpremoteboard` and `mpflash` sdists and wheels with separate
+   `uv build --package ... --no-sources` commands
+2. Verifies package names and versioned dependency metadata before publication
+3. Publishes `mpremoteboard` first, then `mpflash`, using **trusted publishing**
+   (OIDC, no token required)
+4. Creates one GitHub release containing both packages with auto-generated notes
+
+Configure a PyPI trusted publisher for each project, using this repository, the
+`release.yml` workflow, and the `pypi` environment. The publication jobs are
+intentionally sequential: if the second job fails, rerun it after resolving the
+problem rather than republishing the already uploaded `mpremoteboard` files.
+The workflow does not publish anything for local builds or pull requests.
 
 ### Cutting a release
 

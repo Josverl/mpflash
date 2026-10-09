@@ -5,7 +5,7 @@ on:
     tags:
       - "v*"
 
-# A tag push triggers a single release
+# A tag push triggers one coordinated release for both distributions.
 
 jobs:
   build:
@@ -19,8 +19,35 @@ jobs:
           python-version: "3.14"
           enable-cache: true
 
-      - name: Build sdist and wheel
-        run: uv build
+      - name: Build both distributions
+        run: |
+          rm -rf dist/mpremoteboard dist/mpflash
+          uv build --package mpremoteboard --no-sources --out-dir dist/mpremoteboard
+          uv build --package mpflash --no-sources --out-dir dist/mpflash
+
+      - name: Verify distribution metadata
+        run: |
+          uv run --isolated --no-project python - <<'PY'
+          from email.parser import Parser
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          def metadata(path: Path):
+              with ZipFile(path) as archive:
+                  name = next(item for item in archive.namelist() if item.endswith(".dist-info/METADATA"))
+                  return Parser().parsestr(archive.read(name).decode())
+
+          board_metadata = metadata(next(Path("dist/mpremoteboard").glob("*.whl")))
+          flash_metadata = metadata(next(Path("dist/mpflash").glob("*.whl")))
+          assert board_metadata["Name"] == "mpremoteboard"
+          assert flash_metadata["Name"] == "mpflash"
+          board_requirements = board_metadata.get_all("Requires-Dist") or []
+          flash_requirements = flash_metadata.get_all("Requires-Dist") or []
+          assert not any("workspace" in requirement.lower() for requirement in board_requirements + flash_requirements)
+          assert any(requirement.startswith("mpremoteboard==") for requirement in flash_requirements)
+          assert not any(requirement.startswith("mpflash") for requirement in board_requirements)
+          print("Verified package names and versioned cross-package metadata")
+          PY
 
       - name: Upload distribution artefacts
         uses: actions/upload-artifact@v7
@@ -28,17 +55,13 @@ jobs:
           name: dist
           path: dist/
 
-  publish-pypi:
+  publish-mpremoteboard:
     needs: build
     runs-on: ubuntu-latest
-    # The `pypi` environment matches the trusted-publisher config on PyPI.
-    # Pair this with an environment protection rule (Settings -> Environments
-    # -> pypi -> Required reviewers) for a manual approval gate.
     environment:
       name: pypi
-      url: https://pypi.org/project/mpbuild/
+      url: https://pypi.org/project/mpremoteboard/
     permissions:
-      # Required for PyPI trusted publishing via OIDC. No PyPI token needed.
       id-token: write
     steps:
       - name: Download distribution artefacts
@@ -47,11 +70,33 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to PyPI
+      - name: Publish mpremoteboard to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/mpremoteboard/
+
+  publish-mpflash:
+    needs: publish-mpremoteboard
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/mpflash/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download distribution artefacts
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish mpflash to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/mpflash/
 
   github-release:
-    needs: publish-pypi
+    needs: publish-mpflash
     runs-on: ubuntu-latest
     permissions:
       contents: write
