@@ -1,20 +1,27 @@
 ## MPRemoteBoard API
 
-`mpremoteboard` provides a resilient interface around `mpremote` for discovering
-connected boards, reading firmware metadata, and executing commands with sensible
-defaults (retries, timeouts, logging tags). Use it when you need a programmatic
-way to interrogate or manage MicroPython devices over serial (e.g., `/dev/ttyACM0`).
+The standalone `mpremoteboard` distribution provides serial discovery, raw
+MicroPython board metadata, and `mpremote` command execution without importing
+MPFlash, its firmware database, or its CLI configuration. MPFlash keeps the
+`mpflash.mpremoteboard` compatibility facade for enriched board identity and
+legacy reset/retry defaults. The standalone distribution is buildable from the
+workspace; its publication is tracked separately.
+
+Use `mpremoteboard.MPRemoteBoard` for the lightweight API. Use
+`mpflash.mpremoteboard.MPRemoteBoard` when you need MPFlash's database-backed
+board matching and its historical behavior.
 
 **Common use cases**
 - Identify connected boards, including vendor/product IDs and board IDs.
-- Pull firmware details (family, version, build, mpy ABI) for compatibility checks.
+- Pull raw firmware details (family, version, build, mpy ABI) for compatibility checks.
 - Read or write `board_info.toml` to persist metadata on the device.
-- Run `mpremote` commands in scripts with retry/backoff and structured logging.
+- Run `mpremote` commands in scripts with structured logging.
 - Install MicroPython packages via `mip` and wait for safe restarts.
 
 ### Core Class
 
-**`MPRemoteBoard`** (source: [mpflash/mpremoteboard/__init__.py](../mpflash/mpremoteboard/__init__.py))
+**Standalone `MPRemoteBoard`** (source:
+[packages/mpremoteboard/src/mpremoteboard/__init__.py](../packages/mpremoteboard/src/mpremoteboard/__init__.py))
 
 - **`__init__(serialport: str = "", update: bool = False, *, location: str = "")`**
 	- Prepares a board handle for a given serial port; optionally calls
@@ -28,23 +35,23 @@ way to interrogate or manage MicroPython devices over serial (e.g., `/dev/ttyACM
 		Bluetooth ports by default for cleaner MicroPython discovery.
 - **`get_mcu_info(timeout: int = 2)`**
 	- Executes the onboard probe script to read firmware identity, ABI info, CPU,
-		and board descriptors; auto-resolves board IDs via description matching.
-		Retries transient failures up to 3 times.
-- **`get_board_info_toml(timeout: int = 1)`**
+		and raw board descriptors without consulting MPFlash's firmware database.
+		Probing preserves interpreter state by default; pass `soft_reset=True` to
+		reset explicitly.
+- **`get_board_info_toml(timeout: int = DEFAULT_TIMEOUT)`**
 	- Reads `:board_info.toml` from the device (if present) and parses it into
-		`self.toml`, enabling richer metadata downstream.
+		`self.toml`, enabling access to optional metadata downstream.
 - **`set_board_info_toml(timeout: int = 1)`**
 	- Writes the current `self.toml` back to the device as `board_info.toml`,
 		useful for persisting calibrated or provisioning data on the board.
-- **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, resume=None)`**
-	- Executes arbitrary `mpremote` subcommands with tagging, logging control, and
-		optional session resume to avoid reconnect overhead; returns `(rc, output)`
-		where `rc == 0` indicates success.
+- **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
+	- Executes `mpremote` subcommands with logging control; interpreter state is
+		preserved unless `soft_reset=True`. Returns `(rc, output)`.
 - **`mip_install(name: str) -> bool`**
 	- Installs a MicroPython package using `mip install <name>`; marks the session
 		as connected upon success.
 - **`wait_for_restart(timeout: int = 10)`**
-	- Progress-bar wait loop that polls for MCU availability after a reset or
+	- Wait loop that polls for MCU availability after a reset or
 		install, exiting early when communication is restored.
 - **`disconnect() -> bool`**
 	- Issues `mpremote disconnect` when a port is known, clears connection state,
@@ -55,7 +62,7 @@ way to interrogate or manage MicroPython devices over serial (e.g., `/dev/ttyACM
 
 ### Runner Utility
 
-**`runner.run(cmd: list[str], timeout: int = 60, log_errors: bool = True, no_info: bool = False, *, log_warnings: bool = False, reset_tags=None, error_tags=None, warning_tags=None, success_tags=None, ignore_tags=None) -> tuple[int, list[str]]`** (source: [mpflash/mpremoteboard/runner.py](../mpflash/mpremoteboard/runner.py))
+**`runner.run(cmd: list[str], timeout: int = 60, log_errors: bool = True, no_info: bool = False, *, log_warnings: bool = False, reset_tags=None, error_tags=None, warning_tags=None, success_tags=None, ignore_tags=None) -> tuple[int, list[str]]`** (source: [packages/mpremoteboard/src/mpremoteboard/runner.py](../packages/mpremoteboard/src/mpremoteboard/runner.py))
 
 - Runs an external command (commonly `mpremote`) and streams stdout/stderr.
 - Output lines are inspected for tag lists to classify logging behavior:
@@ -87,7 +94,7 @@ Default tag lists (abridged)
 Basic mpremote invocation with default tagging
 
 ```python
-from mpflash.mpremoteboard.runner import run
+from mpremoteboard.runner import run
 
 rc, lines = run(["python", "-m", "mpremote", "connect", "/dev/ttyACM0", "ls"])
 print(rc, "".join(lines))
@@ -123,7 +130,7 @@ except RuntimeError:
 
 ### Firmware Info Probe
 
-**Script:** [mpflash/mpremoteboard/mpy_fw_info.py](../mpflash/mpremoteboard/mpy_fw_info.py)
+**Script:** [packages/mpremoteboard/src/mpremoteboard/mpy_fw_info.py](../packages/mpremoteboard/src/mpremoteboard/mpy_fw_info.py)
 
 - Designed to run on the board via `mpremote run`. Prints a single dictionary
 	with keys like `family`, `version`, `build`, `port`, `board`, `board_id`,
@@ -134,7 +141,7 @@ except RuntimeError:
 #### List available boards
 
 ```python
-from mpflash.mpremoteboard import MPRemoteBoard
+from mpremoteboard import MPRemoteBoard
 
 ports = MPRemoteBoard.connected_comports()
 print("Detected ports:", ports)
@@ -143,7 +150,7 @@ print("Detected ports:", ports)
 #### Read board info and board_info.toml
 
 ```python
-from mpflash.mpremoteboard import MPRemoteBoard
+from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard(serialport="/dev/ttyACM0", update=True)
 print(board.family, board.version, board.board_id)
@@ -156,7 +163,7 @@ if board.toml:
 #### Run a custom mpremote command
 
 ```python
-from mpflash.mpremoteboard import MPRemoteBoard
+from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard("/dev/ttyACM0", update=True)
 rc, out = board.run_command(["ls", ":/"])
@@ -167,7 +174,7 @@ if rc == 0:
 #### Install a MicroPython package with mip
 
 ```python
-from mpflash.mpremoteboard import MPRemoteBoard
+from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard("/dev/ttyACM0", update=True)
 if board.mip_install("micropython-ulab"):
@@ -178,7 +185,7 @@ if board.mip_install("micropython-ulab"):
 #### Update board_info.toml on device
 
 ```python
-from mpflash.mpremoteboard import MPRemoteBoard
+from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard("/dev/ttyACM0", update=True)
 board.toml["description"] = "Custom lab board"
@@ -188,16 +195,25 @@ board.set_board_info_toml()
 #### Directly use runner.run
 
 ```python
-from mpflash.mpremoteboard.runner import run
+from mpremoteboard.runner import run
 
 rc, lines = run(["python", "-m", "mpremote", "connect", "/dev/ttyACM0", "ls"])
 print(rc, "".join(lines))
 ```
 
+### MPFlash compatibility facade
+
+Existing imports from `mpflash.mpremoteboard` remain supported. That facade
+adds MPFlash's database-backed board ID/port matching, applies MPFlash-specific
+`board_info.toml` overrides, and retains the previous default reset and retry
+policies. It delegates command execution and raw probing to the standalone
+package.
+
 ### Notes
 
 - Most commands rely on `mpremote` being available in the active environment.
-- `get_mcu_info()` and `run_command()` retry transient failures up to three times
-	using exponential backoff parameters defined in the module.
-- When `resume=True`, mpremote sessions stay open between calls, which is faster
-	but requires explicit `disconnect()` when finished.
+- The MPFlash facade retries `get_mcu_info()` and `run_command()` up to three
+	times for compatibility. The standalone package leaves retry policy to its
+	consumer.
+- The MPFlash facade continues to accept deprecated `resume`; new code should
+	use `soft_reset` to state whether an operation resets the interpreter.

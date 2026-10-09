@@ -1,42 +1,37 @@
-"""
-Module to run mpremote commands, and retry on failure or timeout
-"""
+"""MPFlash compatibility facade over the standalone mpremoteboard package."""
 
-import ast
+from __future__ import annotations
+
 import contextlib
 import inspect
-import re
 import sys
-import time
 import warnings
 from pathlib import Path
 from typing import List, Optional, Union
 
-import serial.tools.list_ports
+import mpremoteboard as _core
+from mpremoteboard import (
+    DEFAULT_TIMEOUT,
+    ERROR,
+    OK,
+    MPRemoteBoard as _CoreMPRemoteBoard,
+    MPRemoteBoardError,
+)
+from mpremoteboard.runner import run
+from tenacity import retry, stop_after_attempt, wait_fixed
+
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 from mpflash.mpboard_id.board_id import find_board_id_by_description
 from mpflash.mpboard_id.known import best_matching_port
-from mpflash.mpremoteboard.runner import run
-from tenacity import retry, stop_after_attempt, wait_fixed
 
-if sys.version_info >= (3, 11):
-    import tomllib  # type: ignore
-else:
-    import tomli as tomllib  # type: ignore
-
-import tomli_w
-
-###############################################################################################
-HERE = Path(__file__).parent
-
-OK = 0
-ERROR = -1
+HERE = Path(_core.__file__).parent
 RETRIES = 3
 ON_WSL2 = bool(sys.platform == "linux" and Path("/proc/version").exists() and "microsoft" in Path("/proc/version").read_text().lower())
 
-DEFAULT_TIMEOUT = 4 if ON_WSL2 else 2
-###############################################################################################
+# Keep these module attributes available to existing callers and monkeypatches.
+serial = _core.serial
+time = _core.time
 
 
 class _UnsetType:
@@ -65,187 +60,41 @@ def _resolve_soft_reset(
             module_name = frame.f_globals.get("__name__", "")
             if module_name != __name__ and not module_name.startswith("tenacity"):
                 break
-        warnings.warn(
-            "resume is deprecated; use soft_reset instead",
-            DeprecationWarning,
-            stacklevel=stacklevel,
-        )
+        warnings.warn("resume is deprecated; use soft_reset instead", DeprecationWarning, stacklevel=stacklevel)
         return False if resume is None else not resume
-    if isinstance(soft_reset, _UnsetType):
-        return default
-    return soft_reset
+    return default if isinstance(soft_reset, _UnsetType) else soft_reset
 
 
-class MPRemoteBoard:
-    """Class to run mpremote commands"""
+class MPRemoteBoard(_CoreMPRemoteBoard):
+    """MPFlash-enriched board API, retaining the historical defaults."""
 
-    def __init__(self, serialport: str = "", update: bool = False, *, location: str = ""):
-        """
-        Initialize MPRemoteBoard object.
+    _logger = log
 
-        Parameters:
-        - serialport (str): The serial port to connect to. Default is an empty string.
-        - update (bool): Whether to update the MCU information. Default is False.
-        """
-        self._board_id = ""
+    def _resolve_port(self, port: str, family: str) -> str:
+        return best_matching_port(port, family) or port
 
-        self.serialport: str = serialport
-        self.firmware = {}
+    def _resolve_board_identity(self, info: dict) -> None:
+        if info.get("board_id"):
+            self.board_id = info["board_id"]
+            return
 
-        self.connected = False
-        self.path: Optional[Path] = None
-        self.family = "unknown"
-        self.description = ""
-        self.version = ""
-        self.port = ""
-        self.sys_platform = ""
-        self.cpu = ""
-        self.arch = ""
-        self.mpy = ""
-        self.build = ""
-        self.softdevice = ""
-        self.location = location  # USB location
-        self.usb_manufacturer = ""
-        self.usb_product = ""
-        self.usb_description = ""
-        self.serial_number = ""
-        self.toml = {}
+        description = self.description
+        position = description.rfind(" with")
+        short_description = description[:position].strip() if position != -1 else ""
+        self.board_id = f"{info['board']}-{info.get('variant', '')}"
+        try:
+            self.board_id = find_board_id_by_description(description, short_description, version=self.version) or "UNKNOWN_BOARD"
+        except MPFlashError:
+            log.warning(f"Could not resolve board_id for description: {description!r}")
+            self.board_id = self.board_id or "UNKNOWN_BOARD"
 
-        # For filesystem paths (UF2 volume paths), skip serial port lookup.
-        # On POSIX, Windows-style drive roots like "D:\\" are not recognized
-        # as Path.drive, so detect them explicitly.
-        path_obj = Path(serialport)
-        is_windows_drive_root = bool(re.match(r"^[A-Za-z]:[\\/]*$", serialport))
-        is_posix_serial_device = serialport.startswith("/dev/")
-        if (path_obj.is_absolute() and not is_posix_serial_device) or path_obj.drive or is_windows_drive_root:
-            # This is a filesystem path, not a serial port
-            self.vid = 0x00
-            self.pid = 0x00
-        else:
-            # Normal serial port - use grep to find port info
-            portinfo = list(serial.tools.list_ports.grep(serialport))
-            if not portinfo or len(portinfo) != 1:
-                self.vid = 0x00
-                self.pid = 0x00
-            else:
-                try:
-                    port = portinfo[0]
-                    self.vid = port.vid or 0x00
-                    self.pid = port.pid or 0x00
-                    self.usb_manufacturer = port.manufacturer or ""
-                    self.usb_product = port.product or ""
-                    self.usb_description = port.description or ""
-                    self.serial_number = port.serial_number or ""
-                except Exception:
-                    self.vid = 0x00
-                    self.pid = 0x00
-        if update:
-            self.get_mcu_info()
+    def _apply_board_info_toml(self) -> None:
+        toml_board_id = self.toml.get("mpflash", {}).get("board_id", "")
+        if toml_board_id:
+            log.debug(f"Using board_id from board_info.toml: {toml_board_id!r}")
+            self.board_id = toml_board_id
 
-    ###################################
-    # board_id := board[-variant]
-    @property
-    def board_id(self) -> str:
-        return self._board_id
-
-    @board_id.setter
-    def board_id(self, value: str) -> None:
-        self._board_id = value.rstrip("-")
-
-    @property
-    def board(self) -> str:
-        _board = self._board_id.split("-")[0]
-        # Workaround for Pimoroni boards
-        if "-" not in self._board_id:
-            # match with the regex : (.*)(_\d+MB)$
-            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
-            if match:
-                _board = match.group(1)
-        return _board
-
-    @board.setter
-    def board(self, value: str) -> None:
-        self.board_id = f"{value}-{self.variant}" if self.variant else value
-
-    @property
-    def variant(self) -> str:
-        _variant = self._board_id.split("-")[1] if "-" in self._board_id else ""
-        if not _variant:
-            # Workaround for Pimoroni boards
-            # match with the regex : (.*)(_\d+MB)$
-            match = re.match(r"(.*)_(\d+MB)$", self._board_id)
-            if match:
-                _variant = match.group(2)
-        return _variant
-
-    @variant.setter
-    def variant(self, value: str) -> None:
-        self.board_id = f"{self.board}-{value}"
-
-    ###################################
-    def __str__(self):
-        """
-        Return a string representation of the MPRemoteBoard object.
-
-        Returns:
-        - str: A human readable representation of the MCU.
-        """
-        return f"MPRemoteBoard({self.serialport}, {self.family} {self.port}, {self.board}{f'-{self.variant}' if self.variant else ''}, {self.version})"
-
-    @staticmethod
-    def connected_comports(bluetooth: bool = False, description: bool = False) -> List[str]:
-        # TODO: rename to connected_comports
-        """
-        Get a list of connected comports.
-
-        Parameters:
-        - bluetooth (bool): Whether to include Bluetooth ports. Default is False.
-
-        Returns:
-        - List[str]: A list of connected board ports.
-        """
-        comports = serial.tools.list_ports.comports()
-
-        if not bluetooth:
-            # filter out bluetooth ports
-            comports = [p for p in comports if "bluetooth" not in p.description.lower()]
-            comports = [p for p in comports if "BTHENUM" not in p.hwid]
-        if description:
-            output = [
-                f"{p.device} {(p.manufacturer + ' ') if p.manufacturer and not p.description.startswith(p.manufacturer) else ''}{p.description}"
-                for p in comports
-            ]
-        else:
-            output = [p.device for p in comports]
-
-        if sys.platform == "win32":
-            # Windows sort of comports by number - but fallback to device name
-            return sorted(
-                output,
-                key=lambda x: int(x.split()[0][3:]) if x.split()[0][3:].isdigit() else x,
-            )
-        # sort by device name
-        return sorted(output)
-
-    def _refresh_serialport(self) -> bool:
-        """Refresh a renamed serial device by stable USB identity."""
-        portinfos = list(serial.tools.list_ports.comports())
-        for portinfo in portinfos:
-            if portinfo.device.casefold() == self.serialport.casefold():
-                return True
-
-        if self.serial_number:
-            candidates = [portinfo for portinfo in portinfos if (portinfo.serial_number or "").casefold() == self.serial_number.casefold()]
-        else:
-            candidates = [
-                portinfo for portinfo in portinfos if self.vid and self.pid and portinfo.vid == self.vid and portinfo.pid == self.pid
-            ]
-        if len(candidates) != 1:
-            return False
-        self.serialport = candidates[0].device
-        return True
-
-    @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
+    @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1), reraise=True)
     def get_mcu_info(
         self,
         timeout: int = DEFAULT_TIMEOUT,
@@ -253,176 +102,19 @@ class MPRemoteBoard:
         log_errors: bool = True,
         soft_reset: Union[bool, _UnsetType] = _UNSET,
         resume: Union[bool, None, _UnsetType] = _UNSET,
-    ):
-        """
-        Get MCU information from the connected board.
-
-        Parameters:
-        - timeout (int): The timeout value in seconds. Default is 2.
-        - log_errors (bool): Whether to log command stderr/error output.
-        - soft_reset (bool): Reset the interpreter before probing. Default True.
-        - resume (Optional[bool]): Deprecated compatibility option. Use soft_reset instead.
-
-        Raises:
-        - ConnectionError: If failed to get mcu_info for the serial port.
-        """
-
-        resolved_soft_reset = _resolve_soft_reset(soft_reset=soft_reset, resume=resume, default=True)
-        rc, result = self.run_command(
-            ["run", str(HERE / "mpy_fw_info.py")],
-            no_info=True,
-            timeout=timeout,
-            soft_reset=resolved_soft_reset,
-            log_errors=log_errors,
+    ) -> None:
+        """Read firmware metadata, retaining MPFlash's legacy reset default."""
+        resolved_soft_reset = _resolve_soft_reset(
+            soft_reset=soft_reset,
+            resume=resume,
+            default=True,
         )
-        if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
-            log.debug(f"rc: {rc}, result: {result}")
-            raise ConnectionError(f"Failed to get mcu_info for {self.serialport}")
-        # log raw output for debugging
-        if result:
-            log.trace(f"mpy_fw_info output for {self.serialport}:")
-            for line in result:
-                log.trace(f"  {line.rstrip()}")
-        # Ok we have the info, now parse it — search all lines for the dict
-        raw_info = ""
-        for line in result:
-            stripped = line.strip()
-            if stripped.startswith("{") and stripped.endswith("}"):
-                raw_info = stripped
-                break
-        if not (raw_info.startswith("{") and raw_info.endswith("}")):
-            log.trace(f"No mpy_fw_info payload found for {self.serialport}; result: {result}")
-            self.connected = False
-            raise ConnectionError(f"Failed to parse mcu_info for {self.serialport}")
+        super().get_mcu_info(timeout, log_errors=log_errors, soft_reset=resolved_soft_reset)
 
-        try:
-            info = ast.literal_eval(raw_info)
-            self.family = info["family"]
-            self.version = info["version"]
-            self.build = info["build"]
-            self.sys_platform = info.get("sys_platform", info["port"])
-            self.port = best_matching_port(info["port"], self.family) or info["port"]
-            self.cpu = info["cpu"]
-            self.arch = info["arch"]
-            self.mpy = info["mpy"]
-            self.description = descr = info["description"] if "description" in info else info["board"]
-            pos = descr.rfind(" with")
-            short_descr = descr[:pos].strip() if pos != -1 else ""
-            if info.get("board_id", None):
-                # we have a board_id - so use that to get the board name
-                self.board_id = info["board_id"]
-            else:
-                self.board_id = f"{info['board']}-{info.get('variant', '')}"
-                try:
-                    board_name = find_board_id_by_description(descr, short_descr, version=self.version)
-                    self.board_id = board_name or "UNKNOWN_BOARD"
-                except MPFlashError:
-                    log.warning(f"Could not resolve board_id for description: {descr!r}")
-                    self.board_id = self.board_id or "UNKNOWN_BOARD"
-            # get the board_info.toml
-            self.get_board_info_toml()
-            # use board_id from the toml file if available (overrides UNKNOWN_BOARD fallback)
-            toml_board_id = self.toml.get("mpflash", {}).get("board_id", "")
-            if toml_board_id:
-                log.debug(f"Using board_id from board_info.toml: {toml_board_id!r}")
-                self.board_id = toml_board_id
-        except Exception as e:
-            self.connected = False
-            raise ConnectionError(f"Failed to parse mcu_info for {self.serialport}") from e
-        # now we know the board is connected
-        self.connected = True
-
-    @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(0.2), reraise=True)  # type: ignore ## retry_error_cls=ConnectionError,
-    def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT):
-        """
-        Reads the content of the board_info.toml file from the connected board,
-        and adds that to the board object.
-
-        Parameters:
-        - timeout (int): The timeout value in seconds.
-
-        Raises:
-        - ConnectionError: If failed to communicate with the serial port.
-        """
-        was_connected = self.connected
-        try:
-            rc, result = self.run_command(
-                ["cat", ":board_info.toml"],
-                no_info=True,
-                timeout=timeout,
-                log_errors=False,
-                soft_reset=True,
-            )
-        except Exception as e:
-            raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
-        # this is optional - so only parse if we got the file
-        self.toml = {}
-        if rc in [OK]:  # sometimes we get an -9 ???
-            try:
-                log.trace(result)
-                # Ok we have the info, now parse it
-                self.toml = tomllib.loads("".join(result))
-                with contextlib.suppress(Exception):
-                    log.debug(f"board_info.toml: {self.toml['description']}")
-            except Exception as e:
-                log.error(f"Failed to parse board_info.toml: {e}")
-        else:
-            # board_info.toml is optional; failure to read it should not flip
-            # an otherwise healthy connection to disconnected.
-            if was_connected:
-                self.connected = True
-            log.trace(f"Did not find a board_info.toml: {result}")
-
-    def set_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT):
-        """
-        Writes the current board information to the board_info.toml file on the connected board.
-
-        Parameters:
-        - timeout (int): The timeout value in seconds.
-        """
-        if not self.connected:
-            raise MPFlashError("Board is not connected")
-        if not self.toml:
-            log.warning("No board_info.toml to write")
-            return
-        # write the toml file to a temp file, then copy to the board
-
-        toml_path = HERE / "tmp_board_info.toml"
-        try:
-            with open(toml_path, "wb") as f:
-                tomli_w.dump(self.toml, f)
-
-            log.debug(f"Writing board_info.toml to {self.serialport}")
-            rc, result = self.run_command(
-                ["cp", str(toml_path), ":board_info.toml"],
-                no_info=True,
-                timeout=timeout,
-                log_errors=False,
-            )
-        except Exception as e:
-            raise MPFlashError(f"Failed to write board_info.toml for {self.serialport}: {e}") from e
-        finally:
-            # remove the temp file
-            if toml_path.exists():
-                toml_path.unlink()
-
-    def disconnect(self) -> bool:
-        """
-        Disconnect from a board.
-
-        Returns:
-        - bool: True if successfully disconnected, False otherwise.
-        """
-        if not self.connected:
-            return True
-        if not self.serialport:
-            log.error("No port connected")
-            self.connected = False
-            return False
-        log.info(f"Disconnecting from {self.serialport}")
-        result = self.run_command(["disconnect"])[0] == OK
-        self.connected = False
-        return result
+    @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(0.2), reraise=True)
+    def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Read optional board metadata using the legacy reset behavior."""
+        super().get_board_info_toml(timeout, soft_reset=True)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(2), reraise=True)
     def run_command(
@@ -436,67 +128,52 @@ class MPRemoteBoard:
         resume: Union[bool, None, _UnsetType] = _UNSET,
         **kwargs,
     ):
-        """
-        Run mpremote with the given command.
-
-        Parameters:
-        - cmd (Union[str, List[str]]): The command to run, either a string or a list of strings.
-        - log_errors (bool): Whether to log errors. Default is True.
-        - no_info (bool): Whether to skip printing info. Default is False.
-        - timeout (int): The timeout value in seconds. Default is 60.
-        - soft_reset (bool): Reset the interpreter before running the command. Default False.
-        - resume (Optional[bool]): Deprecated compatibility option. Use soft_reset instead.
-
-        Returns:
-        - bool: True if the command succeeded, False otherwise.
-        """
-        if isinstance(cmd, str):
-            cmd = cmd.split(" ")
-        prefix = [sys.executable, "-m", "mpremote"]
-        if self.serialport:
-            prefix += ["connect", self.serialport]
-        if _resolve_soft_reset(soft_reset=soft_reset, resume=resume, default=False):
-            prefix += ["soft-reset"]
-        cmd = prefix + cmd
-        log.trace(" ".join(cmd))
-        result = run(cmd, timeout, log_errors, no_info, **kwargs)
-        self.connected = result[0] == OK
-        return result
+        """Run a command with the historical retry and reset behavior."""
+        resolved_soft_reset = _resolve_soft_reset(
+            soft_reset=soft_reset,
+            resume=resume,
+            default=False,
+        )
+        return super().run_command(
+            cmd,
+            log_errors=log_errors,
+            no_info=no_info,
+            timeout=timeout,
+            soft_reset=resolved_soft_reset,
+            **kwargs,
+        )
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(1))
     def mip_install(self, name: str) -> bool:
-        """
-        Install a micropython package.
+        return super().mip_install(name)
 
-        Parameters:
-        - name (str): The name of the package to install.
+    def _run(self, cmd: List[str], timeout: int, log_errors: bool, no_info: bool, **kwargs):
+        """Keep the old module-level runner patch point working."""
+        return run(cmd, timeout, log_errors, no_info, **kwargs)
 
-        Returns:
-        - bool: True if the installation succeeded, False otherwise.
-        """
-        # install createstubs to the board
-        cmd = ["mip", "install", name]
-        result = self.run_command(cmd)[0] == OK
-        self.connected = True
-        return result
+    def set_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        try:
+            super().set_board_info_toml(timeout)
+        except MPRemoteBoardError as exc:
+            raise MPFlashError(str(exc)) from exc
 
     def wait_for_restart(self, timeout: int = 10) -> bool:
-        """Wait for the board to restart, using one probe per second."""
+        """Wait for restart and preserve MPFlash's optional WSL2 reattachment."""
         probe = type(self).get_mcu_info.__wrapped__
-        usbipd_executable = None
+        usbipd_executable: Optional[str] = None
         usbipd_result: Optional[bool] = None
         if ON_WSL2:
             from mpflash.config import config
 
             if config.usbipd:
-                from mpflash.mpremoteboard.usbipd import find_usbipd
+                from .usbipd import find_usbipd
 
                 usbipd_executable = find_usbipd()
         for _ in range(timeout):
             time.sleep(1)
             port_available = self._refresh_serialport()
             if usbipd_executable and not port_available and usbipd_result is None:
-                from mpflash.mpremoteboard.usbipd import reattach_usbipd_device
+                from .usbipd import reattach_usbipd_device
 
                 usbipd_result = reattach_usbipd_device(
                     vid=self.vid,
@@ -514,25 +191,15 @@ class MPRemoteBoard:
             log.warning(f"USB device {identity} did not return to WSL2. Run 'usbipd list', then 'usbipd attach --wsl --busid <BUSID>'.")
         return False
 
-    def to_dict(self) -> dict:
-        """
-        Serialize the MPRemoteBoard object to JSON, including all attributes and readable properties.
 
-        Returns:
-        - str: A JSON string representation of the object.
-        """
-
-        def get_properties(obj):
-            """Helper function to get all readable properties."""
-            return {name: getattr(obj, name) for name in dir(obj.__class__) if isinstance(getattr(obj.__class__, name, None), property)}
-
-        # Combine instance attributes, readable properties, and private attributes
-        data = {**self.__dict__, **get_properties(self)}
-
-        # remove the path and firmware attibutes from the json output as they are always empty
-        del data["_board_id"]  # dup of board_id
-        del data["connected"]
-        del data["path"]
-        del data["firmware"]
-
-        return data
+__all__ = [
+    "DEFAULT_TIMEOUT",
+    "ERROR",
+    "HERE",
+    "OK",
+    "ON_WSL2",
+    "RETRIES",
+    "MPRemoteBoard",
+    "MPRemoteBoardError",
+    "run",
+]

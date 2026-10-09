@@ -4,6 +4,16 @@
 
 MPFlash is a command-line tool and Python library for managing MicroPython firmware across multiple hardware platforms. This document provides a comprehensive overview of the system architecture, design decisions, and implementation details.
 
+### Board API package boundary
+
+The uv workspace contains the independently buildable `mpremoteboard`
+distribution in `packages/mpremoteboard`. It owns raw board discovery,
+`mpremote` execution, firmware probing, and board-side filesystem scripts, and
+does not import MPFlash. The `mpflash.mpremoteboard` module is a compatibility
+facade that adds MPFlash's database-backed identity resolution and legacy
+configuration/default behavior. Firmware lookup, CLI configuration, and
+backup orchestration remain in MPFlash.
+
 ## System Architecture
 
 ### High-Level Architecture

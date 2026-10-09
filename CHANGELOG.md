@@ -27,6 +27,13 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
+- **Standalone `mpremoteboard` package** — The uv workspace now contains a
+  separately buildable board/runner distribution with raw board metadata and
+  no MPFlash import requirement. New code should import from
+  `mpremoteboard`; its API preserves interpreter state by default and does not
+  perform MPFlash database-based board matching. Existing MPFlash integrations
+  can continue using `mpflash.mpremoteboard` for enriched metadata and legacy
+  defaults. Publication is tracked separately and has not been performed.
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
   migrate allowlisted nice!nano-compatible nRF52840 boards between the curated
   S140 6.1.1/nice!nano and S140 7.3.0/SuperMini profiles. MPFlash validates the

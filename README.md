@@ -215,6 +215,21 @@ The interface is documented in:
 - [API Reference](docs/api-reference.md) - Complete programming interface
 - [API Examples](docs/mpflash_api_example.ipynb) - Jupyter notebook with examples
 
+For a lightweight board API without MPFlash's database or CLI dependencies,
+use the standalone `mpremoteboard` package from the workspace:
+
+```python
+from mpremoteboard import MPRemoteBoard
+
+board = MPRemoteBoard("/dev/ttyACM0")
+board.get_mcu_info(soft_reset=False)
+```
+
+This package reports raw board metadata and preserves interpreter state by
+default. Existing `mpflash.mpremoteboard` imports remain the MPFlash-enriched
+compatibility API. The standalone distribution is buildable from this
+repository; publication is handled separately.
+
 ## Detailed usage
 You can list the connected boards using the following command:
 ```bash

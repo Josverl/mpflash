@@ -1,6 +1,6 @@
 """Serial-side filesystem erase for UF2 boards (rp2 / samd / nrf).
 
-Runs :mod:`mpflash.mpremoteboard.erase_bdev` on the board via ``mpremote run``.
+Runs :mod:`mpremoteboard.erase_bdev` on the board via ``mpremote run``.
 That script erases the filesystem block device and calls ``machine.reset()``, so
 the board reboots into MicroPython with a fresh, empty filesystem. Entering the
 UF2 bootloader is a separate step, keeping erase and bootloader entry
