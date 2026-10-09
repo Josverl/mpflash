@@ -6,16 +6,27 @@ set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 help:
   @just --list
 
-# install project in edi mode and install dev dependencies
+# install workspace projects in editable mode and install test dependencies
 sync: 
-  uv sync --extra dev,test,pyocd
+  uv sync --extra test --extra pyocd
 
 init:
   @just sync
 
-# run full pytest suite
-test: 
-  uv run pytest -v
+# run the MPFlash and standalone mpremoteboard test suites
+test: test-all
+
+# run all workspace tests without publishing either package
+test-all:
+  uv run --extra test --extra pyocd pytest tests packages/mpremoteboard/tests
+
+# run only the MPFlash test suite against the local workspace package
+test-mpflash:
+  uv run --extra test --extra pyocd pytest tests
+
+# run standalone package tests in an isolated environment
+test-mpremoteboard:
+  uv run --isolated --package mpremoteboard --with pytest pytest -c packages/mpremoteboard/pyproject.toml packages/mpremoteboard/tests
 
 # create coverage report, build html report
 coverage:
@@ -31,9 +42,26 @@ gather-boards mpy="../micropython-stubs/repos/micropython":
 bump bump="patch":
   uv version --bump {{bump}}
 
-# build the project for distribution
-build:
-  uv build
+# build both workspace distributions into separate directories
+build: build-all
+
+# build both publishable packages locally
+build-all: build-mpremoteboard build-mpflash
+
+# build only MPFlash, validating its published dependency metadata
+build-mpflash:
+  uv run --isolated --no-project python -c "import shutil; shutil.rmtree('dist/mpflash', ignore_errors=True)"
+  uv build --package mpflash --no-sources --out-dir dist/mpflash
+
+# build only the standalone board package
+build-mpremoteboard:
+  uv run --isolated --no-project python -c "import shutil; shutil.rmtree('dist/mpremoteboard', ignore_errors=True)"
+  uv build --package mpremoteboard --no-sources --out-dir dist/mpremoteboard
+
+# smoke-test both local wheels without publishing them
+check-packages: build-all
+  uv run --isolated --no-project python -c "import glob, subprocess; wheel = glob.glob('dist/mpremoteboard/mpremoteboard-*.whl')[0]; result = subprocess.run(['uv', 'run', '--isolated', '--no-project', '--with', wheel, 'python', '-c', 'from importlib.metadata import distribution; import mpremoteboard; print(distribution(mpremoteboard.__name__).version)'], check=True, capture_output=True, text=True); print(f'Verified mpremoteboard {result.stdout.strip()} wheel import')"
+  uv run --isolated --no-project python -c "import glob, subprocess; wheel = glob.glob('dist/mpflash/mpflash-*.whl')[0]; result = subprocess.run(['uv', 'run', '--isolated', '--no-project', '--find-links', 'dist/mpremoteboard', '--with', wheel, 'mpflash', '--version'], check=True, capture_output=True, text=True); print(f'Verified {result.stdout.strip()} using local mpremoteboard wheel')"
 
 # -----------------------------------------------------------------------------------------------
 # Release process
@@ -46,17 +74,31 @@ build:
 # bump = major | minor | patch (default) | stable | alpha | beta | rc | post | dev
 [confirm("Run tests, bump the version and push a new tag? This triggers a PyPI release. Continue?")]
 release bump="patch":
-  uv run pytest
+  just test
   uv version --bump {{bump}}
   git add pyproject.toml uv.lock
   git commit -m "Release v$(uv version --short)"
   git tag -a "v$(uv version --short)" -m "Release v$(uv version --short)"
   git push --follow-tags --force
 
-# manual fallback: publish to PyPI directly (normally handled by GitHub Actions on tag push)
-[confirm("Are you sure you want to publish to PyPI directly? This is normally handled by GitHub Actions on tag push. Continue?")]
-publish : build
-  uv publish
+# manual fallback: publish both packages in dependency order
+publish: publish-all
+
+# publish both packages, with the dependency package first
+[confirm("Publish both workspace packages to PyPI? Continue?")]
+publish-all: build-all
+  uv publish "dist/mpremoteboard/*"
+  uv publish "dist/mpflash/*"
+
+# publish only MPFlash; its required mpremoteboard version must already exist
+[confirm("Publish only mpflash to PyPI? Continue?")]
+publish-mpflash: build-mpflash
+  uv publish "dist/mpflash/*"
+
+# publish only the standalone board package
+[confirm("Publish only mpremoteboard to PyPI? Continue?")]
+publish-mpremoteboard: build-mpremoteboard
+  uv publish "dist/mpremoteboard/*"
 
 # delete and regen the lockfile - useful in merge conficts
 lock:
@@ -87,5 +129,3 @@ hil_esptool_esp32:
 #   print('Hello from python!')
 #   from pathlib import Path
 #   print(f'Current directory: {Path.cwd()}')
-
-

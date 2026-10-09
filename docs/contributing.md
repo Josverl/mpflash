@@ -11,13 +11,14 @@ Thank you for your interest in contributing to MPFlash! This guide will help you
 - [Submitting Changes](#submitting-changes)
 - [Adding Hardware Support](#adding-hardware-support)
 - [Documentation](#documentation)
+- [Workspace Package Workflows](#workspace-package-workflows)
 - [Release Process](#release-process)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.9.2 or later
+- Python 3.10 or later
 - uv for dependency management (recommended) or pip
 - Git for version control
 - A MicroPython board for testing (optional but recommended)
@@ -40,12 +41,18 @@ Thank you for your interest in contributing to MPFlash! This guide will help you
 
 ### Install Dependencies
 
+MPFlash is a uv workspace containing the `mpflash` application and the
+standalone `mpremoteboard` library. A workspace sync installs both projects
+from the checkout, so normal development and testing never require publishing
+`mpremoteboard` first.
+
 ```bash
-# Install development dependencies
-uv sync --all-extras
+# Install both workspace projects and the test dependencies
+uv sync --extra test --extra pyocd
 
 # Or using pip (if uv not available)
-pip install -e ".[dev,test,perf]"
+pip install -e ".[test,pyocd]"
+pip install -e ./packages/mpremoteboard
 ```
 
 ### Environment Configuration
@@ -525,14 +532,141 @@ To add support for a new hardware platform:
 - Document new APIs in docs/api-reference.md
 - Add troubleshooting sections for common issues
 
+## Workspace Package Workflows
+
+The repository builds two distributions:
+
+| Distribution | Workspace project | Purpose |
+| --- | --- | --- |
+| `mpflash` | repository root | CLI and MPFlash integration |
+| `mpremoteboard` | `packages/mpremoteboard` | Lightweight board and runner API |
+
+The root `[tool.uv.sources]` entry resolves the `mpremoteboard` dependency to
+the local workspace member during development. This is the normal way to
+develop and test changes spanning both packages; no package needs to be
+uploaded to PyPI or another index.
+
+### Test Local Source Without Publishing
+
+Use the `just` recipes from the repository root:
+
+```bash
+just sync                 # install both workspace projects locally
+just test                 # run both test trees
+just test-mpflash         # MPFlash tests using local mpremoteboard source
+just test-mpremoteboard   # standalone tests in an isolated uv environment
+```
+
+`just test-mpremoteboard` creates a temporary isolated environment containing
+the workspace member and pytest. It does not install MPFlash and does not use a
+published `mpremoteboard` distribution. The standalone import test also rejects
+any accidental import from `mpflash`.
+
+The equivalent uv commands are:
+
+```bash
+uv run --extra test --extra pyocd pytest tests packages/mpremoteboard/tests
+uv run --extra test --extra pyocd pytest tests
+uv run --isolated --package mpremoteboard --with pytest \
+  pytest -c packages/mpremoteboard/pyproject.toml packages/mpremoteboard/tests
+```
+
+The explicit package configuration in the last command prevents the root
+pytest coverage options from leaking into the lightweight isolated test
+environment.
+
+### Build Combined or Individual Distributions
+
+Build artifacts are written to separate directories so that an individual
+publish command cannot accidentally upload the other project. Each recipe
+cleans only its package-specific output directory first, preventing stale
+versions from being included in a later wildcard publish:
+
+```bash
+just build                # both packages
+just build-mpflash        # dist/mpflash/
+just build-mpremoteboard  # dist/mpremoteboard/
+```
+
+The recipes use `--no-sources`. This intentionally ignores the local
+`[tool.uv.sources]` override while validating distribution metadata, ensuring
+that the built MPFlash package declares a normal versioned dependency on
+`mpremoteboard` rather than a workspace path.
+
+For a one-off combined build into the same output directory, uv also supports:
+
+```bash
+uv build --all --no-sources
+```
+
+### Test Built Wheels Without Publishing
+
+Run:
+
+```bash
+just check-packages
+```
+
+This builds both projects, imports the standalone wheel in a fresh isolated
+environment, and runs the MPFlash wheel's concise `--version` command with
+`dist/mpremoteboard` supplied as a local package source. It therefore
+validates the cross-package dependency without requiring either wheel to exist
+on PyPI. It reports only two concise `Verified ...` lines rather than the full
+CLI help page.
+
+The important raw uv pattern for testing MPFlash against the unpublished local
+dependency is shown below for both common shells.
+
+PowerShell:
+
+```powershell
+$mpflashWheel = (Get-ChildItem dist/mpflash/mpflash-*.whl |
+  Select-Object -First 1).FullName
+uv run --isolated --no-project --find-links dist/mpremoteboard `
+  --with $mpflashWheel mpflash --version
+```
+
+Bash:
+
+```bash
+mpflash_wheel="$(find dist/mpflash -maxdepth 1 -name 'mpflash-*.whl' -print -quit)"
+uv run --isolated --no-project --find-links dist/mpremoteboard \
+  --with "$mpflash_wheel" mpflash --version
+```
+
+Both commands tell uv to satisfy MPFlash's `mpremoteboard` requirement from
+the local wheel directory before consulting the package index. The `just`
+recipe implements the same operation with Python so it behaves consistently
+under Bash and PowerShell.
+
+### Publish Combined or Individual Distributions
+
+Publication is not part of normal development. Before publishing, run
+`just test` and `just check-packages`, verify both versions, and confirm that
+the changelog is current.
+
+```bash
+just publish-mpremoteboard  # publish only the dependency package
+just publish-mpflash        # publish only MPFlash
+just publish                # publish both, mpremoteboard first
+```
+
+MPFlash uses a versioned `mpremoteboard` dependency, so that exact
+`mpremoteboard` version must already be available from the target index before
+publishing or installing MPFlash. `just publish` enforces the correct upload
+order. The individual recipes are intended for retries or package-specific
+releases and prompt before uploading.
+
 ## Release Process
 
 ### Version Bumping & Tagging
 
 MPFlash uses semantic versioning and releases are automated via GitHub Actions.
 Pushing a `v*` tag triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml),
-which builds the sdist + wheel, publishes to PyPI (trusted publishing) and creates
-a GitHub release with generated notes.
+which currently builds and publishes the root `mpflash` distribution via trusted
+publishing and creates a GitHub release with generated notes. Publish the
+required `mpremoteboard` version first when coordinating a release of both
+packages.
 
 Use the `just release` recipe to cut a release. It runs in the safe order - tests
 first, then version bump and tag push:
@@ -544,7 +678,7 @@ just release minor     # next minor version
 just release major     # next major version
 ```
 
-This runs `uv run pytest`, then `uv version --bump <bump>`, commits the change,
+This runs both workspace test suites, then `uv version --bump <bump>`, commits the change,
 creates an annotated `vX.Y.Z` tag and pushes it with `git push --follow-tags`.
 Accepted bump values: `major`, `minor`, `patch`, `stable`, `alpha`, `beta`, `rc`,
 `post`, `dev`.
@@ -578,6 +712,8 @@ Before running `just release`:
 
 - [ ] Documentation updated
 - [ ] Changelog updated
+- [ ] `just test` and `just check-packages` pass
+- [ ] The required `mpremoteboard` version is already published
 - [ ] Correct bump chosen (no breaking changes without a major version bump)
 - [ ] On the branch you intend to release from
 

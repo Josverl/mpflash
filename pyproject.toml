@@ -114,6 +114,10 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build]
 reproducible = true
+exclude = [
+    "/libs",
+    "/repos",
+]
 
 
 ############################################################
