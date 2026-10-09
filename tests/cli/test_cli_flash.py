@@ -4,6 +4,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 from click.testing import CliRunner
+from click.utils import strip_ansi
 from pytest_mock import MockerFixture
 
 # # module under test :
@@ -142,7 +143,7 @@ def test_nrf_softdevice_options_reject_invalid_combinations(args, message):
     result = CliRunner().invoke(cli_main.cli, args)
 
     assert result.exit_code == 2
-    assert message in result.output
+    assert message in strip_ansi(result.output)
 
 
 @pytest.mark.parametrize(
@@ -577,7 +578,7 @@ def test_mpflash_softdevice_volume_requires_explicit_serial(session_fx, tmp_path
     )
 
     assert result.exit_code == 2
-    assert "requires exactly one explicit --serial CDC port" in result.output
+    assert "requires exactly one explicit --serial CDC port" in strip_ansi(result.output)
 
 
 def test_mpflash_softdevice_runtime_requires_one_explicit_serial(mocker: MockerFixture):
@@ -601,7 +602,7 @@ def test_mpflash_softdevice_runtime_requires_one_explicit_serial(mocker: MockerF
     )
 
     assert result.exit_code == 2
-    assert "requires exactly one explicit --serial CDC port" in result.output
+    assert "requires exactly one explicit --serial CDC port" in strip_ansi(result.output)
 
 
 def test_mpflash_softdevice_rejects_multiple_volumes(tmp_path, mocker: MockerFixture):
@@ -635,18 +636,19 @@ def test_mpflash_softdevice_rejects_multiple_volumes(tmp_path, mocker: MockerFix
     )
 
     assert result.exit_code == 2
-    assert "accepts at most one --volume" in result.output
+    assert "accepts at most one --volume" in strip_ansi(result.output)
 
 
 def test_mpflash_flash_help_documents_nrf_migration():
     result = CliRunner().invoke(cli_main.cli, ["flash", "--help"])
+    output = strip_ansi(result.output)
 
     assert result.exit_code == 0
-    assert "nRF SOFTDEVICE + BOOTLOADER MIGRATION" in result.output
-    assert "--repair-softdevice" in result.output
-    assert "Repair a matching profile" in result.output
-    assert "--volume D:" in result.output
-    assert "--serial COM78" in result.output
+    assert "nRF SOFTDEVICE + BOOTLOADER MIGRATION" in output
+    assert "--repair-softdevice" in output
+    assert "Repair a matching profile" in output
+    assert "--volume D:" in output
+    assert "--serial COM78" in output
 
 
 def test_mpflash_flash_with_volume_rejects_non_uf2_ports(mocker: MockerFixture):
