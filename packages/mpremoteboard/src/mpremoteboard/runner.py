@@ -1,18 +1,20 @@
-"""
-Run a command and return the output and return code as a tuple
-"""
+"""Run subprocess commands with tagged logging and bounded cleanup."""
+
+from __future__ import annotations
 
 import logging
 import subprocess
+import time
 from dataclasses import dataclass
-from threading import Timer
-from typing import List, Optional, Tuple
+from queue import Empty, Queue
+from threading import Thread
+from typing import Callable, List, Optional, Tuple
 
-DEFAULT = object()  # sentinel value (replaces unittest.mock.DEFAULT)
-
+DEFAULT = object()
 log = logging.getLogger(__name__)
 
 LogTagList = List[str]
+OutputCallback = Callable[[str, str], None]
 
 
 @dataclass
@@ -25,27 +27,35 @@ class LogTags:
 
 
 DEFAULT_RESET_TAGS = [
-    # ESP32 reset causes
-    "rst cause:1, boot mode:",  # 1 -> hardware watch dog reset
-    "rst cause:2, boot mode:",  # 2 -> software watch dog reset (From an exception)
-    "rst cause:3, boot mode:",  # 3 -> software watch dog reset system_restart (Possibly unfed watchdog got angry)
-    "rst cause:4, boot mode:",  # 4 -> soft restart (Possibly with a restart command)
+    "rst cause:1, boot mode:",
+    "rst cause:2, boot mode:",
+    "rst cause:3, boot mode:",
+    "rst cause:4, boot mode:",
     "boot.esp32: PRO CPU has been reset by WDT.",
     "rst:0x10 (RTCWDT_RTC_RESET)",
 ]
-
 DEFAULT_ERROR_TAGS = ["Traceback ", "Error: ", "Exception: ", "ERROR :", "CRIT  :"]
 DEFAULT_WARNING_TAGS = ["WARN  :", "TRACE :"]
 DEFAULT_SUCCESS_TAGS = ["Done", "File saved", "File removed", "File renamed"]
-DEFAULT_IGNORE_TAGS = [
-    '  File "<stdin>",',
-    "mpremote: rm -r: cannot remove :/ Operation not permitted",
-]
+DEFAULT_IGNORE_TAGS = ['  File "<stdin>",', "mpremote: rm -r: cannot remove :/ Operation not permitted"]
+
+
+def _read_stream(stream_name: str, stream, events: Queue[Tuple[str, Optional[bytes], Optional[BaseException]]]) -> None:
+    try:
+        while True:
+            chunk = stream.readline()
+            if not chunk:
+                break
+            events.put((stream_name, chunk, None))
+    except BaseException as exc:
+        events.put((stream_name, None, exc))
+    finally:
+        events.put((stream_name, None, None))
 
 
 def run(
     cmd: List[str],
-    timeout: int = 60,
+    timeout: float = 60,
     log_errors: bool = True,
     no_info: bool = False,
     *,
@@ -55,103 +65,128 @@ def run(
     warning_tags: Optional[LogTagList] = None,
     success_tags: Optional[LogTagList] = None,
     ignore_tags: Optional[LogTagList] = None,
+    output_callback: Optional[OutputCallback] = None,
+    stdout_callback: Optional[OutputCallback] = None,
+    stderr_callback: Optional[OutputCallback] = None,
 ) -> Tuple[int, List[str]]:
-    # sourcery skip: no-long-functions
-    """
-    Run a command and return the output and return code as a tuple
-    Parameters
-    ----------
-    cmd : List[str]
-        The command to run
-    timeout : int, optional
-        The timeout in seconds, by default 60
-    log_errors : bool, optional
-        If False, don't log errors, Default: true
-    no_info : bool, optional
-        If True, don't log info, by default False
-    error_tags : Optional[LogTagList], optional
-        A list of strings to look for in the output to log as errors, by default None
-    warning_tags : Optional[LogTagList], optional
-        A list of strings to look for in the output to log as warnings, by default None
-    Returns
-    -------
-    Tuple[int, List[str]]
-        The return code and the output as a list of strings
-    """
-    if not reset_tags:
-        reset_tags = DEFAULT_RESET_TAGS
-    if not error_tags:
-        error_tags = DEFAULT_ERROR_TAGS
-    if not warning_tags:
-        warning_tags = DEFAULT_WARNING_TAGS
-    if not success_tags:
-        success_tags = DEFAULT_SUCCESS_TAGS
-    if not ignore_tags:
-        ignore_tags = DEFAULT_IGNORE_TAGS
+    """Run a command, returning its exit code and lossless stdout lines.
 
-    replace_tags = ["\x1b[1A"]
+    Callbacks receive ``("stdout", line)`` or ``("stderr", line)`` before
+    tagged logging. Lines retain their original newline and blank lines.
+    """
+    reset_tags = DEFAULT_RESET_TAGS if reset_tags is None else reset_tags
+    error_tags = DEFAULT_ERROR_TAGS if error_tags is None else error_tags
+    warning_tags = DEFAULT_WARNING_TAGS if warning_tags is None else warning_tags
+    success_tags = DEFAULT_SUCCESS_TAGS if success_tags is None else success_tags
+    ignore_tags = DEFAULT_IGNORE_TAGS if ignore_tags is None else ignore_tags
 
-    output = []
     try:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
-            encoding="utf-8",
+            universal_newlines=False,
         )
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Failed to start {cmd[0]}") from e
-    _timed_out = False
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Failed to start {cmd[0]}") from exc
 
-    def timed_out():
-        _timed_out = True
-        if log_warnings:
-            log.warning(f"Command {cmd} timed out after {timeout} seconds")
-        proc.kill()
+    events: Queue[Tuple[str, Optional[bytes], Optional[BaseException]]] = Queue()
+    threads = [
+        Thread(target=_read_stream, args=("stdout", proc.stdout, events), daemon=True),
+        Thread(target=_read_stream, args=("stderr", proc.stderr, events), daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
 
-    timer = Timer(timeout, timed_out)
+    output: List[str] = []
+    finished_streams = set()
+    deadline = None if timeout == 0 else time.monotonic() + timeout
+    failure: Optional[BaseException] = None
+    timed_out = False
+    cleanup_deadline: Optional[float] = None
+
+    def terminate() -> None:
+        nonlocal cleanup_deadline
+        if proc.poll() is None:
+            proc.kill()
+        if cleanup_deadline is None:
+            cleanup_deadline = time.monotonic() + 1
+
+    def handle_event(stream_name: str, payload: Optional[bytes], stream_error: Optional[BaseException]) -> None:
+        nonlocal failure
+        if stream_error is not None:
+            failure = stream_error
+            return
+        if payload is None:
+            finished_streams.add(stream_name)
+            return
+        try:
+            line = payload.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            failure = exc
+            return
+        if output_callback is not None:
+            output_callback(stream_name, line)
+        callback = stdout_callback if stream_name == "stdout" else stderr_callback
+        if callback is not None:
+            callback(stream_name, line)
+        if stream_name == "stdout":
+            output.append(line)
+        if not line.strip():
+            return
+        clean_line = line.replace("\x1b[1A", "").rstrip("\n")
+        if stream_name == "stderr":
+            if log_errors and not any(tag in clean_line for tag in ignore_tags):
+                log.warning(clean_line)
+            return
+        if any(tag in clean_line for tag in reset_tags):
+            failure = RuntimeError("Board reset detected")
+        elif any(tag in clean_line for tag in error_tags):
+            if log_errors:
+                log.error(clean_line)
+        elif any(tag in clean_line for tag in warning_tags):
+            log.warning(clean_line)
+        elif any(tag in clean_line for tag in success_tags):
+            log.info(clean_line)
+        elif not any(tag in clean_line for tag in ignore_tags) and not no_info:
+            if clean_line.startswith(("INFO  : ", "WARN  : ", "ERROR : ")):
+                clean_line = clean_line[8:].lstrip()
+            log.info(clean_line)
+
     try:
-        timer.start()
-        # stdout has most of the output, assign log categories based on text tags
-        if proc.stdout:
-            for line in proc.stdout:
-                if not line or not line.strip():
-                    continue
-                for tag in replace_tags:
-                    line = line.replace(tag, "")
-                output.append(line)  # full output, no trimming
-                if any(tag in line for tag in reset_tags):
-                    raise RuntimeError("Board reset detected")
-
-                line = line.rstrip("\n")
-                # if any of the error tags in the line
-                if any(tag in line for tag in error_tags):
-                    if not log_errors:
-                        continue
-                    log.error(line)
-                elif any(tag in line for tag in warning_tags):
-                    log.warning(line)
-                elif any(tag in line for tag in success_tags):
-                    log.info(line)
-                elif any(tag in line for tag in ignore_tags):
-                    continue
-                else:
-                    if not no_info:
-                        if line.startswith(("INFO  : ", "WARN  : ", "ERROR : ")):
-                            line = line[8:].lstrip()
-                        log.info(line)
-        if proc.stderr and log_errors:
-            for line in proc.stderr:
-                if any(tag in line for tag in ignore_tags):
-                    continue
-                log.warning(line)
-    except UnicodeDecodeError as e:
-        log.error(f"Failed to decode output: {e}")
+        while len(finished_streams) < 2:
+            if failure is not None:
+                terminate()
+            elif deadline is not None and time.monotonic() >= deadline:
+                timed_out = True
+                if log_warnings:
+                    log.warning(f"Command {cmd} timed out after {timeout} seconds")
+                terminate()
+            if cleanup_deadline is not None and time.monotonic() >= cleanup_deadline:
+                break
+            try:
+                stream_name, payload, stream_error = events.get(timeout=0.05)
+            except Empty:
+                if proc.poll() is not None and all(not thread.is_alive() for thread in threads):
+                    break
+                continue
+            handle_event(stream_name, payload, stream_error)
     finally:
-        timer.cancel()
-        if _timed_out:
-            raise TimeoutError(f"Command {cmd} timed out after {timeout} seconds")
+        if proc.poll() is None:
+            terminate()
+        try:
+            proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=1)
+        for thread in threads:
+            thread.join(timeout=1)
+        for pipe in (proc.stdout, proc.stderr):
+            if pipe is not None and not pipe.closed:
+                pipe.close()
 
-    proc.wait(timeout=1)
+    if timed_out:
+        raise TimeoutError(f"Command {cmd} timed out after {timeout} seconds")
+    if failure is not None:
+        raise failure
     return proc.returncode or 0, output
