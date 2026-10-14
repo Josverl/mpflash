@@ -6,6 +6,13 @@ All notable changes to mpflash are documented in this file.
 
 ### Fixed
 
+- Preserve each detected board's identity during automatic flashing; do not
+  apply the sole responding board's firmware to unrelated serial ports.
+- Reject ESP firmware/chip mismatches before erasing or writing, and retain
+  esptool's revision and security checks instead of forcing writes. Unknown
+  CPUs no longer fall back to classic ESP32 parameters.
+- Report an error if an ESP board does not restart into MicroPython after a
+  write, rather than reporting a successful flash with stale board metadata.
 - Let esptool handle bootloader entry for all ESP32-family and ESP8266
   flashing, including native USB. Remove the redundant MicroPython
   activation and USB identity-change wait that could block ESP32-C5

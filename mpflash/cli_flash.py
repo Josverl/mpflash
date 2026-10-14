@@ -491,7 +491,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         )
         if any(task.board.port not in UF2_PORTS for task in tasks):
             raise click.UsageError(f"--volume is only supported for UF2-capable ports ({', '.join(sorted(UF2_PORTS))})")
-    elif len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
+    elif board_specified and len(params.versions) == 1 and len(params.boards) == 1 and params.serial == ["*"]:
         # One or more serial ports including the board / variant (auto-detect ports)
         comports = filtered_comports(
             ignore=params.ignore,

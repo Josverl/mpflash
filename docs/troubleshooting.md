@@ -180,11 +180,29 @@ Error: Flash operation failed for board on COM3
    - **STM32**: Hold BOOT0 button while pressing RESET
 
 3. **Check firmware compatibility**
+   Automatic flashing selects firmware separately for each responding board.
+   An unidentified serial device does not inherit another board's identity.
+   To recover an unresponsive ESP board, select its board and serial port
+   explicitly; verify the chip with esptool first:
+   ```bash
+   esptool --port /dev/ttyUSB0 --no-stub flash-id
+   mpflash flash --serial /dev/ttyUSB0 --board ESP32_GENERIC
+   ```
+   Replace the port and board ID with those for the actual device. ESP flashing
+   checks the firmware image's chip ID and the detected ROM chip before
+   erasing or writing. Chip mismatches are refused, including with `--erase`,
+   and esptool's revision/security checks remain enabled. An unknown CPU is
+   not assumed to be a classic ESP32.
+
    ```bash
    # Verify board and firmware match
    mpflash list  # Check current board
    mpflash download --board DETECTED_BOARD_ID
    ```
+
+   If writing completes but the board does not restart into MicroPython,
+   MPFlash reports an error rather than a successful update. Check the
+   firmware variant, boot output, and serial connection before retrying.
 
 4. **Platform-specific issues**
 

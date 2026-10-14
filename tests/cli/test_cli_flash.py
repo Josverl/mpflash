@@ -47,6 +47,35 @@ def test_flash_help_explains_esptool_bootloader_entry() -> None:
     assert "esptool" in result.output
 
 
+@pytest.mark.parametrize("classic_responds", [False, True])
+def test_auto_flash_keeps_each_detected_board_identity(mocker: MockerFixture, classic_responds: bool) -> None:
+    mocker.patch("serial.tools.list_ports.grep", return_value=[])
+    c5 = fakeboard("/dev/ttyACM0")
+    c5.board_id = "ESP32_GENERIC_C5"
+    c5.cpu = "ESP32-C5"
+    c5.variant = ""
+    classic = fakeboard("/dev/ttyUSB0")
+    detected = [c5, classic] if classic_responds else [c5]
+    mocker.patch(
+        "mpflash.connected.connected_ports_boards_variants",
+        return_value=(["esp32"], [board.board for board in detected], [], detected),
+    )
+    enumerate_all_ports = mocker.patch("mpflash.cli_flash.filtered_comports", return_value=["/dev/ttyACM0", "/dev/ttyUSB0"])
+    mocker.patch("mpflash.ask_input.ask_missing_params", side_effect=fake_ask_missing_params)
+    create_worklist = mocker.patch("mpflash.flash.worklist.create_worklist", return_value=[])
+    mocker.patch("mpflash.download.jid.ensure_firmware_downloaded_tasks")
+    mocker.patch("mpflash.flash.flash_tasks", return_value=detected)
+    mocker.patch("mpflash.list.show_mcus")
+
+    result = CliRunner().invoke(cli_main.cli, ["flash"])
+
+    assert result.exit_code == 0, result.output
+    assert create_worklist.call_args.kwargs["connected_comports"] == detected
+    assert "board_id" not in create_worklist.call_args.kwargs
+    assert "serial_ports" not in create_worklist.call_args.kwargs
+    enumerate_all_ports.assert_not_called()
+
+
 @pytest.mark.parametrize("serialport", ["COM99"])
 @pytest.mark.parametrize(
     "id, ex_code, args",
