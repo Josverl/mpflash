@@ -38,6 +38,15 @@ def fake_ask_missing_params(params: DownloadParams) -> DownloadParams:
 # flash
 
 
+def test_flash_help_explains_esptool_bootloader_entry() -> None:
+    result = CliRunner().invoke(cli_main.cli, ["flash", "--help"])
+
+    assert result.exit_code == 0
+    assert "Ignored for" in result.output
+    assert "ESP32/ESP8266" in result.output
+    assert "esptool" in result.output
+
+
 @pytest.mark.parametrize("serialport", ["COM99"])
 @pytest.mark.parametrize(
     "id, ex_code, args",

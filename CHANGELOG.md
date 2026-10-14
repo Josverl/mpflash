@@ -4,6 +4,13 @@ All notable changes to mpflash are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Let esptool handle bootloader entry for all ESP32-family and ESP8266
+  flashing, including native USB. Remove the redundant MicroPython
+  activation and USB identity-change wait that could block ESP32-C5
+  flashing before esptool ran, even with `--bootloader none`.
+
 ### Added
 
 - **Offline nRF SoftDevice migration** — `mpflash flash --softdevice` can
@@ -195,4 +202,3 @@ breaking changes. Legacy worklist functions were **removed**.
 
 - Restructured `mpboard_id` to use a SQLite database to identify more boards and variants.
 - Vendored and adapted `board_database.py` from mpflash — kudos @mattytrentini.
-

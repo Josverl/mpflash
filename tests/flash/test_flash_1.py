@@ -4,7 +4,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from mpflash.bootloader.activate import enter_bootloader
-from mpflash.common import BootloaderMethod
+from mpflash.common import BootloaderMethod, FlashMethod
 from mpflash.db.models import Firmware
 from mpflash.flash import flash_tasks
 from mpflash.flash.worklist import FlashTask, FlashTaskList
@@ -155,6 +155,44 @@ def test_flash_tasks(mocker: MockerFixture, test_fw_path: Path, bootloader, port
         m_flash_stm32.assert_not_called()
 
     if port in ["esp32", "esp8266"]:
-        return
-    # bootloader is always called - but not for esp32/esp8266
-    m_bootloader.assert_called_once()
+        m_bootloader.assert_not_called()
+    else:
+        m_bootloader.assert_called_once()
+
+
+@pytest.mark.parametrize("bootloader", list(BootloaderMethod))
+@pytest.mark.parametrize("method", [FlashMethod.AUTO, FlashMethod.ESPTOOL])
+def test_flash_tasks_native_usb_c5_skips_bootloader(
+    mocker: MockerFixture, tmp_path: Path, bootloader: BootloaderMethod, method: FlashMethod
+) -> None:
+    mocker.patch("serial.tools.list_ports.grep", return_value=[])
+    mocker.patch("mpflash.flash.builtins.pyocd_backend.PyOCDBackend.is_available", return_value=False)
+    serial_devices = mocker.patch("serial.tools.list_ports.comports", return_value=[])
+    enter_bootloader = mocker.patch("mpflash.bootloader.activate.enter_bootloader", return_value=False)
+    mocker.patch("mpflash.flash.config._firmware_folder", tmp_path)
+    board = MPRemoteBoard("COM17")
+    board.board_id = "ESP32_GENERIC_C5"
+    board.cpu = "ESP32-C5"
+    board.port = "esp32"
+    board.vid = 0x303A
+    board.pid = 0x1001
+    flash_esp = mocker.patch("mpflash.flash.builtins.esp.flash_esp", return_value=board)
+    firmware = tmp_path / "firmware.bin"
+    firmware.write_bytes(b"firmware")
+    task = FlashTask(
+        board=board,
+        firmware=Firmware(
+            board_id=board.board_id,
+            port=board.port,
+            version="1.29.0",
+            firmware_file=firmware.name,
+        ),
+    )
+
+    result = flash_tasks([task], erase=False, bootloader=bootloader, method=method)
+
+    assert result == [board]
+    assert board.serialport == "COM17"
+    enter_bootloader.assert_not_called()
+    serial_devices.assert_not_called()
+    flash_esp.assert_called_once_with(board, fw_file=firmware, erase=False)

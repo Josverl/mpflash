@@ -143,7 +143,10 @@ docs/nrf-softdevice-migration.md for profiles, validation, and recovery.
     type=click.Choice([e.value for e in BootloaderMethod]),
     default="auto",
     show_default=True,
-    help="""How to enter the (MicroPython) bootloader before flashing.""",
+    help=(
+        "How to enter the (MicroPython) bootloader before flashing. "
+        "Ignored for ESP32/ESP8266: esptool handles bootloader entry and automatic reset."
+    ),
 )
 @click.option(
     "--method",

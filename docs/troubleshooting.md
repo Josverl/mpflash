@@ -157,6 +157,7 @@ Error: Flash operation failed for board on COM3
 **Solutions:**
 
 1. **Check bootloader activation**
+   For non-ESP boards, try the activation methods supported by the board:
    ```bash
    # Try different bootloader methods
    mpflash flash --bootloader manual
@@ -164,8 +165,17 @@ Error: Flash operation failed for board on COM3
    mpflash flash --bootloader mpy
    ```
 
+   **ESP32-family devices (including ESP32-C5) and ESP8266:** esptool handles
+   ROM bootloader entry and automatic reset on the selected serial port.
+   MPFlash does not send `machine.bootloader()`, touch the port at 1200 baud,
+   or wait for a changed USB identity before invoking esptool. This applies
+   to both UART bridges and native USB. The `--bootloader` option is ignored
+   for ESP flashing, including `--bootloader none`; it does not disable
+   esptool's automatic reset.
+
 2. **Manual bootloader activation**
-   - **ESP32/ESP8266**: Hold BOOT button while pressing RESET
+   - **ESP32/ESP8266**: If esptool cannot automatically enter download mode,
+     hold BOOT while pressing RESET, following the board's instructions.
    - **RP2040**: Hold BOOTSEL button while connecting USB
    - **STM32**: Hold BOOT0 button while pressing RESET
 
@@ -225,6 +235,9 @@ Error: Failed to enter bootloader mode
    - Check if board has special requirements
 
 3. **Try different methods**
+   These MPFlash activation methods apply to non-ESP backends. For ESP
+   devices, check esptool's connection error and the board's BOOT/RESET
+   instructions instead of changing `--bootloader`.
    ```bash
    # Try automatic detection
    mpflash flash --bootloader auto
