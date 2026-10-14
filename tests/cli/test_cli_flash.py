@@ -25,6 +25,7 @@ def plain(text: str) -> str:
     text = re.sub(r"[\u2500-\u257f]", " ", text)  # box drawing characters
     return " ".join(text.split())
 
+
 # mark all tests
 pytestmark = pytest.mark.mpflash
 
