@@ -1,4 +1,4 @@
-"""OpenOCD flash backend (PSOC Edge).
+"""OpenOCD flash backend (PSoC Edge).
 
 Programs the board over SWD through its KitProg3 probe using the Infineon build
 of OpenOCD. Firmware is the ``.zip`` package published on micropython.org.
@@ -19,7 +19,7 @@ from mpflash.logger import log
 
 
 class OpenOCDBackend(FlashBackend):
-    """Infineon OpenOCD backend for PSOC Edge ``.zip`` firmware packages."""
+    """Infineon OpenOCD backend for PSoC Edge ``.zip`` firmware packages."""
 
     name = "openocd"
     supported_ports = frozenset({"psoc-edge"})

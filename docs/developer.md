@@ -41,7 +41,7 @@ mpflash/
   - RP2040 via UF2 file copy
   - STM32 via DFU
   - SAMD via UF2 file copy
-  - PSOC Edge via Infineon OpenOCD (SWD)
+  - PSoC Edge via Infineon OpenOCD (SWD)
 - **bootloader/**: Bootloader activation methods
   - Touch1200 for Arduino-compatible boards
   - MicroPython REPL-based activation
