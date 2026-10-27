@@ -16,10 +16,15 @@ from mpflash.mpremoteboard import HERE, MPRemoteBoard
 ERASE_SCRIPT = HERE / "erase_bdev.py"
 
 # Ports whose filesystem bdev supports this flow.
-SUPPORTED_PORTS = frozenset({"rp2", "samd", "nrf"})
+SUPPORTED_PORTS = frozenset({"rp2", "samd", "nrf", "psoc-edge"})
+
+DEFAULT_TIMEOUT = 60
+
+# psoc-edge erases 220 x 256 KB QSPI sectors at ~1 s each, so it needs far longer than the default.
+ERASE_TIMEOUTS = {"psoc-edge": 600}
 
 
-def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int = 60) -> bool:
+def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int | None = None) -> bool:
     """Erase the filesystem over serial, leaving the board on MicroPython.
 
     The board reboots via ``machine.reset()`` with a fresh empty filesystem and
@@ -32,6 +37,8 @@ def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int = 60) -> bool:
         return False
     if not mcu.serialport or mcu.serialport.lower() == "auto":
         return False
+    if timeout is None:
+        timeout = ERASE_TIMEOUTS.get(mcu.port, DEFAULT_TIMEOUT)
 
     # Only drive the erase when the board is actually present as a serial port
     # running MicroPython. If the port is gone the board may already be in the

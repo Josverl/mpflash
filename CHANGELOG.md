@@ -6,6 +6,15 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
+- **PSOC Edge (`psoc-edge`) flashing** via the new `openocd` flash backend (`--method openocd`,
+  selected automatically for `psoc-edge`). Flashes the micropython.org `.zip` release package over
+  SWD/KitProg3 with the Infineon build of OpenOCD (>= 5.8.0), found via `MPFLASH_OPENOCD` or `PATH`,
+  or downloaded (pinned v5.16.1, SHA-256 verified) when missing. New `--yes/-y` skips the download
+  prompt; `--probe` selects the KitProg3 probe by USB serial number. `--erase` and `mpflash erase`
+  support `psoc-edge` with a 10 minute timeout (erasing its 220 x 256 KB QSPI sectors takes about
+  4 minutes). `mpflash format` and `flash --format` support `psoc-edge` too. Tested only on the
+  Infineon `KIT_PSE84_AI` board.
+
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
   flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
   the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,
