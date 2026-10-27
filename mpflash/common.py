@@ -66,7 +66,7 @@ class FlashMethod(Enum):
     DFU = "dfu"  # STM32 DFU method
     ESPTOOL = "esptool"  # ESP32/ESP8266 esptool method
     PYOCD = "pyocd"  # SWD/JTAG programming via pyOCD
-    OPENOCD = "openocd"  # SWD programming via Infineon OpenOCD (PSoC Edge)
+    OPENOCD = "openocd"  # SWD programming via Infineon OpenOCD (PSOC Edge)
 
 
 @dataclass

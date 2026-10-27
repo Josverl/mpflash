@@ -1,4 +1,4 @@
-"""Unit tests for the OpenOCD (PSoC Edge) flash backend."""
+"""Unit tests for the OpenOCD (PSOC Edge) flash backend."""
 
 from __future__ import annotations
 

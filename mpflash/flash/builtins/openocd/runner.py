@@ -1,6 +1,6 @@
 """Locate and run the Infineon build of OpenOCD.
 
-Stock OpenOCD has no PSoC Edge target, so only Infineon's customised build
+Stock OpenOCD has no PSOC Edge target, so only Infineon's customised build
 (version string ``0.12.0+dev-<major>.<minor>.<patch>.<build>``) is accepted.
 """
 
@@ -21,7 +21,7 @@ ENV_VAR = "MPFLASH_OPENOCD"
 """Environment variable holding the path to an Infineon OpenOCD executable."""
 
 MIN_VERSION: Tuple[int, int, int] = (5, 8, 0)
-"""Oldest Infineon OpenOCD release that supports PSoC Edge (per the MicroPython port)."""
+"""Oldest Infineon OpenOCD release that supports PSOC Edge (per the MicroPython port)."""
 
 _VERSION_RE = re.compile(r"\+dev-(\d+)\.(\d+)\.(\d+)")
 
@@ -60,7 +60,7 @@ def find_openocd() -> Optional[Path]:
         if not is_suitable(configured):
             minimum = ".".join(map(str, MIN_VERSION))
             raise MPFlashError(
-                f"{ENV_VAR}={configured!r} is not an Infineon OpenOCD >= {minimum} (stock OpenOCD does not support PSoC Edge)."
+                f"{ENV_VAR}={configured!r} is not an Infineon OpenOCD >= {minimum} (stock OpenOCD does not support PSOC Edge)."
             )
         return Path(configured)
 
