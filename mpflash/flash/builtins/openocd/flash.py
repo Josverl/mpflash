@@ -1,9 +1,9 @@
-"""Flash PSOC Edge boards from a MicroPython release package with Infineon OpenOCD.
+"""Flash a board from a MicroPython release package with Infineon OpenOCD.
 
-The package from micropython.org is a ``.zip`` holding the firmware ``.hex``, the
-``PSE84_SMIF.FLM`` QSPI flash loader and a ``.cfg`` with the SMIF bank layout.
-The chip description (``target/infineon/pse84*.cfg``) and the KitProg3 probe
-configuration come from the OpenOCD installation itself.
+The package from micropython.org is a ``.zip`` holding the firmware ``.hex``, a flash loader
+(``.FLM``, e.g. ``PSE84_SMIF.FLM`` for PSOC Edge) and a ``.cfg`` with the external memory layout.
+The chip description (``target/infineon/*.cfg``) and the KitProg3 probe configuration come
+from the OpenOCD installation itself. Boards are listed in :mod:`.targets`.
 """
 
 from __future__ import annotations
@@ -21,20 +21,18 @@ from mpflash.logger import log
 
 from .download import ensure_openocd
 from .runner import run_openocd, scripts_dir
+from .targets import PORT_TARGETS, target_for_board
 
 if TYPE_CHECKING:
     from mpflash.mpremoteboard import MPRemoteBoard
-
-BOARD_TARGETS = {"KIT_PSE84_AI": "pse84xgxs2.cfg"}
-"""Board id -> OpenOCD target file below ``target/infineon/``."""
 
 ADAPTER_SPEED_KHZ = 12000
 _SERIAL_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 @dataclass(frozen=True)
-class PsocEdgePackage:
-    """Files extracted from a PSOC Edge release package."""
+class FirmwarePackage:
+    """Files extracted from a firmware release package."""
 
     hex_file: Path
     flm_file: Path
@@ -42,14 +40,14 @@ class PsocEdgePackage:
 
 
 @contextmanager
-def extracted_package(zip_path: Path) -> Iterator[PsocEdgePackage]:
+def extracted_package(zip_path: Path) -> Iterator[FirmwarePackage]:
     """Extract the ``.hex``, ``.FLM`` and ``.cfg`` files of ``zip_path`` into a temporary directory."""
     try:
         zf = zipfile.ZipFile(zip_path)
     except (OSError, zipfile.BadZipFile) as error:
-        raise MPFlashError(f"{zip_path.name} is not a valid PSOC Edge firmware package: {error}") from error
+        raise MPFlashError(f"{zip_path.name} is not a valid firmware package: {error}") from error
 
-    with zf, tempfile.TemporaryDirectory(prefix="mpflash-psoc-edge-") as tmp:
+    with zf, tempfile.TemporaryDirectory(prefix="mpflash-openocd-") as tmp:
         dest = Path(tmp)
         found: dict[str, List[Path]] = {".hex": [], ".flm": [], ".cfg": []}
         for info in zf.infolist():
@@ -67,7 +65,7 @@ def extracted_package(zip_path: Path) -> Iterator[PsocEdgePackage]:
                 f"{zip_path.name} must contain one .hex, one .FLM and at least one .cfg file "
                 f"(found {len(found['.hex'])} .hex, {len(found['.flm'])} .FLM, {len(found['.cfg'])} .cfg)"
             )
-        yield PsocEdgePackage(found[".hex"][0], found[".flm"][0], dest)
+        yield FirmwarePackage(found[".hex"][0], found[".flm"][0], dest)
 
 
 def _tcl_path(path: Path) -> str:
@@ -78,7 +76,7 @@ def _tcl_path(path: Path) -> str:
 
 
 def build_args(
-    package: PsocEdgePackage,
+    package: FirmwarePackage,
     target_cfg: str,
     *,
     scripts: Optional[Path] = None,
@@ -111,7 +109,7 @@ def build_args(
     return args
 
 
-def flash_psoc_edge(
+def flash_openocd(
     mcu: "MPRemoteBoard",
     *,
     fw_file: Path,
@@ -119,17 +117,18 @@ def flash_psoc_edge(
     assume_yes: bool = False,
     timeout: int = 180,
 ) -> None:
-    """Flash ``fw_file`` (a release ``.zip``) to a PSOC Edge board.
+    """Flash ``fw_file`` (a release ``.zip``) to a board with OpenOCD.
 
     ``probe_id`` selects the KitProg3 probe; it defaults to the board's USB serial number.
 
     Raises:
         MPFlashError: unknown board, bad package, no OpenOCD, or OpenOCD failure.
     """
-    board_id = (getattr(mcu, "board_id", "") or mcu.board or "").split("-")[0]
-    target_cfg = BOARD_TARGETS.get(board_id)
+    board_id = getattr(mcu, "board_id", "") or mcu.board or ""
+    target_cfg = target_for_board(mcu.port, board_id)
     if target_cfg is None:
-        raise MPFlashError(f"No OpenOCD target known for {board_id or 'unknown board'} (supported: {', '.join(sorted(BOARD_TARGETS))})")
+        supported = ", ".join(sorted(PORT_TARGETS.get(mcu.port, {}))) or "none"
+        raise MPFlashError(f"No OpenOCD target known for {board_id or 'unknown board'} on port {mcu.port!r} (supported: {supported})")
 
     openocd = ensure_openocd(assume_yes=assume_yes)
     serial = probe_id or getattr(mcu, "usb_serial_number", "") or None

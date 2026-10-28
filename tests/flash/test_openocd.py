@@ -13,7 +13,8 @@ import pytest
 
 from mpflash.common import PORT_FWTYPES, FlashMethod
 from mpflash.errors import MPFlashError
-from mpflash.flash.builtins.openocd import download, psoc_edge, runner
+from mpflash.flash.builtins.openocd import download, runner, targets
+from mpflash.flash.builtins.openocd import flash as ocd_flash
 from mpflash.flash.builtins.openocd_backend import OpenOCDBackend
 from mpflash.flash.context import FlashContext, Platform
 from mpflash.flash.registry import select_backend
@@ -139,7 +140,7 @@ def test_run_openocd_timeout(mocker):
 
 
 def test_extracted_package_finds_files(package_zip):
-    with psoc_edge.extracted_package(package_zip) as package:
+    with ocd_flash.extracted_package(package_zip) as package:
         assert package.hex_file.read_text().startswith(":00000001FF")
         assert package.flm_file.name == "PSE84_SMIF.FLM"
         assert (package.cfg_dir / "qspi_config.cfg").is_file()
@@ -153,7 +154,7 @@ def test_extracted_package_flattens_archive_paths(tmp_path):
         zf.writestr("../../evil/firmware.hex", "x")
         zf.writestr("a/b/PSE84_SMIF.FLM", "x")
         zf.writestr("a/qspi_config.cfg", "x")
-    with psoc_edge.extracted_package(path) as package:
+    with ocd_flash.extracted_package(path) as package:
         assert package.hex_file.parent == package.cfg_dir
 
 
@@ -165,7 +166,7 @@ def test_extracted_package_requires_all_files(tmp_path, missing):
             if name != missing:
                 zf.writestr(name, "x")
     with pytest.raises(MPFlashError, match="must contain"):
-        with psoc_edge.extracted_package(path):
+        with ocd_flash.extracted_package(path):
             pass
 
 
@@ -173,13 +174,13 @@ def test_extracted_package_rejects_non_zip(tmp_path):
     bad = tmp_path / "pkg.zip"
     bad.write_text("not a zip")
     with pytest.raises(MPFlashError, match="not a valid"):
-        with psoc_edge.extracted_package(bad):
+        with ocd_flash.extracted_package(bad):
             pass
 
 
 def _args_for(package_zip, **kwargs):
-    with psoc_edge.extracted_package(package_zip) as package:
-        return psoc_edge.build_args(package, "pse84xgxs2.cfg", **kwargs)
+    with ocd_flash.extracted_package(package_zip) as package:
+        return ocd_flash.build_args(package, "pse84xgxs2.cfg", **kwargs)
 
 
 def test_build_args_sequence(package_zip):
@@ -209,38 +210,93 @@ def test_build_args_rejects_unsafe_serial(package_zip, serial):
 
 
 # ---------------------------------------------------------------------------
-# flash_psoc_edge
+# flash_openocd
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
 def patched_flash(mocker):
-    mocker.patch.object(psoc_edge, "ensure_openocd", return_value=Path("/opt/openocd/bin/openocd"))
-    mocker.patch.object(psoc_edge, "scripts_dir", return_value=None)
-    return mocker.patch.object(psoc_edge, "run_openocd", return_value="")
+    mocker.patch.object(ocd_flash, "ensure_openocd", return_value=Path("/opt/openocd/bin/openocd"))
+    mocker.patch.object(ocd_flash, "scripts_dir", return_value=None)
+    return mocker.patch.object(ocd_flash, "run_openocd", return_value="")
 
 
-def test_flash_psoc_edge_uses_usb_serial_number(patched_flash, package_zip):
-    psoc_edge.flash_psoc_edge(_mcu(), fw_file=package_zip)
+def test_flash_openocd_uses_usb_serial_number(patched_flash, package_zip):
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
     args = patched_flash.call_args.args[1]
     assert "adapter serial 181F0D5A01212300" in args
 
 
-def test_flash_psoc_edge_probe_id_overrides_serial(patched_flash, package_zip):
-    psoc_edge.flash_psoc_edge(_mcu(), fw_file=package_zip, probe_id="OTHER1")
+def test_flash_openocd_probe_id_overrides_serial(patched_flash, package_zip):
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip, probe_id="OTHER1")
     assert "adapter serial OTHER1" in patched_flash.call_args.args[1]
 
 
-def test_flash_psoc_edge_unknown_board(patched_flash, package_zip):
+def test_flash_openocd_unknown_board(patched_flash, package_zip):
     with pytest.raises(MPFlashError, match="No OpenOCD target"):
-        psoc_edge.flash_psoc_edge(_mcu(board="OTHER", board_id="OTHER"), fw_file=package_zip)
+        ocd_flash.flash_openocd(_mcu(board="OTHER", board_id="OTHER"), fw_file=package_zip)
     patched_flash.assert_not_called()
 
 
-def test_flash_psoc_edge_propagates_openocd_failure(patched_flash, package_zip):
+def test_flash_openocd_propagates_openocd_failure(patched_flash, package_zip):
     patched_flash.side_effect = MPFlashError("OpenOCD failed")
     with pytest.raises(MPFlashError, match="OpenOCD failed"):
-        psoc_edge.flash_psoc_edge(_mcu(), fw_file=package_zip)
+        ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
+
+
+# ---------------------------------------------------------------------------
+# board / port targets
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def fake_psoc6_targets(monkeypatch):
+    """Pretend a second port exists, with hyphenated board names."""
+    monkeypatch.setitem(
+        targets.PORT_TARGETS,
+        "psoc6",
+        {"CY8CPROTO-062-4343W": "cy8c6xx.cfg", "CY8CPROTO-062": "short.cfg"},
+    )
+
+
+@pytest.mark.parametrize(
+    "port, board_id, expected",
+    [
+        ("psoc-edge", "KIT_PSE84_AI", "pse84xgxs2.cfg"),
+        ("psoc-edge", "KIT_PSE84_AI-", "pse84xgxs2.cfg"),  # empty variant, as MPRemoteBoard builds it
+        ("psoc-edge", "KIT_PSE84_AI-SOMEVARIANT", "pse84xgxs2.cfg"),
+        ("psoc-edge", "KIT_PSE84_AI_OTHER", None),
+        ("psoc-edge", "OTHER", None),
+        ("rp2", "KIT_PSE84_AI", None),
+    ],
+)
+def test_target_for_board(port, board_id, expected):
+    assert targets.target_for_board(port, board_id) == expected
+
+
+@pytest.mark.usefixtures("fake_psoc6_targets")
+@pytest.mark.parametrize(
+    "board_id, expected",
+    [
+        ("CY8CPROTO-062-4343W", "cy8c6xx.cfg"),  # hyphens in the board name
+        ("CY8CPROTO-062-4343W-VAR", "cy8c6xx.cfg"),  # variant suffix, longest key wins
+        ("CY8CPROTO-062", "short.cfg"),
+        ("CY8CPROTO-063-BLE", None),
+    ],
+)
+def test_target_for_board_with_hyphenated_names(board_id, expected):
+    assert targets.target_for_board("psoc6", board_id) == expected
+
+
+@pytest.mark.usefixtures("fake_psoc6_targets")
+def test_flash_openocd_uses_target_of_another_port(patched_flash, package_zip):
+    mcu = _mcu(port="psoc6", board="CY8CPROTO-062-4343W", board_id="CY8CPROTO-062-4343W")
+    ocd_flash.flash_openocd(mcu, fw_file=package_zip)
+    assert "source [find target/infineon/cy8c6xx.cfg]" in patched_flash.call_args.args[1]
+
+
+def test_backend_ports_follow_targets_table():
+    assert OpenOCDBackend.supported_ports == frozenset(targets.PORT_TARGETS)
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +332,7 @@ def test_openocd_unavailable_without_tool_or_download(mocker, monkeypatch):
 
 def test_flash_erases_flashes_and_waits(mocker, package_zip):
     erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=True)
-    flash = mocker.patch.object(psoc_edge, "flash_psoc_edge")
+    flash = mocker.patch.object(ocd_flash, "flash_openocd")
     services = SimpleNamespace(wait_for_restart=mocker.Mock())
     mcu = _mcu()
     ctx = FlashContext(mcu=mcu, fw_file=package_zip, erase=True, options={"probe_id": "P1", "assume_yes": True}, services=services)
@@ -291,7 +347,7 @@ def test_flash_erases_flashes_and_waits(mocker, package_zip):
 
 def test_flash_without_erase_leaves_filesystem_alone(mocker, package_zip):
     erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem")
-    mocker.patch.object(psoc_edge, "flash_psoc_edge")
+    mocker.patch.object(ocd_flash, "flash_openocd")
     services = SimpleNamespace(wait_for_restart=mocker.Mock())
 
     OpenOCDBackend().flash(FlashContext(mcu=_mcu(), fw_file=package_zip, erase=False, services=services))
@@ -301,7 +357,7 @@ def test_flash_without_erase_leaves_filesystem_alone(mocker, package_zip):
 
 def test_flash_continues_when_erase_fails(mocker, package_zip):
     mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=False)
-    flash = mocker.patch.object(psoc_edge, "flash_psoc_edge")
+    flash = mocker.patch.object(ocd_flash, "flash_openocd")
     services = SimpleNamespace(wait_for_restart=mocker.Mock())
     ctx = FlashContext(mcu=_mcu(), fw_file=package_zip, erase=True, services=services)
 

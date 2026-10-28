@@ -89,7 +89,7 @@ def _confirm_download(asset: _Asset, assume_yes: bool) -> bool:
     import click
 
     return click.confirm(
-        f"Flashing PSOC Edge needs the Infineon build of OpenOCD ({asset.name}, ~5 MB from github.com/Infineon/openocd). Download it now?",
+        f"Flashing this board needs the Infineon build of OpenOCD ({asset.name}, ~5 MB from github.com/Infineon/openocd). Download it now?",
         default=True,
     )
 
@@ -181,5 +181,5 @@ def ensure_openocd(assume_yes: bool = False) -> Path:
     if asset is None:
         raise MPFlashError(f"No Infineon OpenOCD package is published for {'/'.join(_host_key())}. {hint}")
     if not _confirm_download(asset, assume_yes):
-        raise MPFlashError(f"Infineon OpenOCD is required to flash PSOC Edge. {hint}")
+        raise MPFlashError(f"Infineon OpenOCD is required to flash this board. {hint}")
     return _install(asset)

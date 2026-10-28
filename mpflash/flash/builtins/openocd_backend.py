@@ -1,10 +1,10 @@
-"""OpenOCD flash backend (PSOC Edge).
+"""OpenOCD flash backend (Infineon).
 
 Programs the board over SWD through its KitProg3 probe using the Infineon build
 of OpenOCD. Firmware is the ``.zip`` package published on micropython.org.
 
-Only the ``psoc-edge`` port is supported and it is tested only on Infineon
-boards (``KIT_PSE84_AI``); stock OpenOCD is rejected.
+Supported ports and boards are listed in ``openocd/targets.py`` (currently PSOC Edge,
+tested only on the ``KIT_PSE84_AI``); stock OpenOCD is rejected.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 
 from mpflash.flash.base import FlashBackend
+from mpflash.flash.builtins.openocd.targets import PORT_TARGETS
 from mpflash.flash.context import FlashContext, FlashResult, Platform
 from mpflash.flash.registry import register
 from mpflash.flash.services import default_services
@@ -19,10 +20,10 @@ from mpflash.logger import log
 
 
 class OpenOCDBackend(FlashBackend):
-    """Infineon OpenOCD backend for PSOC Edge ``.zip`` firmware packages."""
+    """Infineon OpenOCD backend for MicroPython ``.zip`` firmware packages."""
 
     name = "openocd"
-    supported_ports = frozenset({"psoc-edge"})
+    supported_ports = frozenset(PORT_TARGETS)
     supported_formats = (".zip",)
     supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
     requires_bootloader = False
@@ -39,7 +40,7 @@ class OpenOCDBackend(FlashBackend):
 
     def flash(self, ctx: FlashContext) -> FlashResult:
         """Optionally erase the filesystem, program the board over SWD, then wait for it to restart."""
-        from mpflash.flash.builtins.openocd.psoc_edge import flash_psoc_edge
+        from mpflash.flash.builtins.openocd.flash import flash_openocd
         from mpflash.flash.builtins.uf2.erase import erase_filesystem
 
         services = ctx.services or default_services
@@ -48,7 +49,7 @@ class OpenOCDBackend(FlashBackend):
         if ctx.erase and not erase_filesystem(ctx.mcu):
             log.warning(f"Could not erase the filesystem on {ctx.mcu.serialport} over serial; continuing without erase")
 
-        flash_psoc_edge(
+        flash_openocd(
             ctx.mcu,
             fw_file=ctx.fw_file,
             probe_id=ctx.options.get("probe_id"),
