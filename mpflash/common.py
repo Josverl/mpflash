@@ -18,6 +18,7 @@ PORT_FWTYPES = {
     "esp8266": [".bin"],
     "rp2": [".uf2"],
     "samd": [".uf2"],
+    "psoc-edge": [".zip"],  # .hex + .cfg + .FLM package, flashed with Infineon OpenOCD
     # below this not yet implemented / tested
     "mimxrt": [".hex"],
     "nrf": [".uf2"],
@@ -65,6 +66,7 @@ class FlashMethod(Enum):
     DFU = "dfu"  # STM32 DFU method
     ESPTOOL = "esptool"  # ESP32/ESP8266 esptool method
     PYOCD = "pyocd"  # SWD/JTAG programming via pyOCD
+    OPENOCD = "openocd"  # SWD programming via Infineon OpenOCD (PSOC Edge)
 
 
 @dataclass

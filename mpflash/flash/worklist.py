@@ -139,6 +139,7 @@ def _is_port_compatible_firmware(port: str, firmware_file: str) -> bool:
         "samd": {".uf2"},
         "nrf": {".uf2"},
         "stm32": {".dfu", ".bin"},
+        "psoc-edge": {".zip"},
     }
     if port not in preferred_ext:
         return True

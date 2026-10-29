@@ -19,8 +19,9 @@ The interactive prompts use [**rich-inquirer**](https://pypi.org/project/rich-in
     - `esp8266`, using `.bin`, using esptool
     - `stm32`, using ` .dfu`, using pydfu (also in Windows) 
     - `nrf`, using `.uf2`, using filecopy
+    - `psoc-edge`, using `.zip` release package, using Infineon OpenOCD (see below)
 
-Not yet implemented: `alif`, `mimxrt`, `psoc-edge`, `renesas-ra`, `zephyr`
+Not yet implemented: `alif`, `mimxrt`, `renesas-ra`, `zephyr`
 Not planned: `cc3200`, `pic16bit`
 
 ## Features
@@ -29,6 +30,7 @@ Not planned: `cc3200`, `pic16bit`
  - **Download firmware** — fetch MicroPython firmware for a version, matched to a specified board or your attached board(s).
  - **Flash boards** — flash one or all connected boards with a specific firmware or version, downloading it if needed.
  - **Flash via a debug probe (pyOCD)** — program `stm32`, `rp2` and `samd` targets over SWD/JTAG using a CMSIS-DAP / ST-Link / J-Link probe with `mpflash flash --method pyocd`. CMSIS packs for missing targets are installed automatically. Install with `pip install "mpflash[pyocd]"`.
+ - **Flash PSOC Edge via OpenOCD** — program Infineon `psoc-edge` boards over SWD through the on-board KitProg3 probe with `mpflash flash --method openocd`. Needs the Infineon build of OpenOCD, which is downloaded for you if it is missing. See [Flashing the firmware](#flashing-the-firmware).
  - **Build firmware locally (mpbuild)** — use `mpflash flash --build` to compile MicroPython with [mpbuild](https://pypi.org/project/mpbuild/) (requires Docker) right before flashing.
  - **Pluggable flash & bootloader backends** — flashing and bootloader activation are selectable, port-agnostic plugins, and third-party backends can register their own. List them with `mpflash plugins`.
  - **Filesystem erase over serial** — `--erase` wipes the MicroPython filesystem via its block device.
@@ -132,6 +134,7 @@ ignore = true
 In order to flash the firmware to the board, you need to have the correct permissions to access the USB devices.
 On Windows this will not be an issue, but on Linux you can use  udev rules to give non-root users access to the USB devices.
 [See the stm32_permissions documentation](docs/stm32_udev_rules.md) for more information.
+For Infineon PSOC Edge boards (KitProg3 probe), use the udev rules shipped with the Infineon OpenOCD package, see [Flashing the firmware](#flashing-the-firmware).
 
 ## Use MPFlash in your own project
 
@@ -224,6 +227,23 @@ The supported `--bootloader` options are:
 - `none`   mpflash assumes the board is ready to flash
 
 For ESP32 and ESP8266 boards the `esptool` is used to flash the firmware, and this includes activating the bootloader.
+
+For PSOC Edge boards (e.g. `KIT_PSE84_AI`) the firmware is the `.zip` package from micropython.org
+(`.hex` + QSPI flash loader + SMIF layout). It is programmed over SWD through the on-board KitProg3 probe with
+the **Infineon build of OpenOCD** (stock OpenOCD has no PSOC Edge support), so no bootloader is needed:
+
+```bash
+mpflash flash --board KIT_PSE84_AI --serial /dev/ttyACM0
+```
+
+mpflash uses an Infineon OpenOCD >= 5.8.0 from `MPFLASH_OPENOCD` (path to the executable) or `PATH`. If none is
+found, the pinned release (v5.16.1) is downloaded and checksum-verified into your user cache folder, after asking
+first when run interactively (`--yes` skips the question). With several boards connected, select the probe with
+`--probe <KitProg3 USB serial number>`. On Linux the probe needs the udev rules shipped in the OpenOCD package
+(`udev_rules/install_rules.sh`); mpflash does not install them for you.
+
+The `openocd` method currently supports Infineon PSOC Edge boards and has been tested only on the
+`KIT_PSE84_AI`.
 
 ### Flashing all connected boards with the latest stable firmware
 ```bash
