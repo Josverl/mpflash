@@ -30,6 +30,7 @@ _METHOD_NAME_MAP = {
     FlashMethod.UF2: "uf2",
     FlashMethod.DFU: "dfu",
     FlashMethod.ESPTOOL: "esptool",
+    FlashMethod.OPENOCD: "openocd",
 }
 
 

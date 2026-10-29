@@ -91,6 +91,7 @@ If you want to integrate MPFlash into your project:
 - **RP2040** - Via UF2 file copy
 - **STM32** - Via DFU
 - **SAMD** - Via UF2 file copy
+- **PSOC Edge** - Via Infineon OpenOCD (SWD)
 
 ### Core Functionality
 - **Automatic board detection** - Identifies connected MicroPython boards
@@ -178,6 +179,7 @@ mpflash --dir ./scratch flash --board ESP32_GENERIC --serial COM3
 - ✅ **RP2040** - Full support  
 - ✅ **STM32** - Full support
 - ✅ **SAMD** - Full support
+- ✅ **PSOC Edge** - Full support
 - ⏳ **Nordic nRF** - Planned
 - ⏳ **CC3200** - Planned
 - ⏳ **i.MX RT** - Planned
