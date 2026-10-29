@@ -3,8 +3,7 @@
 Programs the board over SWD through its KitProg3 probe using the Infineon build
 of OpenOCD. Firmware is the ``.zip`` package published on micropython.org.
 
-Supported ports and boards are listed in ``openocd/targets.py`` (currently PSOC Edge,
-tested only on the ``KIT_PSE84_AI``); stock OpenOCD is rejected.
+Supported ports and boards are listed in ``openocd/targets.py``; stock OpenOCD is rejected.
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ from mpflash.flash.builtins.openocd.targets import PORT_TARGETS
 from mpflash.flash.context import FlashContext, FlashResult, Platform
 from mpflash.flash.registry import register
 from mpflash.flash.services import default_services
-from mpflash.logger import log
 
 
 class OpenOCDBackend(FlashBackend):
@@ -39,21 +37,17 @@ class OpenOCDBackend(FlashBackend):
         return bool(os.environ.get(ENV_VAR)) or download_supported() or find_openocd() is not None
 
     def flash(self, ctx: FlashContext) -> FlashResult:
-        """Optionally erase the filesystem, program the board over SWD, then wait for it to restart."""
+        """Program the board over SWD (erasing the filesystem first if asked), then wait for it to restart."""
         from mpflash.flash.builtins.openocd.flash import flash_openocd
-        from mpflash.flash.builtins.uf2.erase import erase_filesystem
 
         services = ctx.services or default_services
-
-        # Programming leaves the filesystem untouched, so --erase wipes it over serial first.
-        if ctx.erase and not erase_filesystem(ctx.mcu):
-            log.warning(f"Could not erase the filesystem on {ctx.mcu.serialport} over serial; continuing without erase")
 
         flash_openocd(
             ctx.mcu,
             fw_file=ctx.fw_file,
             probe_id=ctx.options.get("probe_id"),
             assume_yes=bool(ctx.options.get("assume_yes")),
+            erase=ctx.erase,
         )
         services.wait_for_restart(ctx.mcu)
         return FlashResult(success=True, mcu=ctx.mcu, backend=self.name)

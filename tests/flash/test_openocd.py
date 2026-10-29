@@ -244,6 +244,50 @@ def test_flash_openocd_propagates_openocd_failure(patched_flash, package_zip):
         ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
 
 
+@pytest.fixture
+def erase_mock(mocker):
+    return mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=True)
+
+
+def test_flash_openocd_erases_right_before_openocd(patched_flash, erase_mock, package_zip):
+    order = []
+    erase_mock.side_effect = lambda mcu: order.append("erase") or True
+    patched_flash.side_effect = lambda *args, **kwargs: order.append("openocd") or ""
+
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip, erase=True)
+
+    assert order == ["erase", "openocd"]
+
+
+def test_flash_openocd_does_not_erase_by_default(patched_flash, erase_mock, package_zip):
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
+    erase_mock.assert_not_called()
+
+
+def test_flash_openocd_continues_when_erase_fails(patched_flash, erase_mock, package_zip):
+    erase_mock.return_value = False
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip, erase=True)
+    patched_flash.assert_called_once()
+
+
+@pytest.mark.parametrize("failure", ["unknown_board", "no_openocd", "bad_zip"])
+def test_flash_openocd_never_erases_when_a_check_fails(mocker, patched_flash, erase_mock, package_zip, tmp_path, failure):
+    mcu, firmware = _mcu(), package_zip
+    if failure == "unknown_board":
+        mcu = _mcu(board="OTHER", board_id="OTHER")
+    elif failure == "no_openocd":
+        mocker.patch.object(ocd_flash, "ensure_openocd", side_effect=MPFlashError("no openocd"))
+    else:
+        firmware = tmp_path / "bad.zip"
+        firmware.write_text("not a zip")
+
+    with pytest.raises(MPFlashError):
+        ocd_flash.flash_openocd(mcu, fw_file=firmware, erase=True)
+
+    erase_mock.assert_not_called()
+    patched_flash.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # board / port targets
 # ---------------------------------------------------------------------------
@@ -330,8 +374,8 @@ def test_openocd_unavailable_without_tool_or_download(mocker, monkeypatch):
     assert OpenOCDBackend().is_available() is False
 
 
-def test_flash_erases_flashes_and_waits(mocker, package_zip):
-    erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=True)
+def test_flash_passes_erase_through_and_waits(mocker, package_zip):
+    erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem")
     flash = mocker.patch.object(ocd_flash, "flash_openocd")
     services = SimpleNamespace(wait_for_restart=mocker.Mock())
     mcu = _mcu()
@@ -339,30 +383,19 @@ def test_flash_erases_flashes_and_waits(mocker, package_zip):
 
     result = OpenOCDBackend().flash(ctx)
 
-    erase.assert_called_once_with(mcu)
-    flash.assert_called_once_with(mcu, fw_file=package_zip, probe_id="P1", assume_yes=True)
+    erase.assert_not_called()  # the erase happens inside flash_openocd, after its checks
+    flash.assert_called_once_with(mcu, fw_file=package_zip, probe_id="P1", assume_yes=True, erase=True)
     services.wait_for_restart.assert_called_once_with(mcu)
     assert result.success and result.mcu is mcu
 
 
-def test_flash_without_erase_leaves_filesystem_alone(mocker, package_zip):
-    erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem")
-    mocker.patch.object(ocd_flash, "flash_openocd")
+def test_flash_without_erase_passes_erase_false(mocker, package_zip):
+    flash = mocker.patch.object(ocd_flash, "flash_openocd")
     services = SimpleNamespace(wait_for_restart=mocker.Mock())
 
     OpenOCDBackend().flash(FlashContext(mcu=_mcu(), fw_file=package_zip, erase=False, services=services))
 
-    erase.assert_not_called()
-
-
-def test_flash_continues_when_erase_fails(mocker, package_zip):
-    mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=False)
-    flash = mocker.patch.object(ocd_flash, "flash_openocd")
-    services = SimpleNamespace(wait_for_restart=mocker.Mock())
-    ctx = FlashContext(mcu=_mcu(), fw_file=package_zip, erase=True, services=services)
-
-    assert OpenOCDBackend().flash(ctx).success
-    flash.assert_called_once()
+    assert flash.call_args.kwargs["erase"] is False
 
 
 # ---------------------------------------------------------------------------

@@ -179,7 +179,7 @@ mpflash --dir ./scratch flash --board ESP32_GENERIC --serial COM3
 - ✅ **RP2040** - Full support  
 - ✅ **STM32** - Full support
 - ✅ **SAMD** - Full support
-- ✅ **PSOC Edge** - Flash, erase and format (tested on `KIT_PSE84_AI`)
+- ✅ **PSOC Edge** - Full support
 - ⏳ **Nordic nRF** - Planned
 - ⏳ **CC3200** - Planned
 - ⏳ **i.MX RT** - Planned
