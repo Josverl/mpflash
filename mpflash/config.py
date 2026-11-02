@@ -104,7 +104,7 @@ class MPFlashConfig:
             # Token with no permissions to avoid throttling
             # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#getting-a-higher-rate-limit
             # mpflash_read_mp_versions_inf - 2-11-2026
-            PAT_NO_ACCESS = "github_pat_" + "11AAHPVFQ0rV6o9jTzRUs2" + "_MK5GjgtUWekaIEMZflDRLbQ4280Mg6eRJmGlOqm1TaQATYJVRYVy86bw6Vt"
+            PAT_NO_ACCESS = "github_pat_" + "11AAHPVFQ0c7fzL4TPtASI" + "_VW09z5gGxnOmuxIky2ZO3WxOE2pIWJqUTOdtO7KAhKm2Z56TKJ7thgHBvDS"
             PAT = os.environ.get("GITHUB_TOKEN") or PAT_NO_ACCESS
             self._gh_client = Github(auth=Auth.Token(PAT))
         return self._gh_client
