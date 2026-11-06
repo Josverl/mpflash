@@ -14,6 +14,7 @@ import sys
 
 from loguru import logger as log
 from rich.console import Console
+from rich.markup import escape
 
 from .config import config
 
@@ -36,11 +37,12 @@ def _sanitize_message(message: str) -> str:
     """
     Sanitize log messages to prevent Loguru colorization issues.
 
-    Escapes angle brackets that could be interpreted as color tags.
+    Escapes angle brackets that could be interpreted as color tags, and square
+    brackets that Rich would swallow as markup (e.g. ``[find interface/x.cfg]``).
     This prevents errors when logging documentation with placeholders like <board_default>.
     """
     # Escape angle brackets to prevent them from being interpreted as color tags
-    return message.replace("<", "\\<").replace(">", "\\>")
+    return escape(message).replace("<", "\\<").replace(">", "\\>")
 
 
 def _log_formatter(record) -> str:
