@@ -134,7 +134,8 @@ ignore = true
 In order to flash the firmware to the board, you need to have the correct permissions to access the USB devices.
 On Windows this will not be an issue, but on Linux you can use  udev rules to give non-root users access to the USB devices.
 [See the stm32_permissions documentation](docs/stm32_udev_rules.md) for more information.
-For Infineon PSOC Edge boards (KitProg3 probe), use the udev rules shipped with the Infineon OpenOCD package, see [Flashing the firmware](#flashing-the-firmware).
+For Infineon PSOC Edge boards (KitProg3 probe), mpflash can install the bundled udev rule for you after asking,
+[see the Infineon permissions documentation](docs/psoc_edge_udev_rules.md).
 
 ## Use MPFlash in your own project
 
@@ -239,8 +240,8 @@ mpflash flash --board KIT_PSE84_AI --serial /dev/ttyACM0
 mpflash uses an Infineon OpenOCD >= 5.8.0 from `MPFLASH_OPENOCD` (path to the executable) or `PATH`. If none is
 found, the pinned release (v5.16.1) is downloaded and checksum-verified into your user cache folder, after asking
 first when run interactively (`--yes` skips the question). With several boards connected, select the probe with
-`--probe <KitProg3 USB serial number>`. On Linux the probe needs the udev rules shipped in the OpenOCD package
-(`udev_rules/install_rules.sh`); mpflash does not install them for you.
+`--probe <KitProg3 USB serial number>`. On Linux the probe needs a udev rule, which mpflash can install for you after
+asking, see [docs/psoc_edge_udev_rules.md](docs/psoc_edge_udev_rules.md).
 
 The `openocd` method currently supports Infineon PSOC Edge boards and has been tested only on the
 `KIT_PSE84_AI`.

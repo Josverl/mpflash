@@ -17,6 +17,8 @@ from typing import Optional, Sequence, Tuple
 from mpflash.errors import MPFlashError
 from mpflash.logger import log
 
+from .udev import RULES_DIR, RULES_FILE
+
 ENV_VAR = "MPFLASH_OPENOCD"
 """Environment variable holding the path to an Infineon OpenOCD executable."""
 
@@ -24,6 +26,11 @@ MIN_VERSION: Tuple[int, int, int] = (5, 8, 0)
 """Oldest Infineon OpenOCD release that supports PSOC Edge (per the MicroPython port)."""
 
 _VERSION_RE = re.compile(r"\+dev-(\d+)\.(\d+)\.(\d+)")
+
+KITPROG3_ID = "04b4:f155"
+"""USB ``vendor:product`` of the KitProg3 probe on Infineon kits."""
+
+_NO_PROBE = "unable to find a matching CMSIS-DAP device"
 
 
 def parse_version(text: str) -> Optional[Tuple[int, int, int]]:
@@ -77,10 +84,45 @@ def scripts_dir(exe: Path) -> Optional[Path]:
     return candidate if candidate.is_dir() else None
 
 
+def _kitprog_unreadable(sysfs: Path = Path("/sys/bus/usb/devices"), devnodes: Path = Path("/dev/bus/usb")) -> bool:
+    """True if a KitProg3 is attached but user cannot open its USB node (Linux only)."""
+    for device in sysfs.glob("*"):
+        try:
+            if f"{(device / 'idVendor').read_text().strip()}:{(device / 'idProduct').read_text().strip()}" != KITPROG3_ID:
+                continue
+            bus, number = int((device / "busnum").read_text()), int((device / "devnum").read_text())
+        except (OSError, ValueError):
+            continue
+        if not os.access(devnodes / f"{bus:03d}" / f"{number:03d}", os.R_OK | os.W_OK):
+            return True
+    return False
+
+
+class ProbeAccessError(MPFlashError):
+    """The KitProg3 probe is connected, but user is not allowed to open it (missing udev rule)."""
+
+
+def _failure_hint(output: str, access_denied: bool) -> str:
+    """Explain the common 'probe not found' failure; a generic hint for any other error."""
+    if _NO_PROBE not in output:
+        return "Is the board connected?"
+    if access_denied:
+        return (
+            f"The KitProg3 USB probe ({KITPROG3_ID}) is connected, but cannot open it (missing udev rule).\n"
+            "Install the rule, then unplug and reconnect the board:\n"
+            f"  sudo cp -f {RULES_FILE} {RULES_DIR}/\n"
+            "  sudo udevadm control --reload-rules\n"
+            "Unless your desktop session grants USB access, your user must also be in the 'plugdev' group:\n"
+            "  sudo usermod -aG plugdev $USER   (then log out and in)"
+        )
+    return f"No KitProg3 USB probe ({KITPROG3_ID}) was found. Connect the board's debug USB port and check the cable."
+
+
 def run_openocd(exe: Path, args: Sequence[str], *, timeout: int = 180) -> str:
     """Run OpenOCD with ``args`` (no shell) and return its combined output.
 
     Raises:
+        ProbeAccessError: the probe is attached but its USB node is not accessible.
         MPFlashError: on timeout, launch failure or a non-zero exit status.
     """
     cmd = [str(exe), *args]
@@ -96,5 +138,7 @@ def run_openocd(exe: Path, args: Sequence[str], *, timeout: int = 180) -> str:
     log.trace(output)
     if result.returncode != 0:
         tail = "\n".join(output.strip().splitlines()[-15:])
-        raise MPFlashError(f"OpenOCD failed with exit code {result.returncode}. Is the board connected?\n{tail}")
+        access_denied = _NO_PROBE in output and _kitprog_unreadable()
+        error_type = ProbeAccessError if access_denied else MPFlashError
+        raise error_type(f"OpenOCD failed with exit code {result.returncode}.\n{_failure_hint(output, access_denied)}\n{tail}")
     return output

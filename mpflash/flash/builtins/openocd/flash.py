@@ -20,8 +20,9 @@ from mpflash.errors import MPFlashError
 from mpflash.logger import log
 
 from .download import ensure_openocd
-from .runner import run_openocd, scripts_dir
+from .runner import ProbeAccessError, run_openocd, scripts_dir
 from .targets import PORT_TARGETS, target_for_board
+from .udev import offer_install
 
 if TYPE_CHECKING:
     from mpflash.mpremoteboard import MPRemoteBoard
@@ -144,5 +145,12 @@ def flash_openocd(
 
             if not erase_filesystem(mcu):
                 log.warning(f"Could not erase the filesystem on {mcu.serialport} over serial; continuing without erase")
-        run_openocd(openocd, args, timeout=timeout)
+        try:
+            run_openocd(openocd, args, timeout=timeout)
+        except ProbeAccessError:
+            # Offer to install the udev rule, then retry once; the erase above is not repeated.
+            if not offer_install():
+                raise
+            log.info("Retrying with the udev rule installed; if this fails, unplug and reconnect the board.")
+            run_openocd(openocd, args, timeout=timeout)
     log.info("Done flashing, board has been reset ...")
