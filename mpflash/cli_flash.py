@@ -128,13 +128,13 @@ from mpflash.versions import clean_version
     type=click.Choice([e.value for e in FlashMethod]),
     default="auto",
     show_default=True,
-    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'pyocd' for SWD/JTAG programming via debug probe.""",
+    help="""Flash programming method. 'auto' selects the best compatible backend. Use 'pyocd' for SWD/JTAG programming via debug probe, 'openocd' for PSOC Edge.""",
 )
 @click.option(
     "--probe",
     "--probe-id",  # Keep as alias for backwards compatibility
     "probe_id",
-    help="""Specific pyOCD probe ID to use (partial match). Required when multiple probes are connected.""",
+    help="""Specific probe ID to use (pyOCD partial match, or OpenOCD adapter serial). Required when multiple probes are connected.""",
     metavar="PROBE_ID",
 )
 @click.option(
@@ -202,6 +202,14 @@ from mpflash.versions import clean_version
     help="""Flash mode used for the retry attempt (ESP boards only).""",
 )
 @click.option(
+    "--yes",
+    "-y",
+    "assume_yes",
+    default=False,
+    is_flag=True,
+    help="""Do not ask before downloading a required flash tool (e.g. Infineon OpenOCD).""",
+)
+@click.option(
     "--custom",
     "-c",
     default=False,
@@ -259,6 +267,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
     probe_id = kwargs.pop("probe_id", None)
     auto_install_packs = kwargs.pop("auto_install_packs", True)
     pyocd_target = kwargs.pop("pyocd_target", None)
+    assume_yes = kwargs.pop("assume_yes", False)
 
     params = FlashParams(**kwargs)
     params.versions = list(params.versions)
@@ -495,6 +504,7 @@ def cli_flash_board(ctx: click.Context, **kwargs) -> int:
         probe_id=probe_id,
         auto_install_packs=auto_install_packs,
         target_override=pyocd_target,
+        assume_yes=assume_yes,
         flash_mode=params.flash_mode,
         retry_on_error=params.retry_on_error,
         retry_baud=params.retry_baud,

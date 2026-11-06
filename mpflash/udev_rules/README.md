@@ -23,6 +23,10 @@ The following debug probes are supported:
 - STLinkV2-1
 - STLinkV3
 
+Files named `65-mpflash-*.rules` are written for mpflash (not taken from pyOCD) and use group
+`plugdev` plus `uaccess` instead of a world-writable mode. The USB ids in
+`65-mpflash-infineon-kitprog3.rules` are the KitProg3 ids listed in `50-cmsis-dap.rules`.
+
 
 To install, copy the rules files in this directory to `/etc/udev/rules.d/` on Ubuntu:
 
