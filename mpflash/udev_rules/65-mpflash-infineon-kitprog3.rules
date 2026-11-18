@@ -1,0 +1,10 @@
+# mpflash Infineon KitProg3 access rule
+# Grants non-root users access to the KitProg3 debug probe on Infineon kits
+# (PSOC Edge, PSOC 6), which OpenOCD opens over USB.
+# Device IDs and names as listed in 50-cmsis-dap.rules (from pyOCD):
+#   04b4:f154 KitProg3 CMSIS-DAPv1 HID + I2C/SPI/UART
+#   04b4:f155 KitProg3 CMSIS-DAPv2 Bulk + I2C/SPI/UART
+#   04b4:f166 KitProg3 CMSIS-DAPv2 Bulk + 2xUART
+SUBSYSTEM=="usb|hidraw", ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="f154", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb|hidraw", ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="f155", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb|hidraw", ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="f166", MODE="0660", GROUP="plugdev", TAG+="uaccess"

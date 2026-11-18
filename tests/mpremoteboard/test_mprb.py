@@ -45,6 +45,38 @@ def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
     assert mprb.usb_description == "Black Magic Probe GDB Server (COM40)"
 
 
+def test_mpremoteboard_reads_usb_serial_number_of_posix_device(mocker: MockerFixture):
+    # /dev/ttyACM0 is an absolute path but a serial port, not a UF2 volume.
+    port = MagicMock(
+        vid=0x04B4,
+        pid=0xF155,
+        manufacturer="Cypress",
+        product="KitProg3 CMSIS-DAP",
+        description="KitProg3 CMSIS-DAP",
+        serial_number="1D160D98012D2400",
+    )
+    grep = mocker.patch(
+        "mpflash.mpremoteboard.serial.tools.list_ports.grep",
+        return_value=[port],
+    )
+
+    mprb = MPRemoteBoard("/dev/ttyACM0")
+
+    grep.assert_called_once_with("/dev/ttyACM0")
+    assert (mprb.vid, mprb.pid) == (0x04B4, 0xF155)
+    assert mprb.usb_serial_number == "1D160D98012D2400"
+
+
+def test_mpremoteboard_skips_usb_lookup_for_volume_directory(mocker: MockerFixture, tmp_path: Path):
+    grep = mocker.patch("mpflash.mpremoteboard.serial.tools.list_ports.grep")
+
+    mprb = MPRemoteBoard(str(tmp_path))
+
+    grep.assert_not_called()
+    assert (mprb.vid, mprb.pid) == (0, 0)
+    assert mprb.usb_serial_number == ""
+
+
 @pytest.mark.parametrize(
     "comports, expected",
     [
