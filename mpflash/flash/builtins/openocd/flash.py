@@ -115,11 +115,13 @@ def flash_openocd(
     fw_file: Path,
     probe_id: Optional[str] = None,
     assume_yes: bool = False,
+    erase: bool = False,
     timeout: int = 180,
 ) -> None:
     """Flash ``fw_file`` (a release ``.zip``) to a board with OpenOCD.
 
     ``probe_id`` selects the KitProg3 probe; it defaults to the board's USB serial number.
+    ``erase`` wipes the filesystem over serial, only after every other check has passed.
 
     Raises:
         MPFlashError: unknown board, bad package, no OpenOCD, or OpenOCD failure.
@@ -136,5 +138,11 @@ def flash_openocd(
     log.info(f"Flashing {fw_file.name} to {mcu.board} on {mcu.serialport} using {openocd}")
     with extracted_package(fw_file) as package:
         args = build_args(package, target_cfg, scripts=scripts_dir(openocd), serial=serial)
+        # Last step before programming: the erase is destructive and every check above can fail.
+        if erase:
+            from mpflash.flash.builtins.uf2.erase import erase_filesystem
+
+            if not erase_filesystem(mcu):
+                log.warning(f"Could not erase the filesystem on {mcu.serialport} over serial; continuing without erase")
         run_openocd(openocd, args, timeout=timeout)
     log.info("Done flashing, board has been reset ...")
