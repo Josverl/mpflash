@@ -19,4 +19,4 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Check formatting
-        run: uv run --locked ruff format --check --force-exclude mpflash tests
+        run: uv run --locked ruff format --check mpflash tests
