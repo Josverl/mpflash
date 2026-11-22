@@ -43,3 +43,21 @@ def test_angle_bracket_logging():
             print(f"Error logging message {i}: {e}")
 
     assert success_count == len(test_messages)
+
+
+def test_square_bracket_text_is_logged_verbatim(monkeypatch):
+    """Text like ``[find interface/x.cfg]`` must not be swallowed as Rich markup."""
+    import io
+
+    from rich.console import Console
+
+    import mpflash.logger as logger_module
+
+    buffer = io.StringIO()
+    monkeypatch.setattr(logger_module, "console", Console(file=buffer, width=500, force_terminal=False))
+    set_loglevel("DEBUG")
+
+    log.debug("Running: ['openocd', '-c', 'source [find interface/kitprog3.cfg]'] [ 50%] [ Erasing ]")
+
+    assert "source [find interface/kitprog3.cfg]" in buffer.getvalue()
+    assert "[ 50%] [ Erasing ]" in buffer.getvalue()
