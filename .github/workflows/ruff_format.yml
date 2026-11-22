@@ -1,0 +1,22 @@
+name: Verify code formatting
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v7
+
+      - name: Check formatting
+        run: uv run --locked ruff format --check --force-exclude mpflash tests
