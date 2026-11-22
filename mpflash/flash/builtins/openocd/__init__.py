@@ -1,4 +1,4 @@
-"""OpenOCD based flashing (currently PSOC Edge).
+"""OpenOCD based flashing (currently PSoC Edge).
 
 This is the internal implementation behind
 :class:`mpflash.flash.builtins.openocd_backend.OpenOCDBackend`. Public callers
