@@ -269,6 +269,7 @@ exclude_lines = [
 
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
+extend-exclude = ["vendor"]
 
 # Same as Black.
 line-length = 140

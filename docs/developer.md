@@ -147,6 +147,34 @@ source .venv/bin/activate
 
 Or prefix commands with `uv run` to use the venv automatically without activating it.
 
+### Pre-commit Formatting
+
+Install the Git hook once per clone:
+
+```bash
+uv run pre-commit install
+```
+
+The hook runs `ruff format` on staged Python sources and tests, using the settings
+in `pyproject.toml`. Vendored code under `mpflash/vendor/` is excluded, and
+`--force-exclude` respects Ruff's configured exclusions even for staged files.
+Existing Git hooks are preserved and run alongside pre-commit.
+
+If formatting changes files, review and stage those changes, then retry the
+commit. To format all eligible tracked files manually:
+
+```bash
+uv run pre-commit run ruff-format --all-files
+```
+
+The `Ruff format` GitHub Actions workflow checks sources and tests on every push
+and pull request. It fails if files need formatting, without modifying them.
+Run the same check locally:
+
+```bash
+uv run --locked ruff format --check --force-exclude mpflash tests
+```
+
 ### Environment Variables
 
 Optional overrides for local development:
