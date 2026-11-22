@@ -5,6 +5,7 @@ from typing import List, Optional
 import pytest
 from unittest.mock import MagicMock
 from pytest_mock import MockerFixture
+from serial.tools.list_ports_common import ListPortInfo
 
 from mpflash.db.loader import HERE
 from mpflash.mpremoteboard import OK, MPRemoteBoard
@@ -25,6 +26,7 @@ def test_mpremoteboard_new():
 
 def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
     port = MagicMock(
+        device="COM40",
         vid=0x1D50,
         pid=0x6196,
         manufacturer="Black Magic Debug",
@@ -48,6 +50,7 @@ def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
 def test_mpremoteboard_reads_usb_serial_number_of_posix_device(mocker: MockerFixture):
     # /dev/ttyACM0 is an absolute path but a serial port, not a UF2 volume.
     port = MagicMock(
+        device="/dev/ttyACM0",
         vid=0x04B4,
         pid=0xF155,
         manufacturer="Cypress",
@@ -65,6 +68,34 @@ def test_mpremoteboard_reads_usb_serial_number_of_posix_device(mocker: MockerFix
     grep.assert_called_once_with("/dev/ttyACM0")
     assert (mprb.vid, mprb.pid) == (0x04B4, 0xF155)
     assert mprb.usb_serial_number == "1D160D98012D2400"
+
+
+@pytest.mark.parametrize(
+    "selected, other",
+    [("COM8", "COM88"), ("/dev/ttyACM1", "/dev/ttyACM10"), ("/dev/tty.usb[1]", "/dev/ttyXusb1")],
+)
+def test_mpremoteboard_matches_exact_serial_device(mocker: MockerFixture, selected: str, other: str):
+    target = ListPortInfo(selected)
+    target.vid, target.pid, target.serial_number = 0x04B4, 0xF155, "TARGET"
+    unrelated = ListPortInfo(other)
+    unrelated.vid, unrelated.pid, unrelated.serial_number = 0x04B4, 0xF155, "OTHER"
+    mocker.patch("serial.tools.list_ports.comports", return_value=[target, unrelated])
+
+    board = MPRemoteBoard(selected)
+
+    assert board.usb_serial_number == "TARGET"
+    assert (board.vid, board.pid) == (0x04B4, 0xF155)
+
+
+def test_mpremoteboard_does_not_use_a_similar_serial_device(mocker: MockerFixture):
+    other = ListPortInfo("COM88")
+    other.vid, other.pid, other.serial_number = 0x04B4, 0xF155, "OTHER"
+    mocker.patch("serial.tools.list_ports.comports", return_value=[other])
+
+    board = MPRemoteBoard("COM8")
+
+    assert board.usb_serial_number == ""
+    assert (board.vid, board.pid) == (0, 0)
 
 
 def test_mpremoteboard_skips_usb_lookup_for_volume_directory(mocker: MockerFixture, tmp_path: Path):

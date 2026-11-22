@@ -4,6 +4,7 @@ Module to run mpremote commands, and retry on failure or timeout
 
 import ast
 import contextlib
+import os
 import re
 import sys
 import time
@@ -83,8 +84,11 @@ class MPRemoteBoard:
             self.vid = 0x00
             self.pid = 0x00
         else:
-            # Normal serial port - use grep to find port info
-            portinfo = list(serial.tools.list_ports.grep(serialport))
+            portinfo = [
+                port
+                for port in serial.tools.list_ports.grep(re.escape(serialport))
+                if os.path.normcase(port.device) == os.path.normcase(serialport)
+            ]
             if not portinfo or len(portinfo) != 1:
                 self.vid = 0x00
                 self.pid = 0x00
