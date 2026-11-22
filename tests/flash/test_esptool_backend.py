@@ -1,6 +1,8 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from mpflash.common import BootloaderMethod
 from mpflash.flash.builtins.esptool_backend import (
     EsptoolBackend,
@@ -10,11 +12,11 @@ from mpflash.flash.builtins.esptool_backend import (
 from mpflash.flash.context import FlashContext
 
 
-def _mcu(*, serialport: str, vid: int):
+def _mcu(*, serialport: str, vid: int, pid: int = 0x4001):
     return SimpleNamespace(
         board="ESP32_GENERIC_S2",
         cpu="ESP32S2",
-        pid=0x4001,
+        pid=pid,
         port="esp32",
         serialport=serialport,
         vid=vid,
@@ -144,11 +146,16 @@ def test_native_usb_flash_stops_when_bootloader_port_is_not_found(mocker, tmp_pa
     flash_esp.assert_not_called()
 
 
-def test_uart_flash_keeps_esptool_auto_reset(mocker, tmp_path):
+@pytest.mark.parametrize("vid,pid", [(0x10C4, 0xEA60), (0x303A, 0x1001)])
+def test_uart_and_usb_serial_jtag_flash_keep_esptool_auto_reset(mocker, tmp_path, vid, pid):
     backend = EsptoolBackend()
-    mcu = _mcu(serialport="COM27", vid=0x10C4)
+    mcu = _mcu(serialport="COM27", vid=vid, pid=pid)
     services = mocker.Mock()
     serial_devices = mocker.patch("mpflash.flash.builtins.esptool_backend._serial_devices")
+    wait_for_bootloader = mocker.patch(
+        "mpflash.flash.builtins.esptool_backend._wait_for_native_usb_bootloader",
+        return_value=None,
+    )
     flash_esp = mocker.patch(
         "mpflash.flash.builtins.esp.flash_esp",
         return_value=mcu,
@@ -160,4 +167,5 @@ def test_uart_flash_keeps_esptool_auto_reset(mocker, tmp_path):
     assert mcu.serialport == "COM27"
     services.enter_bootloader.assert_not_called()
     serial_devices.assert_not_called()
+    wait_for_bootloader.assert_not_called()
     flash_esp.assert_called_once()

@@ -42,8 +42,8 @@ def _wait_for_native_usb_bootloader(previous: Dict[str, _USB_ID], timeout: float
 class EsptoolBackend(FlashBackend):
     """esptool.py backend for ESP32 / ESP8266 ``.bin`` firmware.
 
-    UART bridges use esptool's automatic reset. Espressif native USB devices
-    first enter the ROM bootloader through MicroPython and re-enumerate.
+    UART bridges and USB Serial/JTAG use esptool's automatic reset. USB-OTG
+    devices first enter the ROM bootloader through MicroPython and re-enumerate.
     """
 
     name = "esptool"
@@ -54,9 +54,11 @@ class EsptoolBackend(FlashBackend):
     priority = 10
 
     def flash(self, ctx: FlashContext) -> FlashResult:
+        from esptool.loader import ESPLoader
+
         from mpflash.flash.builtins.esp import flash_esp
 
-        if getattr(ctx.mcu, "vid", 0) == _ESPRESSIF_USB_VID:
+        if getattr(ctx.mcu, "vid", 0) == _ESPRESSIF_USB_VID and getattr(ctx.mcu, "pid", 0) != ESPLoader.USB_JTAG_SERIAL_PID:
             services = ctx.services or default_services
             previous = _serial_devices()
             bootloader = ctx.bootloader or BootloaderMethod.AUTO
