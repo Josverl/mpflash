@@ -84,13 +84,13 @@ def build_args(
     serial: Optional[str] = None,
 ) -> List[str]:
     """Build the OpenOCD argument list that programs, verifies and resets the board."""
-    if serial and not _SERIAL_RE.match(serial):
+    if not serial or not _SERIAL_RE.fullmatch(serial):
         raise MPFlashError(f"Invalid probe serial number: {serial!r}")
 
     commands = [
         f"set QSPI_FLASHLOADER {_tcl_path(package.flm_file)}",
         "source [find interface/kitprog3.cfg]",
-        *([f"adapter serial {serial}"] if serial else []),
+        f"adapter serial {serial}",
         "transport select swd",
         f"source [find target/infineon/{target_cfg}]",
         "init",
@@ -121,7 +121,8 @@ def flash_openocd(
 ) -> None:
     """Flash ``fw_file`` (a release ``.zip``) to a board with OpenOCD.
 
-    ``probe_id`` selects the KitProg3 probe; it defaults to the board's USB serial number.
+    ``probe_id`` selects the KitProg3 probe; it defaults to the board's USB serial number
+    and must be provided if that serial number cannot be determined.
     ``erase`` wipes the filesystem over serial, only after every other check has passed.
 
     Raises:
@@ -133,8 +134,10 @@ def flash_openocd(
         supported = ", ".join(sorted(PORT_TARGETS.get(mcu.port, {}))) or "none"
         raise MPFlashError(f"No OpenOCD target known for {board_id or 'unknown board'} on port {mcu.port!r} (supported: {supported})")
 
+    serial = probe_id or getattr(mcu, "usb_serial_number", "")
+    if not serial:
+        raise MPFlashError(f"Cannot identify the OpenOCD probe for {mcu.serialport}; specify its serial number with --probe.")
     openocd = ensure_openocd(assume_yes=assume_yes)
-    serial = probe_id or getattr(mcu, "usb_serial_number", "") or None
 
     log.info(f"Flashing {fw_file.name} to {mcu.board} on {mcu.serialport} using {openocd}")
     with extracted_package(fw_file) as package:

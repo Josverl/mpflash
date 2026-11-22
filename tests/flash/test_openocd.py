@@ -268,11 +268,11 @@ def test_build_args_sequence(package_zip):
 
 
 def test_build_args_without_serial(package_zip):
-    args = _args_for(package_zip)
-    assert not any(a.startswith("adapter serial") for a in args)
+    with pytest.raises(MPFlashError, match="Invalid probe serial"):
+        _args_for(package_zip)
 
 
-@pytest.mark.parametrize("serial", ["a b", "x;shutdown", "$(id)", "{x}"])
+@pytest.mark.parametrize("serial", ["a b", "x;shutdown", "$(id)", "{x}", "ABC\n"])
 def test_build_args_rejects_unsafe_serial(package_zip, serial):
     with pytest.raises(MPFlashError, match="Invalid probe serial"):
         _args_for(package_zip, serial=serial)
@@ -296,9 +296,21 @@ def test_flash_openocd_uses_usb_serial_number(patched_flash, package_zip):
     assert "adapter serial 181F0D5A01212300" in args
 
 
-def test_flash_openocd_probe_id_overrides_serial(patched_flash, package_zip):
-    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip, probe_id="OTHER1")
+@pytest.mark.parametrize("usb_serial", ["181F0D5A01212300", ""])
+def test_flash_openocd_probe_id_overrides_serial(patched_flash, package_zip, usb_serial):
+    ocd_flash.flash_openocd(_mcu(usb_serial_number=usb_serial), fw_file=package_zip, probe_id="OTHER1")
     assert "adapter serial OTHER1" in patched_flash.call_args.args[1]
+
+
+def test_flash_openocd_requires_probe_before_erase_or_tool_install(mocker, patched_flash, package_zip):
+    erase = mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem")
+
+    with pytest.raises(MPFlashError, match="--probe"):
+        ocd_flash.flash_openocd(_mcu(usb_serial_number=""), fw_file=package_zip, erase=True)
+
+    ocd_flash.ensure_openocd.assert_not_called()
+    erase.assert_not_called()
+    patched_flash.assert_not_called()
 
 
 def test_flash_openocd_unknown_board(patched_flash, package_zip):
