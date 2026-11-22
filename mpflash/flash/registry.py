@@ -109,7 +109,8 @@ def select_backend(
 
     When ``requested_name`` is provided, validate that backend supports the
     request and use it (or raise). When it is ``None`` (auto), pick the
-    highest-priority backend whose ``supports()`` returns ``None``.
+    highest-priority backend whose ``supports()`` returns ``None``. Failed
+    capability checks are reported and treated as rejections.
 
     Raises:
         MPFlashError: If the request cannot be satisfied; the message lists
@@ -117,6 +118,14 @@ def select_backend(
     """
     backends = get_backends()
     platform = default_services.current_platform()
+
+    def check_support(backend: FlashBackend) -> Optional[Reason]:
+        try:
+            return backend.supports(mcu, fw_file, platform)
+        except Exception as exc:  # noqa: BLE001 - isolate failing backend plugins
+            reason = Reason("other", f"capability check failed: {type(exc).__name__}: {exc}")
+            log.warning(f"Skipping flash backend {backend.name!r}: {reason}")
+            return reason
 
     if requested_name:
         backend = get_backend(requested_name)
@@ -126,7 +135,7 @@ def select_backend(
                 f"Unknown flash method {requested_name!r}. "
                 f"Available: {available}"
             )
-        reason = backend.supports(mcu, fw_file, platform)
+        reason = check_support(backend)
         if reason is not None:
             raise MPFlashError(
                 f"Backend {backend.name!r} cannot flash {mcu.board_id or mcu.port!r} "
@@ -134,19 +143,15 @@ def select_backend(
             )
         return backend
 
-    # Auto-select: filter by supports(), then sort by priority desc.
-    candidates: List[tuple[FlashBackend, Optional[Reason]]] = [
-        (b, b.supports(mcu, fw_file, platform)) for b in backends
-    ]
-    matching = [b for b, r in candidates if r is None]
-    if matching:
-        matching.sort(key=lambda b: b.priority, reverse=True)
-        return matching[0]
+    candidates: List[tuple[FlashBackend, Reason]] = []
+    for backend in sorted(backends, key=lambda b: b.priority, reverse=True):
+        reason = check_support(backend)
+        if reason is None:
+            return backend
+        candidates.append((backend, reason))
 
     # Nothing matched — build a helpful diagnostic.
-    rejections = "\n  ".join(
-        f"{b.name}: {r}" for b, r in candidates if r is not None
-    ) or "<no backends registered>"
+    rejections = "\n  ".join(f"{b.name}: {r}" for b, r in candidates) or "<no backends registered>"
     raise MPFlashError(
         f"No flash backend can handle {mcu.port or '<unknown port>'} "
         f"{mcu.board_id or mcu.board} with {fw_file.name}.\n"

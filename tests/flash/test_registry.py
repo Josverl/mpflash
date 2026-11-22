@@ -74,6 +74,62 @@ def test_auto_prefers_dfu_over_pyocd_for_stm32_bin(tmp_path: Path):
     assert backend.name == "dfu"
 
 
+def test_auto_selects_esptool_without_checking_pyocd(tmp_path: Path, mocker):
+    pyocd_check = mocker.patch(
+        "mpflash.flash.builtins.pyocd_backend.PyOCDBackend.is_available",
+        side_effect=RuntimeError("pyOCD should not be checked"),
+    )
+
+    backend = select_backend(_fake_mcu(port="esp32", board_id="ESP32_GENERIC"), tmp_path / "firmware.bin")
+
+    assert backend.name == "esptool"
+    pyocd_check.assert_not_called()
+
+
+def test_auto_skips_failed_backend_check(tmp_path: Path, mocker):
+    failing = SimpleNamespace(name="broken", priority=20, supports=mocker.Mock(side_effect=RuntimeError("probe failed")))
+    fallback = SimpleNamespace(name="fallback", priority=10, supports=mocker.Mock(return_value=None))
+    mocker.patch("mpflash.flash.registry.get_backends", return_value=[fallback, failing])
+    warning = mocker.patch("mpflash.flash.registry.log.warning")
+
+    assert select_backend(_fake_mcu(), tmp_path / "firmware.bin") is fallback
+    failing.supports.assert_called_once()
+    assert "broken" in warning.call_args.args[0]
+    assert "probe failed" in warning.call_args.args[0]
+
+
+def test_auto_preserves_registration_order_for_equal_priorities(tmp_path: Path, mocker):
+    first = SimpleNamespace(name="first", priority=10, supports=mocker.Mock(return_value=None))
+    second = SimpleNamespace(name="second", priority=10, supports=mocker.Mock(return_value=None))
+    mocker.patch("mpflash.flash.registry.get_backends", return_value=[first, second])
+
+    assert select_backend(_fake_mcu(), tmp_path / "firmware.bin") is first
+    second.supports.assert_not_called()
+
+
+def test_auto_reports_failed_checks_when_no_backend_matches(tmp_path: Path, mocker):
+    failing = SimpleNamespace(name="broken", priority=20, supports=mocker.Mock(side_effect=RuntimeError("probe failed")))
+    rejected = SimpleNamespace(name="unsupported", priority=10, supports=mocker.Mock(return_value=Reason("format", "wrong format")))
+    mocker.patch("mpflash.flash.registry.get_backends", return_value=[rejected, failing])
+
+    with pytest.raises(MPFlashError) as excinfo:
+        select_backend(_fake_mcu(), tmp_path / "firmware.bin")
+
+    assert "broken" in str(excinfo.value)
+    assert "probe failed" in str(excinfo.value)
+    assert "unsupported" in str(excinfo.value)
+    assert "wrong format" in str(excinfo.value)
+
+
+def test_explicit_backend_reports_failed_check(tmp_path: Path, mocker):
+    failing = SimpleNamespace(name="broken", priority=20, supports=mocker.Mock(side_effect=RuntimeError("probe failed")))
+    mocker.patch("mpflash.flash.registry.get_backends", return_value=[failing])
+    mocker.patch("mpflash.flash.registry.get_backend", return_value=failing)
+
+    with pytest.raises(MPFlashError, match="broken.*capability check failed.*probe failed"):
+        select_backend(_fake_mcu(), tmp_path / "firmware.bin", requested_name="broken")
+
+
 def test_explicit_pyocd_method_routes_to_pyocd(tmp_path: Path, monkeypatch):
     """Even though auto skips pyOCD, requesting it by name should succeed when supported."""
     mcu = _fake_mcu(port="stm32", board_id="PYBV11", cpu="STM32F405")
