@@ -204,17 +204,13 @@ class PyOCDProbe(DebugProbe):
                 session_options["frequency"] = frequency
 
             try:
-                log.debug(
-                    f"Opening pyOCD session for probe {self.unique_id} with options: {session_options}"
-                )
+                log.debug(f"Opening pyOCD session for probe {self.unique_id} with options: {session_options}")
                 self._session = ConnectHelper.session_with_chosen_probe(
                     unique_id=self.unique_id,
                     options=session_options,
                 )
                 if not self._session:
-                    raise MPFlashError(
-                        f"Failed to create session with probe {self.unique_id}"
-                    )
+                    raise MPFlashError(f"Failed to create session with probe {self.unique_id}")
 
                 self._session.open()
                 log.debug(f"pyOCD session opened for probe {self.unique_id}")
@@ -226,9 +222,7 @@ class PyOCDProbe(DebugProbe):
             except Exception as e:
                 last_error = e
                 self._connected = False
-                log.debug(
-                    f"Failed to connect to probe {self.unique_id} with connect_mode={mode}: {e}"
-                )
+                log.debug(f"Failed to connect to probe {self.unique_id} with connect_mode={mode}: {e}")
                 if self._session:
                     try:
                         self._session.close()
@@ -239,11 +233,7 @@ class PyOCDProbe(DebugProbe):
         e = last_error or Exception("unknown pyOCD connection failure")
         log.error(f"Failed to connect to pyOCD probe {self.unique_id}: {e}")
         if sys.platform.startswith("linux") and _is_linux_usb_permission_error(str(e)):
-            raise MPFlashError(
-                f"Cannot connect to probe {self.unique_id}.\n"
-                f"{_pyocd_linux_udev_message()}\n"
-                f"Details: {e}"
-            )
+            raise MPFlashError(f"Cannot connect to probe {self.unique_id}.\n{_pyocd_linux_udev_message()}\nDetails: {e}")
         raise MPFlashError(
             f"Cannot connect to probe {self.unique_id}. "
             f"Tried connect_mode values: {attempted}. "
@@ -455,13 +445,9 @@ class PyOCDFlash:
         self.probe_id = probe_id
 
         # Detect target type using core functionality unless explicitly overridden.
-        self.target_type = target_override or detect_pyocd_target(
-            mcu, auto_install_packs=auto_install_packs
-        )
+        self.target_type = target_override or detect_pyocd_target(mcu, auto_install_packs=auto_install_packs)
         if target_override:
-            log.info(
-                f"Using explicit pyOCD target override for {mcu.board_id}: {target_override}"
-            )
+            log.info(f"Using explicit pyOCD target override for {mcu.board_id}: {target_override}")
 
         if not is_pyocd_available():
             raise MPFlashError("No debug probe support available. Install with: uv sync --extra pyocd")
@@ -473,9 +459,7 @@ class PyOCDFlash:
             if probe:
                 self.target_type = probe.detect_target()
                 if self.target_type:
-                    log.debug(
-                        f"Detected pyOCD target via probe fallback: {self.target_type}"
-                    )
+                    log.debug(f"Detected pyOCD target via probe fallback: {self.target_type}")
 
         if not self.target_type:
             reason = get_unsupported_reason(mcu)
@@ -511,15 +495,9 @@ class PyOCDFlash:
                     and _is_linux_usb_permission_error(_last_probe_discovery_error)
                 ):
                     raise MPFlashError(
-                        f"No PyOCD debug probes available.\n"
-                        f"{_pyocd_linux_udev_message()}\n"
-                        f"Details: {_last_probe_discovery_error}"
+                        f"No PyOCD debug probes available.\n{_pyocd_linux_udev_message()}\nDetails: {_last_probe_discovery_error}"
                     )
-                raise MPFlashError(
-                    "No PyOCD debug probes available.\n"
-                    f"{_pyocd_no_probe_possible_causes()}\n"
-                    "Try: mpflash list-probes"
-                )
+                raise MPFlashError(f"No PyOCD debug probes available.\n{_pyocd_no_probe_possible_causes()}\nTry: mpflash list-probes")
 
         log.info(f"Flashing {fw_file.name} to {self.mcu.board_id} via pyOCD SWD/JTAG")
         log.debug(f"Target type: {self.target_type}, Probe: {probe.description}")
@@ -529,16 +507,12 @@ class PyOCDFlash:
         requested_frequency = kwargs.get("frequency")
         if requested_frequency is None and self.target_type and "r7fa4m1" in self.target_type:
             requested_frequency = RA4M1_SAFE_SWD_FREQUENCY_HZ
-            log.info(
-                f"Using safe SWD frequency {requested_frequency}Hz for target {self.target_type}"
-            )
+            log.info(f"Using safe SWD frequency {requested_frequency}Hz for target {self.target_type}")
 
         requested_connect_mode = kwargs.get("connect_mode")
         if requested_connect_mode is None and self.target_type and "r7fa4m1" in self.target_type:
             requested_connect_mode = "halt"
-            log.info(
-                f"Using pyOCD connect_mode={requested_connect_mode} for target {self.target_type}"
-            )
+            log.info(f"Using pyOCD connect_mode={requested_connect_mode} for target {self.target_type}")
 
         options = {
             "erase": erase,
@@ -549,7 +523,7 @@ class PyOCDFlash:
             options["connect_mode"] = requested_connect_mode
 
         # Program using the probe
-        assert self.target_type is not None , "Target type should have been detected in __init__"
+        assert self.target_type is not None, "Target type should have been detected in __init__"
         return probe.program_flash(fw_file, self.target_type, **options)
 
 

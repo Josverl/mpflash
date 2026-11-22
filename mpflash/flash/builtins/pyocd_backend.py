@@ -28,9 +28,7 @@ class PyOCDBackend(FlashBackend):
     # final say to ``mpflash.flash.builtins.pyocd.core.is_pyocd_supported``.
     supported_ports: frozenset = frozenset()
     supported_formats = (".bin", ".hex", ".elf", ".axf")
-    supported_platforms = frozenset(
-        {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-    )
+    supported_platforms = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
     requires_bootloader = False
     # Negative so auto-select never picks pyOCD; users opt in with --method pyocd.
     priority = -10
@@ -49,13 +47,10 @@ class PyOCDBackend(FlashBackend):
         if suffix not in self.supported_formats:
             return Reason(
                 "format",
-                f"pyocd does not handle {suffix or '<none>'!s} files "
-                f"(supports: {list(self.supported_formats)})",
+                f"pyocd does not handle {suffix or '<none>'!s} files (supports: {list(self.supported_formats)})",
             )
         if platform not in self.supported_platforms:
-            return Reason(
-                "platform", f"pyocd does not run on {platform.value}"
-            )
+            return Reason("platform", f"pyocd does not run on {platform.value}")
         if not self.is_available():
             return Reason(
                 "dependency",
@@ -66,19 +61,14 @@ class PyOCDBackend(FlashBackend):
         if not is_pyocd_supported(mcu):
             return Reason(
                 "probe",
-                f"pyOCD does not have a target definition for "
-                f"{mcu.board_id or mcu.cpu or mcu.port!r}",
+                f"pyOCD does not have a target definition for {mcu.board_id or mcu.cpu or mcu.port!r}",
             )
         return None
 
     def flash(self, ctx: FlashContext) -> FlashResult:
         from mpflash.flash.builtins.pyocd.flash import flash_pyocd
 
-        passthrough = {
-            k: ctx.options[k]
-            for k in ("probe_id", "auto_install_packs", "target_override")
-            if k in ctx.options
-        }
+        passthrough = {k: ctx.options[k] for k in ("probe_id", "auto_install_packs", "target_override") if k in ctx.options}
         ok = flash_pyocd(ctx.mcu, fw_file=ctx.fw_file, erase=ctx.erase, **passthrough)
         return FlashResult(
             success=bool(ok),

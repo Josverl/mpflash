@@ -299,25 +299,13 @@ def _board_availability_notice(
     if not requested_versions:
         return ""
 
-    available_versions = {
-        board.version
-        for board in get_known_boards_for_port(port)
-        if board.board_id == board_id
-    }
-    matching_versions = [
-        version for version in requested_versions if version in available_versions
-    ]
+    available_versions = {board.version for board in get_known_boards_for_port(port) if board.board_id == board_id}
+    matching_versions = [version for version in requested_versions if version in available_versions]
     if len(matching_versions) == len(requested_versions):
         return ""
     if matching_versions:
-        return (
-            f"{board_id} is only available for "
-            f"{', '.join(matching_versions)} among the selected releases."
-        )
-    return (
-        f"{board_id} is not available for the selected release(s): "
-        f"{', '.join(requested_versions)}."
-    )
+        return f"{board_id} is only available for {', '.join(matching_versions)} among the selected releases."
+    return f"{board_id} is not available for the selected release(s): {', '.join(requested_versions)}."
 
 
 def ask_port_board_variant(

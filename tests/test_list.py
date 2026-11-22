@@ -74,9 +74,7 @@ def test_usb_device_description_includes_available_pyserial_details():
     mcu.usb_product = ""
     mcu.usb_description = "USB Serial Device (COM41)"
 
-    assert usb_device_description(mcu) == (
-        "1d50:6196\nMicrosoft USB Serial Device"
-    )
+    assert usb_device_description(mcu) == ("1d50:6196\nMicrosoft USB Serial Device")
 
 
 # def mock_get_mcu_info(self: MPRemoteBoard):

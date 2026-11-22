@@ -56,7 +56,7 @@ def hw_uf2_firmware() -> Path:
     fw = _env_fw("MPFLASH_HW_UF2_FW")
     if fw is None:
         pytest.skip("Set MPFLASH_HW_UF2_FW to a .uf2 firmware file")
-    
+
     return fw
 
 
@@ -121,9 +121,7 @@ def hw_pyocd_probe() -> Optional[str]:
 def hw_pyocd_port() -> str:
     port = _env_port("MPFLASH_HW_PYOCD_PORT")
     if not port:
-        pytest.skip(
-            "Set MPFLASH_HW_PYOCD_PORT to run pyOCD hardware tests"
-        )
+        pytest.skip("Set MPFLASH_HW_PYOCD_PORT to run pyOCD hardware tests")
     return port
 
 

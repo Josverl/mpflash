@@ -39,9 +39,7 @@ class FlashBackend(ABC):
     supported_formats: Tuple[str, ...] = ()
 
     #: Host platforms this backend can run on.
-    supported_platforms: FrozenSet[Platform] = frozenset(
-        {Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2}
-    )
+    supported_platforms: FrozenSet[Platform] = frozenset({Platform.LINUX, Platform.WINDOWS, Platform.MACOS, Platform.WSL2})
 
     #: Whether this backend needs the board to be in bootloader mode first.
     requires_bootloader: bool = False
@@ -80,27 +78,23 @@ class FlashBackend(ABC):
         if mcu.port and self.supported_ports and mcu.port not in self.supported_ports:
             return Reason(
                 "port",
-                f"{self.name} does not support port {mcu.port!r} "
-                f"(supports: {sorted(self.supported_ports)})",
+                f"{self.name} does not support port {mcu.port!r} (supports: {sorted(self.supported_ports)})",
             )
         suffix = fw_file.suffix.lower()
         if self.supported_formats and suffix not in self.supported_formats:
             return Reason(
                 "format",
-                f"{self.name} does not handle {suffix or '<none>'!s} files "
-                f"(supports: {list(self.supported_formats)})",
+                f"{self.name} does not handle {suffix or '<none>'!s} files (supports: {list(self.supported_formats)})",
             )
         if self.supported_platforms and platform not in self.supported_platforms:
             return Reason(
                 "platform",
-                f"{self.name} does not run on {platform.value} "
-                f"(supports: {sorted(p.value for p in self.supported_platforms)})",
+                f"{self.name} does not run on {platform.value} (supports: {sorted(p.value for p in self.supported_platforms)})",
             )
         if not self.is_available():
             return Reason(
                 "dependency",
-                f"{self.name} backend is not available on this system "
-                "(missing optional dependency or hardware)",
+                f"{self.name} backend is not available on this system (missing optional dependency or hardware)",
             )
         return None
 

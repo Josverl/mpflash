@@ -33,10 +33,7 @@ def format_filesystem(mcu: MPRemoteBoard, *, timeout: int = 60) -> bool:
         MPFlashError: If the port is unsupported or formatting fails.
     """
     if mcu.port not in SUPPORTED_FORMAT_PORTS:
-        raise MPFlashError(
-            f"--format is not supported for port {mcu.port!r} "
-            f"(supported: {', '.join(sorted(SUPPORTED_FORMAT_PORTS))})"
-        )
+        raise MPFlashError(f"--format is not supported for port {mcu.port!r} (supported: {', '.join(sorted(SUPPORTED_FORMAT_PORTS))})")
     log.info(f"Formatting filesystem on {mcu.board} on {mcu.serialport}")
     try:
         rc, output = mcu.run_command(

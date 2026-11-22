@@ -131,16 +131,10 @@ def select_backend(
         backend = get_backend(requested_name)
         if backend is None:
             available = ", ".join(sorted(b.name for b in backends)) or "<none>"
-            raise MPFlashError(
-                f"Unknown flash method {requested_name!r}. "
-                f"Available: {available}"
-            )
+            raise MPFlashError(f"Unknown flash method {requested_name!r}. Available: {available}")
         reason = check_support(backend)
         if reason is not None:
-            raise MPFlashError(
-                f"Backend {backend.name!r} cannot flash {mcu.board_id or mcu.port!r} "
-                f"with {fw_file.name}: {reason}"
-            )
+            raise MPFlashError(f"Backend {backend.name!r} cannot flash {mcu.board_id or mcu.port!r} with {fw_file.name}: {reason}")
         return backend
 
     candidates: List[tuple[FlashBackend, Reason]] = []
@@ -153,7 +147,5 @@ def select_backend(
     # Nothing matched — build a helpful diagnostic.
     rejections = "\n  ".join(f"{b.name}: {r}" for b, r in candidates) or "<no backends registered>"
     raise MPFlashError(
-        f"No flash backend can handle {mcu.port or '<unknown port>'} "
-        f"{mcu.board_id or mcu.board} with {fw_file.name}.\n"
-        f"  {rejections}"
+        f"No flash backend can handle {mcu.port or '<unknown port>'} {mcu.board_id or mcu.board} with {fw_file.name}.\n  {rejections}"
     )

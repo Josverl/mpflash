@@ -81,9 +81,7 @@ def resolve_explicit_volume(raw: str) -> Optional[Path]:
     if candidate.is_dir() and (candidate / "INFO_UF2.TXT").exists():
         log.info(f"Using UF2 volume at {candidate}")
         return candidate
-    log.warning(
-        f"No UF2 board detected at {candidate} — falling back to auto-detection"
-    )
+    log.warning(f"No UF2 board detected at {candidate} — falling back to auto-detection")
     return None
 
 
