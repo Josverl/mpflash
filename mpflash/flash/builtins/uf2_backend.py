@@ -43,8 +43,7 @@ class UF2Backend(FlashBackend):
         if reason is None and fw_file.suffix.lower() == ".hex" and mcu.port not in PORT_FAMILIES:
             return Reason(
                 "format",
-                f"{self.name} cannot convert .hex files for port {mcu.port!r} "
-                f"(supports: {sorted(PORT_FAMILIES)})",
+                f"{self.name} cannot convert .hex files for port {mcu.port!r} (supports: {sorted(PORT_FAMILIES)})",
             )
         return reason
 
