@@ -68,6 +68,7 @@ class MPRemoteBoard:
         self.usb_manufacturer = ""
         self.usb_product = ""
         self.usb_description = ""
+        self.usb_serial_number = ""
         self.toml = {}
 
         # For filesystem paths (UF2 volume paths), skip serial port lookup.
@@ -93,6 +94,7 @@ class MPRemoteBoard:
                     self.usb_manufacturer = port.manufacturer or ""
                     self.usb_product = port.product or ""
                     self.usb_description = port.description or ""
+                    self.usb_serial_number = port.serial_number or ""
                 except Exception:
                     self.vid = 0x00
                     self.pid = 0x00
