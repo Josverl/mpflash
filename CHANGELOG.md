@@ -6,7 +6,7 @@ All notable changes to mpflash are documented in this file.
 
 ### Added
 
-- **PSoC Edge (`psoc-edge`) flashing** via the new `openocd` flash backend (`--method openocd`,
+- **PSOC Edge (`psoc-edge`) flashing** via the new `openocd` flash backend (`--method openocd`,
   selected automatically for `psoc-edge`). Flashes the micropython.org `.zip` release package over
   SWD/KitProg3 with the Infineon build of OpenOCD (>= 5.8.0), found via `MPFLASH_OPENOCD` or `PATH`,
   or downloaded (pinned v5.16.1, SHA-256 verified) when missing. New `--yes/-y` skips the download

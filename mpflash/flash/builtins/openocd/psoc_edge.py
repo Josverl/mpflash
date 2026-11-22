@@ -1,4 +1,4 @@
-"""Flash PSoC Edge boards from a MicroPython release package with Infineon OpenOCD.
+"""Flash PSOC Edge boards from a MicroPython release package with Infineon OpenOCD.
 
 The package from micropython.org is a ``.zip`` holding the firmware ``.hex``, the
 ``PSE84_SMIF.FLM`` QSPI flash loader and a ``.cfg`` with the SMIF bank layout.
@@ -34,7 +34,7 @@ _SERIAL_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 @dataclass(frozen=True)
 class PsocEdgePackage:
-    """Files extracted from a PSoC Edge release package."""
+    """Files extracted from a PSOC Edge release package."""
 
     hex_file: Path
     flm_file: Path
@@ -47,7 +47,7 @@ def extracted_package(zip_path: Path) -> Iterator[PsocEdgePackage]:
     try:
         zf = zipfile.ZipFile(zip_path)
     except (OSError, zipfile.BadZipFile) as error:
-        raise MPFlashError(f"{zip_path.name} is not a valid PSoC Edge firmware package: {error}") from error
+        raise MPFlashError(f"{zip_path.name} is not a valid PSOC Edge firmware package: {error}") from error
 
     with zf, tempfile.TemporaryDirectory(prefix="mpflash-psoc-edge-") as tmp:
         dest = Path(tmp)
@@ -119,7 +119,7 @@ def flash_psoc_edge(
     assume_yes: bool = False,
     timeout: int = 180,
 ) -> None:
-    """Flash ``fw_file`` (a release ``.zip``) to a PSoC Edge board.
+    """Flash ``fw_file`` (a release ``.zip``) to a PSOC Edge board.
 
     ``probe_id`` selects the KitProg3 probe; it defaults to the board's USB serial number.
 
