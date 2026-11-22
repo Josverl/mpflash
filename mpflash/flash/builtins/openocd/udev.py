@@ -6,7 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import List
 
 from mpflash.logger import log
@@ -14,7 +14,7 @@ from mpflash.logger import log
 RULES_FILE = Path(__file__).resolve().parents[3] / "udev_rules" / "65-mpflash-infineon-kitprog3.rules"
 """The rule file shipped with mpflash."""
 
-RULES_DIR = Path("/etc/udev/rules.d")
+RULES_DIR = PurePosixPath("/etc/udev/rules.d")  # target path on Linux, even when formatted on Windows
 
 
 def install_commands() -> List[List[str]]:

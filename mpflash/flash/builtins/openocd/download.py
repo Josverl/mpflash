@@ -118,7 +118,10 @@ def _extract(archive: Path, dest: Path) -> None:
                 raise MPFlashError(f"Unsafe path in OpenOCD archive: {member.name}")
             if not (member.isfile() or member.isdir()):
                 raise MPFlashError(f"Unexpected entry type in OpenOCD archive: {member.name}")
-        tf.extractall(dest)  # noqa: S202 - members validated above
+        if hasattr(tarfile, "data_filter"):
+            tf.extractall(dest, filter="data")
+        else:
+            tf.extractall(dest)  # noqa: S202 - members validated above
 
 
 def _download(asset: _Asset, target: Path) -> None:

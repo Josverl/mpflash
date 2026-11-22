@@ -252,10 +252,11 @@ def _args_for(package_zip, **kwargs):
 
 
 def test_build_args_sequence(package_zip):
-    args = _args_for(package_zip, scripts=Path("/opt/openocd/scripts"), serial="ABC123")
+    scripts = Path("/opt/openocd/scripts")
+    args = _args_for(package_zip, scripts=scripts, serial="ABC123")
     commands = [args[i + 1] for i, a in enumerate(args) if a == "-c"]
 
-    assert args[:2] == ["-s", "/opt/openocd/scripts"]
+    assert args[:2] == ["-s", str(scripts)]
     assert commands[0].startswith("set QSPI_FLASHLOADER {") and commands[0].endswith("PSE84_SMIF.FLM}")
     assert commands[1] == "source [find interface/kitprog3.cfg]"
     assert commands[2] == "adapter serial ABC123"
