@@ -26,7 +26,7 @@ def test_mpremoteboard_new():
 
 def test_mpremoteboard_retains_pyserial_usb_descriptors(mocker: MockerFixture):
     port = MagicMock(
-        device="COM40",
+        device=serialport,
         vid=0x1D50,
         pid=0x6196,
         manufacturer="Black Magic Debug",

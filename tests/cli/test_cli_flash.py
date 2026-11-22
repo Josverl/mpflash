@@ -106,7 +106,6 @@ def test_mpflash_flash(id, ex_code, args: List[str], mocker: MockerFixture, seri
     [
         (["flash", "--method", "nrf-dfu"], "--method nrf-dfu requires --softdevice"),
         (["flash", "--repair-softdevice"], "--repair-softdevice requires --softdevice"),
-        (["flash", "--yes"], "--yes is only valid with --softdevice"),
         (
             ["flash", "--softdevice", "s140-7.3.0", "--method", "uf2"],
             "--softdevice cannot be combined",
@@ -129,6 +128,7 @@ def test_nrf_softdevice_options_reject_invalid_combinations(args, message):
         ("linux", ["/dev/ttyusb0"], ["rp2"], ["ARDUINO_NANO_RP2040_CONNECT"], []),
     ],
 )
+@pytest.mark.parametrize("assume_yes", [False, True])
 def test_mpflash_connected_comports(
     id,
     serialports: List[str],
@@ -136,9 +136,12 @@ def test_mpflash_connected_comports(
     boards: List[str],
     variants: List[str],
     mocker: MockerFixture,
+    assume_yes: bool,
 ):
     # no boards specified - detect connected boards
     args = ["flash"]
+    if assume_yes:
+        args.append("--yes")
 
     fakes = [fakeboard(port) for port in serialports]  # type: ignore
 
@@ -176,6 +179,8 @@ def test_mpflash_connected_comports(
     assert result
     if serialports:
         assert result.exit_code == 0
+        m_flash_tasks.assert_called_once()
+        assert m_flash_tasks.call_args.kwargs["assume_yes"] is assume_yes
     else:
         assert result.exit_code == 2
 
