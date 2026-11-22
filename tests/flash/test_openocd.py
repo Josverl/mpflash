@@ -13,7 +13,7 @@ import pytest
 
 from mpflash.common import PORT_FWTYPES, FlashMethod
 from mpflash.errors import MPFlashError
-from mpflash.flash.builtins.openocd import download, runner, targets
+from mpflash.flash.builtins.openocd import download, runner, targets, udev
 from mpflash.flash.builtins.openocd import flash as ocd_flash
 from mpflash.flash.builtins.openocd_backend import OpenOCDBackend
 from mpflash.flash.context import FlashContext, Platform
@@ -134,6 +134,74 @@ def test_run_openocd_timeout(mocker):
         runner.run_openocd(Path("openocd"), [], timeout=5)
 
 
+NO_PROBE = "Error: unable to find a matching CMSIS-DAP device"
+
+
+def _openocd_fails_with(mocker, stderr: str):
+    mocker.patch.object(runner.subprocess, "run", return_value=SimpleNamespace(stdout="", stderr=stderr, returncode=1))
+
+
+def test_run_openocd_explains_missing_udev_permission(mocker, tmp_path):
+    _openocd_fails_with(mocker, NO_PROBE)
+    mocker.patch.object(runner, "_kitprog_unreadable", return_value=True)
+
+    with pytest.raises(runner.ProbeAccessError) as error:
+        runner.run_openocd(tmp_path / "bin" / "openocd", [])
+
+    message = str(error.value)
+    assert f"sudo cp -f {udev.RULES_FILE} /etc/udev/rules.d/" in message
+    assert "sudo udevadm control --reload-rules" in message
+    assert "04b4:f155" in message and "unplug and reconnect" in message
+    assert "plugdev" in message
+
+
+def test_run_openocd_reports_probe_not_found_without_udev_advice(mocker, tmp_path):
+    _openocd_fails_with(mocker, NO_PROBE)
+    mocker.patch.object(runner, "_kitprog_unreadable", return_value=False)
+
+    with pytest.raises(MPFlashError) as error:
+        runner.run_openocd(tmp_path / "bin" / "openocd", [])
+
+    assert not isinstance(error.value, runner.ProbeAccessError)
+    assert "No KitProg3 USB probe" in str(error.value)
+    assert "sudo" not in str(error.value)
+
+
+def test_run_openocd_keeps_generic_hint_for_other_errors(mocker, tmp_path):
+    _openocd_fails_with(mocker, "Error: checksum mismatch")
+
+    with pytest.raises(MPFlashError, match="Is the board connected"):
+        runner.run_openocd(tmp_path / "bin" / "openocd", [])
+
+
+def _fake_usb_device(sysfs: Path, name: str, vid: str, pid: str, bus: str = "1", number: str = "5") -> None:
+    device = sysfs / name
+    device.mkdir(parents=True)
+    for file, value in {"idVendor": vid, "idProduct": pid, "busnum": bus, "devnum": number}.items():
+        (device / file).write_text(f"{value}\n")
+
+
+@pytest.mark.parametrize(
+    "vid, pid, can_open, expected",
+    [
+        ("04b4", "f155", False, True),  # KitProg3 present, no permission
+        ("04b4", "f155", True, False),  # KitProg3 present, permission ok
+        ("1d50", "6196", False, False),  # some other USB device
+    ],
+)
+def test_kitprog_unreadable(mocker, tmp_path, vid, pid, can_open, expected):
+    _fake_usb_device(tmp_path / "sys", "1-5", vid, pid)
+    access = mocker.patch.object(runner.os, "access", return_value=can_open)
+
+    assert runner._kitprog_unreadable(tmp_path / "sys", tmp_path / "dev") is expected
+    if expected:
+        assert access.call_args.args[0] == tmp_path / "dev" / "001" / "005"
+
+
+def test_kitprog_unreadable_without_sysfs(tmp_path):
+    assert runner._kitprog_unreadable(tmp_path / "missing", tmp_path / "dev") is False
+
+
 # ---------------------------------------------------------------------------
 # package extraction and command building
 # ---------------------------------------------------------------------------
@@ -247,6 +315,45 @@ def test_flash_openocd_propagates_openocd_failure(patched_flash, package_zip):
 @pytest.fixture
 def erase_mock(mocker):
     return mocker.patch("mpflash.flash.builtins.uf2.erase.erase_filesystem", return_value=True)
+
+
+def test_flash_openocd_installs_udev_rule_then_retries_once(mocker, patched_flash, erase_mock, package_zip):
+    patched_flash.side_effect = [runner.ProbeAccessError("no access"), ""]
+    offer = mocker.patch.object(ocd_flash, "offer_install", return_value=True)
+
+    ocd_flash.flash_openocd(_mcu(), fw_file=package_zip, erase=True)
+
+    offer.assert_called_once()
+    assert patched_flash.call_count == 2
+    erase_mock.assert_called_once()  # the retry must not erase again
+
+
+def test_flash_openocd_reraises_when_udev_install_declined(mocker, patched_flash, package_zip):
+    patched_flash.side_effect = runner.ProbeAccessError("no access")
+    mocker.patch.object(ocd_flash, "offer_install", return_value=False)
+
+    with pytest.raises(runner.ProbeAccessError):
+        ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
+    assert patched_flash.call_count == 1
+
+
+def test_flash_openocd_retries_only_once(mocker, patched_flash, package_zip):
+    patched_flash.side_effect = runner.ProbeAccessError("no access")
+    offer = mocker.patch.object(ocd_flash, "offer_install", return_value=True)
+
+    with pytest.raises(runner.ProbeAccessError):
+        ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
+    assert patched_flash.call_count == 2
+    offer.assert_called_once()
+
+
+def test_flash_openocd_does_not_offer_udev_for_other_errors(mocker, patched_flash, package_zip):
+    patched_flash.side_effect = MPFlashError("checksum mismatch")
+    offer = mocker.patch.object(ocd_flash, "offer_install")
+
+    with pytest.raises(MPFlashError):
+        ocd_flash.flash_openocd(_mcu(), fw_file=package_zip)
+    offer.assert_not_called()
 
 
 def test_flash_openocd_erases_right_before_openocd(patched_flash, erase_mock, package_zip):

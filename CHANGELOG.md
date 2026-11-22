@@ -15,6 +15,11 @@ All notable changes to mpflash are documented in this file.
   4 minutes). `mpflash format` and `flash --format` support `psoc-edge` too. Tested only on the
   Infineon `KIT_PSE84_AI` board.
 
+- **KitProg3 udev rule** `mpflash/udev_rules/65-mpflash-infineon-kitprog3.rules` (group `plugdev` +
+  `uaccess`, not world-writable). When the probe is attached but not accessible, `mpflash flash`
+  explains why and, on an interactive Linux terminal, offers to install the rule with `sudo` and retries once.
+  Nothing is installed without that confirmation (`--yes` does not bypass it).
+
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
   flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
   the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,
