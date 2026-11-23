@@ -145,15 +145,13 @@ def test_mpremoteboard_list(expected, comports, mocker: MockerFixture):
         ("run mpy_fw_info.py"),
     ],
 )
-def test_mpremoteboard_run(port, command, mocker: MockerFixture):
-    # port = "COM20"
-
+def test_mpremoteboard_run(port: str, command: str | List[str], mocker: MockerFixture):
     m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output", "more output"]))
 
     mprb = MPRemoteBoard(port)
     assert not mprb.connected
-    command = ["run", "mpy_fw_info.py"]
-    mprb.run_command(command)  # type: ignore
+    expected_command = command.split(" ") if isinstance(command, str) else command.copy()
+    mprb.run_command(command)
 
     assert mprb.connected
     assert m_run.called
@@ -162,7 +160,7 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     # 1st command is python executable
     assert m_run.mock_calls[0].args[0][0] == sys.executable
     # should en in the command
-    assert m_run.mock_calls[0].args[0][-2:] == command
+    assert m_run.mock_calls[0].args[0][-2:] == expected_command
     # if port specified should start with connectbut not otherwise
     assert ("connect" in m_run.mock_calls[0].args[0]) == (port != "")
     assert (port in m_run.mock_calls[0].args[0]) == (port != "")
@@ -170,9 +168,33 @@ def test_mpremoteboard_run(port, command, mocker: MockerFixture):
     assert "soft-reset" not in m_run.mock_calls[0].args[0]
 
     # Subsequent commands also preserve interpreter state by default.
-    result = mprb.run_command(command)  # type: ignore
+    mprb.run_command(command)
     assert "resume" not in m_run.mock_calls[1].args[0]
     assert "soft-reset" not in m_run.mock_calls[1].args[0]
+    assert command == (" ".join(expected_command) if isinstance(command, str) else expected_command)
+
+
+def test_mpremoteboard_run_soft_reset_false(mocker: MockerFixture):
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+
+    MPRemoteBoard("COM20").run_command(["exec", "pass"], soft_reset=False)
+
+    assert "resume" not in m_run.call_args.args[0]
+    assert "soft-reset" not in m_run.call_args.args[0]
+
+
+def test_mpremoteboard_run_soft_reset_does_not_affect_next_command(mocker: MockerFixture):
+    m_run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, ["output"]))
+    board = MPRemoteBoard("COM20")
+    command = ["exec", "pass"]
+
+    board.run_command(command, soft_reset=True)
+    board.run_command(command)
+
+    assert "soft-reset" in m_run.call_args_list[0].args[0]
+    assert "soft-reset" not in m_run.call_args_list[1].args[0]
+    assert all("resume" not in call.args[0] for call in m_run.call_args_list)
+    assert command == ["exec", "pass"]
 
 
 def test_mpremoteboard_run_soft_reset(mocker: MockerFixture):
@@ -207,7 +229,7 @@ def test_mpremoteboard_run_deprecated_resume(resume, expects_soft_reset, mocker:
     command = m_run.call_args.args[0]
     assert ("soft-reset" in command) is expects_soft_reset
     assert "resume" not in command
-    assert warning[0].filename == __file__
+    assert Path(warning[0].filename).resolve() == Path(__file__).resolve()
 
 
 @pytest.mark.parametrize("soft_reset", [False, True])
@@ -288,6 +310,22 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.description == "Generic ESP32 module with ESP32"
     assert mprb.board == "ESP32_GENERIC"
     assert mprb.variant == ""
+
+
+@pytest.mark.parametrize("soft_reset", [False, True])
+def test_get_mcu_info_explicit_soft_reset(soft_reset: bool, mocker: MockerFixture):
+    output = [
+        "{'port': 'rp2', 'build': '', 'arch': 'armv6m', 'family': 'micropython', "
+        "'board': 'RPI_PICO', 'board_id': 'RPI_PICO', 'cpu': 'RP2040', "
+        "'version': '1.30.0-preview', 'mpy': 'v6.3', 'description': 'Raspberry Pi Pico'}"
+    ]
+    run = mocker.patch("mpflash.mpremoteboard.run", return_value=(OK, output))
+    mocker.patch.object(MPRemoteBoard, "get_board_info_toml_once")
+
+    MPRemoteBoard("COM42").get_mcu_info(soft_reset=soft_reset)
+
+    assert ("soft-reset" in run.call_args.args[0]) is soft_reset
+    assert "resume" not in run.call_args.args[0]
 
 
 @pytest.mark.parametrize(

@@ -46,7 +46,8 @@ board matching and its historical behavior.
 		useful for persisting calibrated or provisioning data on the board.
 - **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
 	- Executes `mpremote` subcommands with logging control; interpreter state is
-		preserved unless `soft_reset=True`. Returns `(rc, output)`.
+		preserved unless `soft_reset=True` prepends an explicit `soft-reset` for
+		that command only. Returns `(rc, output)`.
 - **`run_command_once(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
 	- Executes exactly one command attempt without application-level retries.
 		Use this for polling, arbitrary code, and mutating commands when retry
