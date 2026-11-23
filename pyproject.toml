@@ -39,7 +39,8 @@ dependencies = [
     "jsons>=1.6.3",
     "pywin32>=310; sys_platform == 'win32'",
     "loguru>=0.7.2",
-    "mpremote>=1.22.0",
+    "mpremote>=1.30.0rc0.post101,<1.31",
+    "mpremoteboard==0.1.0",
     "packaging>=24.2",
     "platformdirs>=4.2.0",
     "psutil>=7.0.0,<8.0.0",
@@ -118,7 +119,8 @@ reproducible = true
 
 
 [tool.pyright]
-include = ["mpflash", "tests"]
+include = ["mpflash", "tests", "packages/mpremoteboard/src", "packages/mpremoteboard/tests"]
+extraPaths = ["packages/mpremoteboard/src"]
 exclude = [
     "**/.venv", "**/node_modules", "**/__pycache__", "**/.*",
 ]
@@ -298,6 +300,15 @@ ignore = [
     "E712",
     "F821",
     ]
+
+[tool.uv]
+prerelease = "allow"
+
+[tool.uv.workspace]
+members = ["packages/mpremoteboard"]
+
+[tool.uv.sources]
+mpremoteboard = { workspace = true }
 
 [dependency-groups]
 dev = [

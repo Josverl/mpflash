@@ -8,6 +8,15 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
+[options]
+prerelease-mode = "allow"
+
+[manifest]
+members = [
+    "mpflash",
+    "mpremoteboard",
+]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.4"
@@ -1107,6 +1116,7 @@ dependencies = [
     { name = "libusb-package", version = "1.0.30.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.14' and sys_platform == 'win32'" },
     { name = "loguru" },
     { name = "mpremote" },
+    { name = "mpremoteboard" },
     { name = "packaging" },
     { name = "peewee" },
     { name = "platformdirs" },
@@ -1180,7 +1190,8 @@ requires-dist = [
     { name = "mock", marker = "extra == 'test'", specifier = ">=4.0.3,<6.0.0" },
     { name = "mpbuild", marker = "python_full_version >= '3.12' and extra == 'build'", specifier = ">=1.0.0" },
     { name = "mpbuild", marker = "python_full_version < '3.12' and extra == 'build'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "mpremote", specifier = ">=1.22.0" },
+    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
+    { name = "mpremoteboard", editable = "packages/mpremoteboard" },
     { name = "packaging", specifier = ">=24.2" },
     { name = "peewee", specifier = ">=4.0.3" },
     { name = "platformdirs", specifier = ">=4.2.0" },
@@ -1227,6 +1238,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/20/1b/d008342d1b018fb60e1196bf72a164ea71a567f924db11934f0e3a0a10bc/mpremote-1.28.0.tar.gz", hash = "sha256:fdb5626be83dff4e53c0184f8950814cb519b524dba7f1f8b1668aa477257a31", size = 31412, upload-time = "2026-04-06T13:21:14.976Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0f/d7/634a63290002a9df2708e05983fc769447d64f074ac2e8d8990316c70fd0/mpremote-1.28.0-py3-none-any.whl", hash = "sha256:2df2a50f3c8098cae8c732dbf2541e7e58185e7896513b45d05196901e049334", size = 36098, upload-time = "2026-04-06T13:21:13.368Z" },
+]
+
+[[package]]
+name = "mpremoteboard"
+version = "0.1.0"
+source = { editable = "packages/mpremoteboard" }
+dependencies = [
+    { name = "mpremote" },
+    { name = "pyserial" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli-w" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
+    { name = "pyserial", specifier = ">=3.5" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.2.1" },
+    { name = "tomli-w", specifier = ">=1.2.0" },
 ]
 
 [[package]]

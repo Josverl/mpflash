@@ -1,6 +1,6 @@
 """Reformat the internal MicroPython filesystem of a connected board.
 
-Runs :mod:`mpflash.mpremoteboard.format_bdev` on the board via ``mpremote run``.
+Runs :mod:`mpremoteboard.format_bdev` on the board via ``mpremote run``.
 That script locates the port's filesystem block device (the same one
 ``_boot.py`` mounts), recreates an empty filesystem of the same type
 (``VfsLfs2`` or ``VfsFat``) and remounts it, leaving the board on MicroPython.

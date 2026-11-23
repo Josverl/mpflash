@@ -20,6 +20,13 @@ All notable changes to mpflash are documented in this file.
   explains why and, on an interactive Linux terminal, offers to install the rule with `sudo` and retries once.
   Nothing is installed without that confirmation (`--yes` does not bypass it).
 
+- **Standalone `mpremoteboard` package** — The uv workspace now contains a
+  separately buildable board/runner distribution with raw board metadata and
+  no MPFlash import requirement. New code should import from
+  `mpremoteboard`; its API preserves interpreter state by default and does not
+  perform MPFlash database-based board matching. Existing MPFlash integrations
+  can continue using `mpflash.mpremoteboard` for enriched metadata and legacy
+  defaults. Publication is tracked separately and has not been performed.
 - **`--format` option for `mpflash flash`** — reformats the board's filesystem after
   flashing, recreating an empty filesystem of the same type (`VfsLfs2` or `VfsFat`) via
   the MicroPython block device. Supported on `rp2`, `esp32`, `esp8266`, `samd`, `stm32`,
