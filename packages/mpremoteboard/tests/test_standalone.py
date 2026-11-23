@@ -2,9 +2,11 @@
 
 import subprocess
 import sys
+from importlib.metadata import requires
 
 import mpremoteboard
 import pytest
+from packaging.requirements import Requirement
 
 
 def test_package_import_does_not_import_mpflash():
@@ -27,6 +29,13 @@ assert not any(name == "mpflash" or name.startswith("mpflash.") for name in sys.
     assert result.returncode == 0, result.stderr
 
 
+def test_package_metadata_has_only_core_dependencies():
+    dependency_names = {Requirement(requirement).name for requirement in requires("mpremoteboard") or []}
+
+    assert dependency_names == {"mpremote", "pyserial", "tomli", "tomli-w"}
+    assert "mpflash" not in dependency_names
+
+
 def test_raw_probe_keeps_reset_opt_in(monkeypatch: pytest.MonkeyPatch):
     board = mpremoteboard.MPRemoteBoard("COM42")
     commands: list[list[str]] = []
@@ -42,10 +51,15 @@ def test_raw_probe_keeps_reset_opt_in(monkeypatch: pytest.MonkeyPatch):
             return 0, [raw_info]
         return 1, []
 
+    def fail_on_local_file_access(*args, **kwargs):
+        raise AssertionError(f"unexpected local file access: {args!r} {kwargs!r}")
+
     monkeypatch.setattr(board, "_run", fake_run)
+    monkeypatch.setattr("builtins.open", fail_on_local_file_access)
     board.get_mcu_info()
 
     assert board.board_id == "RPI_PICO"
     assert board.port == "rp2"
     assert len(commands) == 2
     assert all("soft-reset" not in command for command in commands)
+    assert "sqlite3" not in sys.modules

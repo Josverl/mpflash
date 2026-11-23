@@ -28,6 +28,10 @@ test-mpflash:
 test-mpremoteboard:
   uv run --isolated --package mpremoteboard --with pytest pytest -c packages/mpremoteboard/pyproject.toml packages/mpremoteboard/tests
 
+# build and test the standalone package from its wheel, outside the workspace
+test-mpremoteboard-wheel: build-mpremoteboard
+  uv run --isolated --no-project python -c "import glob, subprocess; wheel = glob.glob('dist/mpremoteboard/mpremoteboard-*.whl')[0]; subprocess.run(['uv', 'run', '--isolated', '--no-project', '--with', wheel, '--with', 'pytest', 'pytest', '-c', 'packages/mpremoteboard/pyproject.toml', 'packages/mpremoteboard/tests'], check=True)"
+
 # create coverage report, build html report
 coverage:
   uv run pytest --cov --cov-report=term-missing
@@ -58,9 +62,8 @@ build-mpremoteboard:
   uv run --isolated --no-project python -c "import shutil; shutil.rmtree('dist/mpremoteboard', ignore_errors=True)"
   uv build --package mpremoteboard --no-sources --out-dir dist/mpremoteboard
 
-# smoke-test both local wheels without publishing them
-check-packages: build-all
-  uv run --isolated --no-project python -c "import glob, subprocess; wheel = glob.glob('dist/mpremoteboard/mpremoteboard-*.whl')[0]; result = subprocess.run(['uv', 'run', '--isolated', '--no-project', '--with', wheel, 'python', '-c', 'from importlib.metadata import distribution; import mpremoteboard; print(distribution(mpremoteboard.__name__).version)'], check=True, capture_output=True, text=True); print(f'Verified mpremoteboard {result.stdout.strip()} wheel import')"
+# test both local wheels without publishing them
+check-packages: build-all test-mpremoteboard-wheel
   uv run --isolated --no-project python -c "import glob, subprocess; wheel = glob.glob('dist/mpflash/mpflash-*.whl')[0]; result = subprocess.run(['uv', 'run', '--isolated', '--no-project', '--find-links', 'dist/mpremoteboard', '--with', wheel, 'mpflash', '--version'], check=True, capture_output=True, text=True); print(f'Verified {result.stdout.strip()} using local mpremoteboard wheel')"
 
 # -----------------------------------------------------------------------------------------------
