@@ -13,11 +13,13 @@ share a single command line between PowerShell and a WSL shell.
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional, Set
 
 from loguru import logger as log
 
+from mpflash.errors import MPFlashError
 from mpflash.flash.context import Platform
 from mpflash.flash.services import default_services
 
@@ -51,7 +53,8 @@ def wait_for_volume(board_id: str, timeout: int = 10) -> Optional[Path]:
     if platform is Platform.LINUX:
         from .linux import wait_for_UF2_linux
 
-        return wait_for_UF2_linux(board_id=board_id, s_max=timeout)
+        destination = wait_for_UF2_linux(board_id=board_id, s_max=timeout)
+        return destination if isinstance(destination, Path) else None
     if platform is Platform.WINDOWS:
         from .windows import wait_for_UF2_windows
 
@@ -65,6 +68,46 @@ def wait_for_volume(board_id: str, timeout: int = 10) -> Optional[Path]:
 
         return wait_for_UF2_wsl2(board_id=board_id, s_max=timeout)
     log.warning(f"UF2 detection not implemented for {platform.value}")
+    return None
+
+
+def mounted_uf2_volumes() -> Set[Path]:
+    """Return the currently mounted filesystems containing INFO_UF2.TXT."""
+    import psutil
+
+    try:
+        partitions = psutil.disk_partitions(all=True)
+    except OSError:
+        return set()
+
+    volumes: Set[Path] = set()
+    for partition in partitions:
+        mountpoint = Path(partition.mountpoint)
+        try:
+            if (mountpoint / "INFO_UF2.TXT").is_file():
+                volumes.add(mountpoint)
+        except OSError:
+            continue
+    return volumes
+
+
+def wait_for_new_volume(
+    previous: Iterable[Path],
+    timeout: int = 10,
+    *,
+    poll_interval: float = 0.25,
+) -> Optional[Path]:
+    """Wait for exactly one UF2 volume not present in ``previous``."""
+    previous_keys = {str(path).casefold() for path in previous}
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        added = {path for path in mounted_uf2_volumes() if str(path).casefold() not in previous_keys}
+        if len(added) == 1:
+            return added.pop()
+        if len(added) > 1:
+            paths = ", ".join(sorted(str(path) for path in added))
+            raise MPFlashError(f"Multiple new UF2 volumes appeared: {paths}")
+        time.sleep(poll_interval)
     return None
 
 
