@@ -58,6 +58,7 @@ def test_erase_runs_script_and_confirms_reconnect(mocker):
     # The board-side erase script is executed via `mpremote run`.
     assert run.call_args.args[0][0] == "run"
     assert run.call_args.args[0][1].endswith("erase_bdev.py")
+    assert run.call_args.kwargs["soft_reset"] is True
 
 
 def test_erase_returns_false_when_board_does_not_reconnect(mocker):

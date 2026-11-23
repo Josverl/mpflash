@@ -58,7 +58,7 @@ def erase_filesystem(mcu: "MPRemoteBoard", *, timeout: int | None = None) -> boo
         mcu.run_command(
             ["run", str(ERASE_SCRIPT)],
             timeout=timeout,
-            resume=False,
+            soft_reset=True,
             log_errors=False,
         )
     except Exception as error:

@@ -39,7 +39,7 @@ def format_filesystem(mcu: MPRemoteBoard, *, timeout: int = 60) -> bool:
         rc, output = mcu.run_command(
             ["run", str(FORMAT_SCRIPT)],
             timeout=timeout,
-            resume=False,
+            soft_reset=True,
             log_errors=True,
         )
     except Exception as e:  # noqa: BLE001 - normalize for callers
