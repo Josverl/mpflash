@@ -217,15 +217,15 @@ class MPRemoteBoard:
         timeout: int = DEFAULT_TIMEOUT,
         *,
         log_errors: bool = True,
-        soft_reset: bool = False,
-    ):
+        resume: Optional[bool] = True,
+    ) -> None:
         """
         Get MCU information from the connected board.
 
         Parameters:
         - timeout (int): The timeout value in seconds. Default is 2.
         - log_errors (bool): Whether to log command stderr/error output.
-        - soft_reset (bool): Reset the interpreter before probing. Default False.
+        - resume (Optional[bool]): Preserve interpreter state. Default True.
 
         Raises:
         - ConnectionError: If failed to get mcu_info for the serial port.
@@ -235,7 +235,7 @@ class MPRemoteBoard:
             ["run", str(HERE / "mpy_fw_info.py")],
             no_info=True,
             timeout=timeout,
-            soft_reset=soft_reset,
+            resume=resume,
             log_errors=log_errors,
         )
         if rc not in (0, 1):  ## WORKAROUND - SUDDEN RETURN OF 1 on success
@@ -289,11 +289,11 @@ class MPRemoteBoard:
     def _apply_board_info_toml(self) -> None:
         """Hook for applications to apply package-specific TOML metadata."""
 
-    def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT, *, soft_reset: bool = False) -> None:
+    def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT, *, resume: Optional[bool] = True) -> None:
         """Read optional board metadata, allowing facade retry policies."""
-        self.get_board_info_toml_once(timeout, soft_reset=soft_reset)
+        self.get_board_info_toml_once(timeout, resume=resume)
 
-    def get_board_info_toml_once(self, timeout: int = DEFAULT_TIMEOUT, *, soft_reset: bool = False) -> None:
+    def get_board_info_toml_once(self, timeout: int = DEFAULT_TIMEOUT, *, resume: Optional[bool] = True) -> None:
         """
         Reads the content of the board_info.toml file from the connected board,
         and adds that to the board object.
@@ -311,7 +311,7 @@ class MPRemoteBoard:
                 no_info=True,
                 timeout=timeout,
                 log_errors=False,
-                soft_reset=soft_reset,
+                resume=resume,
             )
         except Exception as e:
             raise ConnectionError(f"Failed to get board_info.toml for {self.serialport}:") from e
@@ -389,9 +389,9 @@ class MPRemoteBoard:
         log_errors: bool = True,
         no_info: bool = False,
         timeout: int = 60,
-        soft_reset: bool = False,
+        resume: Optional[bool] = None,
         **kwargs,
-    ):
+    ) -> tuple[int, list[str]]:
         """
         Run mpremote with the given command.
 
@@ -400,7 +400,7 @@ class MPRemoteBoard:
         - log_errors (bool): Whether to log errors. Default is True.
         - no_info (bool): Whether to skip printing info. Default is False.
         - timeout (int): The timeout value in seconds. Default is 60.
-        - soft_reset (bool): Reset the interpreter before running the command. Default False.
+        - resume (Optional[bool]): Preserve interpreter state unless explicitly False.
         Returns:
         - bool: True if the command succeeded, False otherwise.
         """
@@ -409,7 +409,7 @@ class MPRemoteBoard:
             log_errors=log_errors,
             no_info=no_info,
             timeout=timeout,
-            soft_reset=soft_reset,
+            resume=resume,
             **kwargs,
         )
 
@@ -420,17 +420,17 @@ class MPRemoteBoard:
         log_errors: bool = True,
         no_info: bool = False,
         timeout: int = 60,
-        soft_reset: bool = False,
+        resume: Optional[bool] = None,
         **kwargs,
-    ):
+    ) -> tuple[int, list[str]]:
         """Run one mpremote command attempt without retrying."""
         if isinstance(cmd, str):
             cmd = cmd.split(" ")
         prefix = [sys.executable, "-m", "mpremote"]
         if self.serialport:
             prefix += ["connect", self.serialport]
-        if soft_reset:
-            prefix += ["soft-reset"]
+        if resume is not False:
+            prefix += ["resume"]
         cmd = prefix + cmd
         self._log.debug(" ".join(cmd))
         result = self._run(cmd, timeout, log_errors, no_info, **kwargs)
@@ -463,7 +463,7 @@ class MPRemoteBoard:
             time.sleep(1)
             self._refresh_serialport()
             with contextlib.suppress(ConnectionError, MPRemoteBoardError):
-                self.get_mcu_info(log_errors=False, soft_reset=False)
+                self.get_mcu_info(log_errors=False, resume=True)
                 return True
         return False
 

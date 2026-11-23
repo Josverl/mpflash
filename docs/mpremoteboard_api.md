@@ -36,22 +36,23 @@ board matching and its historical behavior.
 - **`get_mcu_info(timeout: int = 2)`**
 	- Executes the onboard probe script to read firmware identity, ABI info, CPU,
 		and raw board descriptors without consulting MPFlash's firmware database.
-		Probing preserves interpreter state by default; pass `soft_reset=True` to
-		reset explicitly.
+		Probing preserves interpreter state by default using `resume=True`;
+		pass `resume=False` to allow mpremote's implicit reset.
 - **`get_board_info_toml(timeout: int = DEFAULT_TIMEOUT)`**
 	- Reads `:board_info.toml` from the device (if present) and parses it into
 		`self.toml`, enabling access to optional metadata downstream.
 - **`set_board_info_toml(timeout: int = 1)`**
 	- Writes the current `self.toml` back to the device as `board_info.toml`,
 		useful for persisting calibrated or provisioning data on the board.
-- **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
+- **`run_command(cmd, *, log_errors=True, no_info=False, timeout=60, resume=None)`**
 	- Executes `mpremote` subcommands with logging control; interpreter state is
-		preserved unless `soft_reset=True`. Returns `(rc, output)`.
-- **`run_command_once(cmd, *, log_errors=True, no_info=False, timeout=60, soft_reset=False)`**
+		preserved using an explicit `resume` command unless `resume=False`.
+		Returns `(rc, output)`.
+- **`run_command_once(cmd, *, log_errors=True, no_info=False, timeout=60, resume=None)`**
 	- Executes exactly one command attempt without application-level retries.
 		Use this for polling, arbitrary code, and mutating commands when retry
 		policy must remain under the caller's control.
-- **`get_board_info_toml_once(timeout=DEFAULT_TIMEOUT, *, soft_reset=False)`**
+- **`get_board_info_toml_once(timeout=DEFAULT_TIMEOUT, *, resume=True)`**
 	- Reads optional board metadata with one command attempt; the normal method
 		remains available for application-specific retry policies.
 - **`mip_install(name: str) -> bool`**
@@ -228,5 +229,6 @@ package.
 - The MPFlash facade retries `get_mcu_info()` and `run_command()` up to three
 	times for compatibility. The standalone package leaves retry policy to its
 	consumer.
-- The MPFlash facade continues to accept deprecated `resume`; new code should
-	use `soft_reset` to state whether an operation resets the interpreter.
+- Both APIs use the pre-1.30 `resume` behavior. The MPFlash facade probes
+	with `resume=False` by default; the standalone API uses `resume=True`.
+	The mpremote 1.30 `soft_reset` API is developed separately.

@@ -263,35 +263,6 @@ def test_mpremoteboard_info(mocker: MockerFixture, session_fx):
     assert mprb.variant == ""
 
 
-@pytest.mark.parametrize(
-    ("resume", "expected_soft_reset"),
-    [(None, False), (True, False), (False, True)],
-)
-def test_get_mcu_info_deprecated_resume(resume, expected_soft_reset, mocker: MockerFixture):
-    output = [
-        "{'port': 'esp32', 'build': '', 'arch': 'xtensa', 'family': 'micropython', "
-        "'board': 'ESP32_GENERIC', 'cpu': 'ESP32', 'version': '1.30.0-preview', "
-        "'mpy': 'v6.3', 'description': 'Generic ESP32'}"
-    ]
-    run_command = mocker.patch.object(MPRemoteBoard, "run_command_once", return_value=(OK, output))
-    mocker.patch.object(MPRemoteBoard, "get_board_info_toml_once")
-
-    with pytest.warns(DeprecationWarning, match="resume is deprecated"):
-        MPRemoteBoard("COM20").get_mcu_info(resume=resume)
-
-    assert run_command.call_args.kwargs["soft_reset"] is expected_soft_reset
-    assert "resume" not in run_command.call_args.kwargs
-
-
-def test_get_mcu_info_rejects_both_reset_interfaces(mocker: MockerFixture):
-    run_command = mocker.patch.object(MPRemoteBoard, "run_command")
-
-    with pytest.raises(TypeError, match="cannot be used together"):
-        MPRemoteBoard("COM20").get_mcu_info(soft_reset=False, resume=True)
-
-    run_command.assert_not_called()
-
-
 def test_mpremoteboard_info_resolves_reported_port(mocker: MockerFixture, session_fx):
     output = [
         "{'port': 'nrf52', 'sys_platform': 'nrf52', 'build': '', 'arch': "
@@ -407,7 +378,7 @@ def test_mpremoteboard_info_board_id_from_toml(mocker: MockerFixture, session_me
 
     mocker.patch("mpflash.mpremoteboard.run", return_value=(0, output))
 
-    def _set_toml(self, timeout=1, *, soft_reset=False):
+    def _set_toml(self, timeout=1, *, resume=True):
         self.toml = {"mpflash": {"board_id": "MY_CUSTOM_C6"}}
 
     mocker.patch.object(MPRemoteBoard, "get_board_info_toml_once", _set_toml)

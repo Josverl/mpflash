@@ -8,9 +8,6 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
-[options]
-prerelease-mode = "allow"
-
 [manifest]
 members = [
     "mpflash",
@@ -1190,7 +1187,7 @@ requires-dist = [
     { name = "mock", marker = "extra == 'test'", specifier = ">=4.0.3,<6.0.0" },
     { name = "mpbuild", marker = "python_full_version >= '3.12' and extra == 'build'", specifier = ">=1.0.0" },
     { name = "mpbuild", marker = "python_full_version < '3.12' and extra == 'build'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
+    { name = "mpremote", specifier = ">=1.22.0" },
     { name = "mpremoteboard", editable = "packages/mpremoteboard" },
     { name = "packaging", specifier = ">=24.2" },
     { name = "peewee", specifier = ">=4.0.3" },
@@ -1253,7 +1250,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mpremote", specifier = ">=1.30.0rc0.post101,<1.31" },
+    { name = "mpremote", specifier = ">=1.22.0" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.2.1" },
     { name = "tomli-w", specifier = ">=1.2.0" },

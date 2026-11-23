@@ -9,7 +9,7 @@ MPFlash, its firmware database, or its CLI configuration.
 from mpremoteboard import MPRemoteBoard
 
 board = MPRemoteBoard("/dev/ttyACM0")
-board.get_mcu_info(soft_reset=False)
+board.get_mcu_info(resume=True)
 print(board.port, board.version, board.board_id)
 ```
 

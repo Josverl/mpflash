@@ -39,7 +39,7 @@ dependencies = [
     "jsons>=1.6.3",
     "pywin32>=310; sys_platform == 'win32'",
     "loguru>=0.7.2",
-    "mpremote>=1.30.0rc0.post101,<1.31",
+    "mpremote>=1.22.0",
     "mpremoteboard==0.1.0",
     "packaging>=24.2",
     "platformdirs>=4.2.0",
@@ -304,9 +304,6 @@ ignore = [
     "E712",
     "F821",
     ]
-
-[tool.uv]
-prerelease = "allow"
 
 [tool.uv.workspace]
 members = ["packages/mpremoteboard"]
