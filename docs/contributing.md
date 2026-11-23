@@ -663,10 +663,17 @@ releases and prompt before uploading.
 
 MPFlash uses semantic versioning and releases are automated via GitHub Actions.
 Pushing a `v*` tag triggers [`.github/workflows/release.yml`](../.github/workflows/release.yml),
-which currently builds and publishes the root `mpflash` distribution via trusted
-publishing and creates a GitHub release with generated notes. Publish the
-required `mpremoteboard` version first when coordinating a release of both
-packages.
+which builds both workspace distributions with `--no-sources`, verifies their
+published metadata, publishes `mpremoteboard` before `mpflash` via trusted
+publishing, and creates one GitHub release with generated notes.
+
+Configure a trusted publisher for each PyPI project using this repository, the
+`release.yml` workflow, and the `pypi` environment. The workflow never publishes
+from local source builds or pull requests. Because PyPI publication is not
+atomic, a failed `mpflash` publication must be recovered by rerunning that job
+after the `mpremoteboard` upload succeeds; do not upload the dependency again.
+The exact `mpremoteboard` version required by the built MPFlash metadata must be
+available on PyPI before the MPFlash job can install or publish it.
 
 Use the `just release` recipe to cut a release. It runs in the safe order - tests
 first, then version bump and tag push:
