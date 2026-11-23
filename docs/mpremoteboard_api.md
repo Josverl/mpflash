@@ -62,9 +62,15 @@ board matching and its historical behavior.
 
 ### Runner Utility
 
-**`runner.run(cmd: list[str], timeout: int = 60, log_errors: bool = True, no_info: bool = False, *, log_warnings: bool = False, reset_tags=None, error_tags=None, warning_tags=None, success_tags=None, ignore_tags=None) -> tuple[int, list[str]]`** (source: [packages/mpremoteboard/src/mpremoteboard/runner.py](../packages/mpremoteboard/src/mpremoteboard/runner.py))
+**`runner.run(cmd: list[str], timeout: float = 60, log_errors: bool = True, no_info: bool = False, *, log_warnings: bool = False, reset_tags=None, error_tags=None, warning_tags=None, success_tags=None, ignore_tags=None, output_callback=None, stdout_callback=None, stderr_callback=None) -> tuple[int, list[str]]`** (source: [packages/mpremoteboard/src/mpremoteboard/runner.py](../packages/mpremoteboard/src/mpremoteboard/runner.py))
 
-- Runs an external command (commonly `mpremote`) and streams stdout/stderr.
+- Runs an external command (commonly `mpremote`) and drains stdout/stderr
+  concurrently, avoiding deadlocks when either stream is busy.
+- `timeout=0` means no deadline; fractional timeouts are supported. A timeout
+  raises `TimeoutError` after terminating and reaping the child process.
+- `output_callback`, `stdout_callback`, and `stderr_callback` receive
+  `(stream, line)` tuples before logging. Lines retain their original newline,
+  including blank lines. The returned list remains stdout-only for compatibility.
 - Output lines are inspected for tag lists to classify logging behavior:
 	- `reset_tags`: if matched, raises `RuntimeError` (board reset detected).
 	- `error_tags`: logged at error level unless `log_errors=False`.
