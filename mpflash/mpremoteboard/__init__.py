@@ -111,10 +111,20 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
         )
         super().get_mcu_info(timeout, log_errors=log_errors, soft_reset=resolved_soft_reset)
 
+    def get_mcu_info_once(
+        self,
+        timeout: int = DEFAULT_TIMEOUT,
+        *,
+        log_errors: bool = True,
+        soft_reset: bool = False,
+    ) -> None:
+        """Probe firmware metadata exactly once without facade retries."""
+        _CoreMPRemoteBoard.get_mcu_info(self, timeout, log_errors=log_errors, soft_reset=soft_reset)
+
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(0.2), reraise=True)
     def get_board_info_toml(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Read optional board metadata using the legacy reset behavior."""
-        super().get_board_info_toml(timeout, soft_reset=True)
+        _CoreMPRemoteBoard.get_board_info_toml(self, timeout, soft_reset=True)
 
     @retry(stop=stop_after_attempt(RETRIES), wait=wait_fixed(2), reraise=True)
     def run_command(
@@ -159,7 +169,6 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
 
     def wait_for_restart(self, timeout: int = 10) -> bool:
         """Wait for restart and preserve MPFlash's optional WSL2 reattachment."""
-        probe = type(self).get_mcu_info.__wrapped__
         usbipd_executable: Optional[str] = None
         usbipd_result: Optional[bool] = None
         if ON_WSL2:
@@ -182,7 +191,7 @@ class MPRemoteBoard(_CoreMPRemoteBoard):
                     executable=usbipd_executable,
                 )
             with contextlib.suppress(ConnectionError, MPFlashError):
-                probe(self, log_errors=False, soft_reset=False)
+                self.get_mcu_info_once(log_errors=False, soft_reset=False)
                 return True
         if usbipd_executable and not self._refresh_serialport():
             identity = f"{self.vid:04x}:{self.pid:04x}"
